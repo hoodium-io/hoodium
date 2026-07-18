@@ -1,5 +1,6 @@
 # Hoodium Network
-The Unified Dual-Layer2 Blockchain Network built on top of Bitcoin - In development
+The Unified Dual-Layer Blockchain Network built on top of Bitcoin - In development
+A Combination of L1 (Mainchain EVM) + L2 (Sidechain POX)
 
 ## Featuring:
 *Dual-Engine (POA - POX)* <br>
