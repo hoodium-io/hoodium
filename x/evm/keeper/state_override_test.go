@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"github.com/stretchr/testify/require"
 )
 

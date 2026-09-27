@@ -7,11 +7,11 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/testutil"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/testutil"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	"github.com/stretchr/testify/suite"
 )
 

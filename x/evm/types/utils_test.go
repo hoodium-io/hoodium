@@ -14,10 +14,10 @@ import (
 
 	proto "github.com/cosmos/gogoproto/proto"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/encoding"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/encoding"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	"github.com/stretchr/testify/require"
 )

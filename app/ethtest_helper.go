@@ -21,11 +21,11 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/utils"
 
 	//nolint:staticcheck
 	"github.com/cosmos/cosmos-sdk/types/bech32/legacybech32"
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 
 	"cosmossdk.io/simapp"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -41,7 +41,7 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/encoding"
+	"github.com/hoodium-io/hoodium/encoding"
 )
 
 // EthSetup initializes a new HoodiumApp. A Nop logger is set in HoodiumApp.

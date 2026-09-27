@@ -3,9 +3,9 @@ package mezo
 import (
 	"cosmossdk.io/log"
 
-	"github.com/mezo-org/mezod/rpc/backend"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/rpc/backend"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // PublicAPI is the custom set of methods prefixed with mezo_ in the EVM JSON-RPC API.

@@ -6,7 +6,7 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 // ValidatorByConsAddr is a compatibility method used by Connect. It wraps the PoaKeeper Validator type in a

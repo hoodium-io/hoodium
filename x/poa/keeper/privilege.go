@@ -12,7 +12,7 @@ import (
 	sdkerrors "cosmossdk.io/errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 // AddPrivilege adds the privilege to a set of operators.

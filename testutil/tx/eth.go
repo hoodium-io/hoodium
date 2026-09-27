@@ -31,10 +31,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/server/config"
-	"github.com/mezo-org/mezod/utils"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/server/config"
+	"github.com/hoodium-io/hoodium/utils"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // PrepareEthTx creates an ethereum tx and signs it with the provided messages and private key.

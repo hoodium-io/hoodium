@@ -12,10 +12,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	cryptocodec "github.com/mezo-org/mezod/crypto/codec"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	encodingcodec "github.com/mezo-org/mezod/encoding/codec"
-	"github.com/mezo-org/mezod/types"
+	cryptocodec "github.com/hoodium-io/hoodium/crypto/codec"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	encodingcodec "github.com/hoodium-io/hoodium/encoding/codec"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 func init() {

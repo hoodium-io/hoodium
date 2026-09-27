@@ -19,7 +19,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/telemetry"

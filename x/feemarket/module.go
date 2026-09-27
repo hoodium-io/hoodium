@@ -33,9 +33,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 
-	"github.com/mezo-org/mezod/x/feemarket/client/cli"
-	"github.com/mezo-org/mezod/x/feemarket/keeper"
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/x/feemarket/client/cli"
+	"github.com/hoodium-io/hoodium/x/feemarket/keeper"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 )
 
 var (

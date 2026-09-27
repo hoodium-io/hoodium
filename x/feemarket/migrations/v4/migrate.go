@@ -19,7 +19,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 )
 
 // MigrateStore migrates the x/evm module state from the consensus version 3 to

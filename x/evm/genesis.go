@@ -25,10 +25,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/holiman/uint256"
-	mezotypes "github.com/mezo-org/mezod/types"
-	"github.com/mezo-org/mezod/x/evm/keeper"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	"github.com/mezo-org/mezod/x/evm/types"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	"github.com/hoodium-io/hoodium/x/evm/keeper"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // InitGenesis initializes genesis state based on exported genesis

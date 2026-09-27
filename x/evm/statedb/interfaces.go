@@ -21,7 +21,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // ExtStateDB defines an extension to the interface provided by the go-ethereum

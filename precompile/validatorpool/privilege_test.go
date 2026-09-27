@@ -3,7 +3,7 @@ package validatorpool_test
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile/validatorpool"
+	"github.com/hoodium-io/hoodium/precompile/validatorpool"
 )
 
 func (s *PrecompileTestSuite) TestAddPrivilege() {

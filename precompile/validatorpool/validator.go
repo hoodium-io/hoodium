@@ -5,8 +5,8 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 // ValidatorsMethodName is the name of the validators method. It matches the name

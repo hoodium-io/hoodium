@@ -3,7 +3,7 @@ package ethermint.types.v1;
 
 import "gogoproto/gogo.proto";
 
-option go_package = "github.com/mezo-org/mezod/types";
+option go_package = "github.com/hoodium-io/hoodium/types";
 
 // TxResult is the value stored in eth tx indexer
 message TxResult {

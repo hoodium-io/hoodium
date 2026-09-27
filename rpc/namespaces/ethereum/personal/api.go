@@ -21,10 +21,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/mezo-org/mezod/rpc/backend"
+	"github.com/hoodium-io/hoodium/rpc/backend"
 
-	"github.com/mezo-org/mezod/crypto/hd"
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/crypto/hd"
+	"github.com/hoodium-io/hoodium/types"
 
 	"cosmossdk.io/log"
 
@@ -36,7 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // PrivateAccountAPI is the personal_ prefixed set of APIs in the Web3 JSON-RPC spec.

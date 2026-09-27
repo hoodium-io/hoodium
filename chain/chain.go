@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/utils"
 )
 
 //go:embed all:mainnet

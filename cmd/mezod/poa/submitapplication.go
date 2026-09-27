@@ -12,14 +12,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 	"github.com/spf13/cobra"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
-	clientkeys "github.com/mezo-org/mezod/client/keys"
-	"github.com/mezo-org/mezod/precompile/validatorpool"
-	validatorpoolgen "github.com/mezo-org/mezod/precompile/validatorpool/gen"
+	clientkeys "github.com/hoodium-io/hoodium/client/keys"
+	"github.com/hoodium-io/hoodium/precompile/validatorpool"
+	validatorpoolgen "github.com/hoodium-io/hoodium/precompile/validatorpool/gen"
 )
 
 type Validator struct {

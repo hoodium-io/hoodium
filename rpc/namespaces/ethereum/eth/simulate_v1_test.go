@@ -21,9 +21,9 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/stretchr/testify/require"
 
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	mezotypes "github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // fakeBackend implements backend.EVMBackend for the kill-switch test.

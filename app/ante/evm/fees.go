@@ -25,7 +25,7 @@ import (
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // EthMinGasPriceDecorator will check if the transaction's fee is at least as large

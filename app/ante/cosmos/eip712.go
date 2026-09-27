@@ -36,11 +36,11 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	"github.com/mezo-org/mezod/ethereum/eip712"
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/types"
 
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 var mezoCodec codec.ProtoCodecMarshaler

@@ -23,7 +23,7 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	"github.com/cometbft/cometbft/types"
 
-	mezotypes "github.com/mezo-org/mezod/types"
+	mezotypes "github.com/hoodium-io/hoodium/types"
 )
 
 const (

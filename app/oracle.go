@@ -4,13 +4,13 @@ import (
 	"context"
 	"slices"
 
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/types"
 
 	"golang.org/x/exp/maps"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/mezo-org/mezod/app/abci"
+	"github.com/hoodium-io/hoodium/app/abci"
 	connectpreblocker "github.com/skip-mev/connect/v2/abci/preblock/oracle"
 	connectproposals "github.com/skip-mev/connect/v2/abci/proposals"
 	"github.com/skip-mev/connect/v2/abci/strategies/aggregator"

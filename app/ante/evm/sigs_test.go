@@ -4,9 +4,9 @@ import (
 	"math/big"
 
 	"github.com/holiman/uint256"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func (suite *AnteTestSuite) TestSignatures() {

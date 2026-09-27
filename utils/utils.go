@@ -19,7 +19,7 @@ package utils
 import (
 	"strings"
 
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 
 	errorsmod "cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"

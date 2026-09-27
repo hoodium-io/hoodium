@@ -9,12 +9,12 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/testutil"
-	"github.com/mezo-org/mezod/utils"
-	feemarkettypes "github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/testutil"
+	"github.com/hoodium-io/hoodium/utils"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )

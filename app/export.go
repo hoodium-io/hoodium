@@ -23,7 +23,7 @@ import (
 
 	"cosmossdk.io/simapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
-	"github.com/mezo-org/mezod/encoding"
+	"github.com/hoodium-io/hoodium/encoding"
 )
 
 // NewDefaultGenesisState generates the default state for the application.

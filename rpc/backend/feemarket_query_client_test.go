@@ -2,9 +2,9 @@ package backend
 
 import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	rpc "github.com/mezo-org/mezod/rpc/types"
-	feemarkettypes "github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	rpc "github.com/hoodium-io/hoodium/rpc/types"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 )
 
 var _ feemarkettypes.QueryClient = &mocks.FeeMarketQueryClient{}

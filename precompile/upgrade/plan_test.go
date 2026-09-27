@@ -3,7 +3,7 @@ package upgrade_test
 import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile/upgrade"
+	"github.com/hoodium-io/hoodium/precompile/upgrade"
 )
 
 func (s *PrecompileTestSuite) TestPlan() {

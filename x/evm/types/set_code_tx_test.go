@@ -15,8 +15,8 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 var (

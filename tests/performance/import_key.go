@@ -8,8 +8,8 @@ import (
 	"log"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/mezo-org/mezod/crypto/hd"
-	mezotypes "github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/crypto/hd"
+	mezotypes "github.com/hoodium-io/hoodium/types"
 )
 
 type LocalKey struct {

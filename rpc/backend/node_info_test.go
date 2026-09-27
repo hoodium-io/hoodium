@@ -11,9 +11,9 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	"github.com/hoodium-io/hoodium/types"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/metadata"
 )

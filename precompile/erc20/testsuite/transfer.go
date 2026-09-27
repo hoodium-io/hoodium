@@ -10,9 +10,9 @@ import (
 	sdkmath "cosmossdk.io/math"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile/erc20"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/precompile/erc20"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func (s *TestSuite) TestTransfer() {

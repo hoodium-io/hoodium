@@ -35,10 +35,10 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/mezo-org/mezod/precompile"
-	mezotypes "github.com/mezo-org/mezod/types"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/precompile"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 
 	"github.com/ethereum/go-ethereum/eth/tracers"
 

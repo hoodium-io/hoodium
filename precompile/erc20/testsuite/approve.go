@@ -10,10 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/precompile/erc20"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/precompile/erc20"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 func (s *TestSuite) TestApprove() {

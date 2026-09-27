@@ -2,8 +2,8 @@ package keeper_test
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	feemarketkeeper "github.com/mezo-org/mezod/x/feemarket/keeper"
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	feemarketkeeper "github.com/hoodium-io/hoodium/x/feemarket/keeper"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 )
 
 type mockSubspace struct {

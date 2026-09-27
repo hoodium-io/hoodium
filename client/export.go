@@ -28,8 +28,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	"github.com/mezo-org/mezod/crypto/hd"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/crypto/hd"
 )
 
 // UnsafeExportEthKeyCommand exports a key with the given name as a private key in hex format.

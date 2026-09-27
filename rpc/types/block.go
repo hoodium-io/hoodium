@@ -32,7 +32,7 @@ import (
 
 	grpctypes "github.com/cosmos/cosmos-sdk/types/grpc"
 
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 // BlockNumber represents decoding hex string to block values

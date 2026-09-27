@@ -4,17 +4,17 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/mezo-org/mezod/utils"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/utils"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/precompile/erc20"
-	mezotypes "github.com/mezo-org/mezod/types"
-	evmkeeper "github.com/mezo-org/mezod/x/evm/keeper"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/precompile/erc20"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	evmkeeper "github.com/hoodium-io/hoodium/x/evm/keeper"
 )
 
 //go:embed abi.json

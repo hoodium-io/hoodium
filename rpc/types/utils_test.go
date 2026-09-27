@@ -11,7 +11,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
 )
 
 func signedSetCodeTx(t *testing.T, chainID *big.Int) (*ethtypes.Transaction, []ethtypes.SetCodeAuthorization) {

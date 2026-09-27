@@ -1,8 +1,8 @@
 package eth
 
 import (
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // SimulateV1 simulates a sequence of calls grouped by simulated block.

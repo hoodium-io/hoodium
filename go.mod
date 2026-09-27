@@ -1,4 +1,4 @@
-module github.com/mezo-org/mezod
+module github.com/hoodium-io/hoodium
 
 go 1.24.0
 

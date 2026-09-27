@@ -28,7 +28,7 @@ import (
 	"github.com/cometbft/cometbft/crypto/ed25519"
 	//nolint:staticcheck
 	"github.com/cosmos/cosmos-sdk/types/bech32/legacybech32"
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/simapp"
@@ -42,11 +42,11 @@ import (
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/mezo-org/mezod/encoding"
-	feemarkettypes "github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/encoding"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 
-	"github.com/mezo-org/mezod/cmd/config"
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/cmd/config"
+	"github.com/hoodium-io/hoodium/utils"
 )
 
 func init() {

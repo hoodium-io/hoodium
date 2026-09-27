@@ -25,9 +25,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/testutil/tx"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/testutil/tx"
 )
 
 // Commit commits a block at a given time. Reminder: At the end of each

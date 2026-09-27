@@ -25,8 +25,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/mezo-org/mezod/rpc/types"
-	mezodtypes "github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/rpc/types"
+	mezodtypes "github.com/hoodium-io/hoodium/types"
 
 	"cosmossdk.io/log"
 
@@ -38,7 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // FilterAPI gathers

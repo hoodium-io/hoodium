@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 func (s *TestSuite) TestAllowance() {

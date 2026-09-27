@@ -32,7 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 type StateChange struct {
@@ -270,7 +270,7 @@ func getStorageRootEmptyHash(_ *StateDB, _ common.Address) common.Hash {
 	// complicated.
 	//
 	// The work for tracking the storage root has been captured in
-	// https://github.com/mezo-org/mezod/issues/369
+	// https://github.com/hoodium-io/hoodium/issues/369
 	return common.Hash{}
 }
 

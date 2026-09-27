@@ -3,7 +3,7 @@ package keeper_test
 import (
 	"reflect"
 
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 )
 
 func (suite *KeeperTestSuite) TestSetGetParams() {

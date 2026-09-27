@@ -33,7 +33,7 @@ import (
 	txTypes "github.com/cosmos/cosmos-sdk/types/tx"
 
 	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
-	mezo "github.com/mezo-org/mezod/types"
+	mezo "github.com/hoodium-io/hoodium/types"
 )
 
 type aminoMessage struct {

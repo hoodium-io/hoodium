@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func (suite *BackendTestSuite) TestGetCode() {

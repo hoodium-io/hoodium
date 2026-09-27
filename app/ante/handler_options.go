@@ -25,10 +25,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	anteutils "github.com/mezo-org/mezod/app/ante/utils"
+	anteutils "github.com/hoodium-io/hoodium/app/ante/utils"
 
-	evmante "github.com/mezo-org/mezod/app/ante/evm"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmante "github.com/hoodium-io/hoodium/app/ante/evm"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	txsigning "cosmossdk.io/x/tx/signing"
 )

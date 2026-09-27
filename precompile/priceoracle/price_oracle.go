@@ -5,12 +5,12 @@ import (
 	"embed"
 	"fmt"
 
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	oracletypes "github.com/skip-mev/connect/v2/x/oracle/types"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile"
+	"github.com/hoodium-io/hoodium/precompile"
 )
 
 //go:embed abi.json

@@ -3,8 +3,8 @@ package maintenance
 import (
 	"fmt"
 
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 // SetSupportNonEIP155TxsMethodName is the name of the setSupportNonEIP155Txs method.

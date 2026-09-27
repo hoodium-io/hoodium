@@ -20,10 +20,10 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	cosmosante "github.com/mezo-org/mezod/app/ante/cosmos"
-	testutil "github.com/mezo-org/mezod/testutil"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	cosmosante "github.com/hoodium-io/hoodium/app/ante/cosmos"
+	testutil "github.com/hoodium-io/hoodium/testutil"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func TestAuthzLimiterDecorator(t *testing.T) {

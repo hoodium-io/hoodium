@@ -8,12 +8,12 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/mezo-org/mezod/app/ante/evm"
-	"github.com/mezo-org/mezod/testutil"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	"github.com/mezo-org/mezod/types"
-	"github.com/mezo-org/mezod/utils"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/app/ante/evm"
+	"github.com/hoodium-io/hoodium/testutil"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	"github.com/hoodium-io/hoodium/types"
+	"github.com/hoodium-io/hoodium/utils"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func (suite *AnteTestSuite) TestGasWantedDecorator() {

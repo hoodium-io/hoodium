@@ -7,9 +7,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/common"
-	ethante "github.com/mezo-org/mezod/app/ante/evm"
-	testutiltx "github.com/mezo-org/mezod/testutil/tx"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	ethante "github.com/hoodium-io/hoodium/app/ante/evm"
+	testutiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"github.com/stretchr/testify/require"
 	protov2 "google.golang.org/protobuf/proto"
 )

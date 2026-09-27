@@ -14,13 +14,13 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/cmd/config"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/ethereum/eip712"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	"github.com/mezo-org/mezod/types"
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/cmd/config"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	"github.com/hoodium-io/hoodium/types"
+	"github.com/hoodium-io/hoodium/utils"
 	"github.com/stretchr/testify/require"
 )
 

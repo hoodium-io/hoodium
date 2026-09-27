@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 func TestEndBlocker(t *testing.T) {

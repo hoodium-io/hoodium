@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 // TotalSupplyMethodName is the name of the totalSupply method.

@@ -25,8 +25,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	clientkeys "github.com/mezo-org/mezod/client/keys"
-	"github.com/mezo-org/mezod/crypto/hd"
+	clientkeys "github.com/hoodium-io/hoodium/client/keys"
+	"github.com/hoodium-io/hoodium/crypto/hd"
 )
 
 // KeyCommands registers a sub-tree of commands to interact with

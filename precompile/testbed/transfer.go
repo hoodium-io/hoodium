@@ -10,9 +10,9 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	evm "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	evm "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 const (

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // SetSelfDestructDisabledMethodName is the name of the setSelfDestructDisabled

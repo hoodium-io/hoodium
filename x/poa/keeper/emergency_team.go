@@ -4,7 +4,7 @@ import (
 	"bytes"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 // GetEmergencyTeam returns the emergency team address. The returned address is

@@ -27,8 +27,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	"github.com/mezo-org/mezod/x/evm/types"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // GetTxCmd returns the transaction commands for this module

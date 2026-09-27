@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mezo-org/mezod/cmd/mezod/genesis"
-	"github.com/mezo-org/mezod/cmd/mezod/poa"
-	"github.com/mezo-org/mezod/cmd/mezod/toml"
+	"github.com/hoodium-io/hoodium/cmd/mezod/genesis"
+	"github.com/hoodium-io/hoodium/cmd/mezod/poa"
+	"github.com/hoodium-io/hoodium/cmd/mezod/toml"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -58,16 +58,16 @@ import (
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
-	mezoclient "github.com/mezo-org/mezod/client"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/ethereum/eip712"
-	mezoserver "github.com/mezo-org/mezod/server"
-	servercfg "github.com/mezo-org/mezod/server/config"
-	srvflags "github.com/mezo-org/mezod/server/flags"
+	mezoclient "github.com/hoodium-io/hoodium/client"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	mezoserver "github.com/hoodium-io/hoodium/server"
+	servercfg "github.com/hoodium-io/hoodium/server/config"
+	srvflags "github.com/hoodium-io/hoodium/server/flags"
 
-	"github.com/mezo-org/mezod/app"
-	cmdcfg "github.com/mezo-org/mezod/cmd/config"
-	mezokr "github.com/mezo-org/mezod/crypto/keyring"
+	"github.com/hoodium-io/hoodium/app"
+	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
+	mezokr "github.com/hoodium-io/hoodium/crypto/keyring"
 )
 
 const (

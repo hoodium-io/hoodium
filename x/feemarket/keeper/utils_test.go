@@ -7,10 +7,10 @@ import (
 	"time"
 
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/utils"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -22,14 +22,14 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/testutil"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	mezotypes "github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/testutil"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 
 	"github.com/stretchr/testify/require"
 

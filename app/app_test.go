@@ -26,8 +26,8 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/utils"
 )
 
 func TestMezoExport(t *testing.T) {

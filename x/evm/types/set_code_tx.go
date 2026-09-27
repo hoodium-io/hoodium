@@ -26,7 +26,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 // NewSetCodeTx constructs a SetCodeTx from a geth ethtypes.Transaction of

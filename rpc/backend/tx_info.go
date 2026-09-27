@@ -30,9 +30,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	"github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	"github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"github.com/pkg/errors"
 )
 

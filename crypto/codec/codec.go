@@ -19,7 +19,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 )
 
 // RegisterInterfaces register the Hoodium key concrete types.

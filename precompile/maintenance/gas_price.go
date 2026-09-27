@@ -5,8 +5,8 @@ import (
 	"math/big"
 
 	sdkmath "cosmossdk.io/math"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 // SetMinGasPriceMethodName is the name of the setMinGasPrice method.

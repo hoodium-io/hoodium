@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/mezo-org/mezod/x/evm/keeper"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/keeper"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // LogRecordHook records all the logs

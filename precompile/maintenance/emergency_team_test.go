@@ -2,7 +2,7 @@ package maintenance_test
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile"
+	"github.com/hoodium-io/hoodium/precompile"
 )
 
 func (s *PrecompileTestSuite) TestSetEmergencyTeam() {

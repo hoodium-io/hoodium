@@ -25,7 +25,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 
-	cryptohd "github.com/mezo-org/mezod/crypto/hd"
+	cryptohd "github.com/hoodium-io/hoodium/crypto/hd"
 
 	bip39 "github.com/cosmos/go-bip39"
 	"github.com/spf13/cobra"

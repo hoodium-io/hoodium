@@ -49,8 +49,8 @@ import (
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/mezo-org/mezod/server"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/server"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func startInProcess(cfg Config, val *Validator) error {

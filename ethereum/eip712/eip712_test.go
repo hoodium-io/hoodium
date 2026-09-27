@@ -14,22 +14,22 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
-	"github.com/mezo-org/mezod/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/ethereum/eip712"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/cmd/config"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/cmd/config"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/utils"
 
 	"github.com/stretchr/testify/suite"
 )

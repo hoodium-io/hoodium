@@ -20,7 +20,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/mezo-org/mezod/rpc/types"
+	"github.com/hoodium-io/hoodium/rpc/types"
 )
 
 // PublicAPI offers and API for the transaction pool. It only operates on data that is non-confidential.

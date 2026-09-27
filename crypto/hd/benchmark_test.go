@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 func BenchmarkEthSecp256k1Algo_Derive(b *testing.B) {

@@ -19,8 +19,8 @@ package testutil
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/app/ante/evm"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/app/ante/evm"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 // NewStateDB returns a new StateDB for testing purposes.

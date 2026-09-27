@@ -30,8 +30,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
-	feemarkettypes "github.com/mezo-org/mezod/x/feemarket/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

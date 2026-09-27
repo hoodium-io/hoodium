@@ -9,9 +9,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // registerSimulateV1SimError wires the gRPC mock so the keeper returns

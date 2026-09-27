@@ -9,7 +9,7 @@ import (
 	cmtprotocrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
 	cryptocdc "github.com/cosmos/cosmos-sdk/crypto/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 // Kick forcibly removes a validator from the validator pool.

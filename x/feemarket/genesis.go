@@ -20,8 +20,8 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/mezo-org/mezod/x/feemarket/keeper"
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/x/feemarket/keeper"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 )
 
 // InitGenesis initializes genesis state based on exported genesis

@@ -18,15 +18,15 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/crypto/hd"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/indexer"
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	"github.com/mezo-org/mezod/utils"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/crypto/hd"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/indexer"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	"github.com/hoodium-io/hoodium/utils"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 type BackendTestSuite struct {

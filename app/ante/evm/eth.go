@@ -26,11 +26,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
 
-	anteutils "github.com/mezo-org/mezod/app/ante/utils"
-	"github.com/mezo-org/mezod/types"
-	"github.com/mezo-org/mezod/x/evm/keeper"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	anteutils "github.com/hoodium-io/hoodium/app/ante/utils"
+	"github.com/hoodium-io/hoodium/types"
+	"github.com/hoodium-io/hoodium/x/evm/keeper"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"

@@ -4,7 +4,7 @@ package mezo.poa.v1;
 import "gogoproto/gogo.proto";
 import "tendermint/types/types.proto";
 
-option go_package = "github.com/mezo-org/mezod/x/poa/types";
+option go_package = "github.com/hoodium-io/hoodium/x/poa/types";
 
 // Params defines the parameters for the module.
 message Params {

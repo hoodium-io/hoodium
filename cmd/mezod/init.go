@@ -25,9 +25,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mezo-org/mezod/chain"
+	"github.com/hoodium-io/hoodium/chain"
 
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/types"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"

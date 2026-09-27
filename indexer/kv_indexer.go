@@ -28,10 +28,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 	"github.com/ethereum/go-ethereum/common"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
 
-	mezotypes "github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 const (

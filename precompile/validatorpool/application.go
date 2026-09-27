@@ -8,9 +8,9 @@ import (
 	cryptocdc "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 // SubmitApplicationGasMultiplier is used to increase the default gas requirements

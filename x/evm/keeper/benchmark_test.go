@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	mezotypes "github.com/mezo-org/mezod/types"
-	"github.com/mezo-org/mezod/x/evm/types"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func SetupContract(b *testing.B) (*KeeperTestSuite, common.Address) {

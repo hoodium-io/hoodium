@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	store "cosmossdk.io/store/types"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 func TestDefaultRequiredGas(t *testing.T) {

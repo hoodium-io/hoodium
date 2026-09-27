@@ -3,7 +3,7 @@ package keeper_test
 import (
 	"testing"
 
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func BenchmarkSetParams(b *testing.B) {

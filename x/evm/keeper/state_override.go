@@ -9,8 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // mezoCustomPrecompileAddrs is the set of mezo custom precompile addresses,

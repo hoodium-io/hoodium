@@ -19,11 +19,11 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/mezo-org/mezod/app"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	"github.com/mezo-org/mezod/utils"
-	feemarkettypes "github.com/mezo-org/mezod/x/feemarket/types"
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/app"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	"github.com/hoodium-io/hoodium/utils"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
@@ -32,11 +32,11 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/holiman/uint256"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	mezotypes "github.com/mezo-org/mezod/types"
-	"github.com/mezo-org/mezod/x/evm"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	"github.com/hoodium-io/hoodium/x/evm"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 type EvmTestSuite struct {

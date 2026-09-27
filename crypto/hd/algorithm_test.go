@@ -15,9 +15,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 
-	cryptocodec "github.com/mezo-org/mezod/crypto/codec"
-	enccodec "github.com/mezo-org/mezod/encoding/codec"
-	mezotypes "github.com/mezo-org/mezod/types"
+	cryptocodec "github.com/hoodium-io/hoodium/crypto/codec"
+	enccodec "github.com/hoodium-io/hoodium/encoding/codec"
+	mezotypes "github.com/hoodium-io/hoodium/types"
 )
 
 var TestCodec amino.Codec

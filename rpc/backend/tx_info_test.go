@@ -16,12 +16,12 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
-	"github.com/mezo-org/mezod/indexer"
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	mezotypes "github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/indexer"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"google.golang.org/grpc/metadata"
 )
 

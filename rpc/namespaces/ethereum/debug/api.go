@@ -28,7 +28,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	stderrors "github.com/pkg/errors"
 
@@ -38,8 +38,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/mezo-org/mezod/rpc/backend"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
+	"github.com/hoodium-io/hoodium/rpc/backend"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
 )
 
 // HandlerT keeps track of the cpu profiler and trace execution

@@ -9,7 +9,7 @@ import (
 	cmtabci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/app/abci/types"
+	"github.com/hoodium-io/hoodium/app/abci/types"
 	connectproposals "github.com/skip-mev/connect/v2/abci/proposals"
 )
 

@@ -17,11 +17,11 @@ import (
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"
 
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	rpc "github.com/mezo-org/mezod/rpc/types"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
-	feemarkettypes "github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	rpc "github.com/hoodium-io/hoodium/rpc/types"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 )
 
 func (suite *BackendTestSuite) TestBaseFee() {

@@ -52,19 +52,19 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
-	"github.com/mezo-org/mezod/crypto/hd"
-	"github.com/mezo-org/mezod/server/config"
-	srvflags "github.com/mezo-org/mezod/server/flags"
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/crypto/hd"
+	"github.com/hoodium-io/hoodium/server/config"
+	srvflags "github.com/hoodium-io/hoodium/server/flags"
+	"github.com/hoodium-io/hoodium/utils"
 
-	mezotypes "github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	mezotypes "github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
-	cmdcfg "github.com/mezo-org/mezod/cmd/config"
-	mezokr "github.com/mezo-org/mezod/crypto/keyring"
-	"github.com/mezo-org/mezod/testutil/network"
+	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
+	mezokr "github.com/hoodium-io/hoodium/crypto/keyring"
+	"github.com/hoodium-io/hoodium/testutil/network"
 
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 var (

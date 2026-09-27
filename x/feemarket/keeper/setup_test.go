@@ -3,7 +3,7 @@ package keeper_test
 import (
 	"testing"
 
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -14,8 +14,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 	"github.com/stretchr/testify/suite"
 )
 

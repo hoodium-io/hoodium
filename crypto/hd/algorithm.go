@@ -27,7 +27,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 )
 
 const (

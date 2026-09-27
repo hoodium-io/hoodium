@@ -2,8 +2,8 @@ package testutil
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/encoding"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/encoding"
 )
 
 // NextFn is a no-op function that returns the context and no error in order to mock

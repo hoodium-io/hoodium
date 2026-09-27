@@ -1,8 +1,8 @@
 package priceoracle
 
 import (
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 )
 
 // Decimals denotes the decimal places of the precision used to represent the price.

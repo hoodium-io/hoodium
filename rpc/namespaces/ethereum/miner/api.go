@@ -17,7 +17,7 @@ package miner
 
 import (
 	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/mezo-org/mezod/rpc/backend"
+	"github.com/hoodium-io/hoodium/rpc/backend"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

@@ -64,11 +64,11 @@ import (
 	servergrpc "github.com/cosmos/cosmos-sdk/server/grpc"
 	"github.com/cosmos/cosmos-sdk/server/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-	"github.com/mezo-org/mezod/indexer"
-	ethdebug "github.com/mezo-org/mezod/rpc/namespaces/ethereum/debug"
-	"github.com/mezo-org/mezod/server/config"
-	srvflags "github.com/mezo-org/mezod/server/flags"
-	mezotypes "github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/indexer"
+	ethdebug "github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/debug"
+	"github.com/hoodium-io/hoodium/server/config"
+	srvflags "github.com/hoodium-io/hoodium/server/flags"
+	mezotypes "github.com/hoodium-io/hoodium/types"
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 )

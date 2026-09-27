@@ -6,9 +6,9 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	ethrpc "github.com/mezo-org/mezod/rpc/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	ethrpc "github.com/hoodium-io/hoodium/rpc/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func (suite *BackendTestSuite) TestGetLogs() {

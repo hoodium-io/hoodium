@@ -12,7 +12,7 @@ import (
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	servermock "github.com/cosmos/cosmos-sdk/server/mock"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/app/abci/types"
+	"github.com/hoodium-io/hoodium/app/abci/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )

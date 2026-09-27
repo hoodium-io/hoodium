@@ -17,14 +17,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/app/ante"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/ethereum/eip712"
-	"github.com/mezo-org/mezod/testutil"
-	"github.com/mezo-org/mezod/utils"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
-	feemarkettypes "github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/app/ante"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/testutil"
+	"github.com/hoodium-io/hoodium/utils"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 )
 
 type AnteTestSuite struct {

@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/precompile/runetoken"
-	"github.com/mezo-org/mezod/precompile/erc20"
-	erc20testsuite "github.com/mezo-org/mezod/precompile/erc20/testsuite"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/precompile/runetoken"
+	"github.com/hoodium-io/hoodium/precompile/erc20"
+	erc20testsuite "github.com/hoodium-io/hoodium/precompile/erc20/testsuite"
 	"github.com/stretchr/testify/suite"
 )
 

@@ -14,10 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/mezo-org/mezod/rpc/backend/mocks"
-	ethrpc "github.com/mezo-org/mezod/rpc/types"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
+	ethrpc "github.com/hoodium-io/hoodium/rpc/types"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"google.golang.org/grpc/metadata"
 )
 

@@ -1,12 +1,12 @@
 package ante_test
 
 import (
-	ethante "github.com/mezo-org/mezod/app/ante/evm"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/types"
+	ethante "github.com/hoodium-io/hoodium/app/ante/evm"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/types"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/app/ante"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/app/ante"
 )
 
 func (suite *AnteTestSuite) TestValidateHandlerOptions() {

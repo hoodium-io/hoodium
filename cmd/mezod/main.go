@@ -22,8 +22,8 @@ import (
 	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/mezo-org/mezod/app"
-	cmdcfg "github.com/mezo-org/mezod/cmd/config"
+	"github.com/hoodium-io/hoodium/app"
+	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 )
 
 func main() {

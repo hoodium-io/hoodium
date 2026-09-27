@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/grpc/status"

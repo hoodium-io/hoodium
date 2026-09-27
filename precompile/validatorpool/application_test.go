@@ -6,8 +6,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/mezo-org/mezod/precompile/validatorpool"
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/precompile/validatorpool"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 func (s *PrecompileTestSuite) TestSubmitApplication() {

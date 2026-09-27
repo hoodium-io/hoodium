@@ -21,8 +21,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/std"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	cryptocodec "github.com/mezo-org/mezod/crypto/codec"
-	"github.com/mezo-org/mezod/types"
+	cryptocodec "github.com/hoodium-io/hoodium/crypto/codec"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 // RegisterLegacyAminoCodec registers Interfaces from types, crypto, and SDK std.

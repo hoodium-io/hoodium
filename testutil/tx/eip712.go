@@ -31,10 +31,10 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/mezo-org/mezod/app"
-	cryptocodec "github.com/mezo-org/mezod/crypto/codec"
-	"github.com/mezo-org/mezod/ethereum/eip712"
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/app"
+	cryptocodec "github.com/hoodium-io/hoodium/crypto/codec"
+	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 type EIP712TxArgs struct {

@@ -1,6 +1,6 @@
 package maintenance_test
 
-import evmtypes "github.com/mezo-org/mezod/x/evm/types"
+import evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 func (s *PrecompileTestSuite) TestSetSelfDestructDisabled() {
 	testcases := []TestCase{

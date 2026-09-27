@@ -22,10 +22,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/encoding"
-	v4 "github.com/mezo-org/mezod/x/feemarket/migrations/v4"
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/encoding"
+	v4 "github.com/hoodium-io/hoodium/x/feemarket/migrations/v4"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 	"github.com/stretchr/testify/require"
 )
 

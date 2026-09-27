@@ -11,7 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/bech32/legacybech32"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 func TestValidateGenesis(t *testing.T) {

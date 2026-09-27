@@ -25,8 +25,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	"github.com/cosmos/gogoproto/proto"
-	enccodec "github.com/mezo-org/mezod/encoding/codec"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	enccodec "github.com/hoodium-io/hoodium/encoding/codec"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // MakeConfig creates an EncodingConfig for testing

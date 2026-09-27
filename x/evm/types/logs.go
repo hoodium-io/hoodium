@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 
-	mezotypes "github.com/mezo-org/mezod/types"
+	mezotypes "github.com/hoodium-io/hoodium/types"
 )
 
 // NewTransactionLogs creates a new NewTransactionLogs instance.

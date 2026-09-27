@@ -10,7 +10,7 @@ import (
 	cmtabci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/app/abci/types"
+	"github.com/hoodium-io/hoodium/app/abci/types"
 )
 
 // VoteExtensionPart is an enumeration of the different parts of the app-level

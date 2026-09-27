@@ -17,12 +17,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 const invalidAddress = "0x0000"

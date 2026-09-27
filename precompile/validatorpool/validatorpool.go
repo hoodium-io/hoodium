@@ -4,12 +4,12 @@ import (
 	"embed"
 	"fmt"
 
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	"github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/precompile"
-	poatypes "github.com/mezo-org/mezod/x/poa/types"
+	"github.com/hoodium-io/hoodium/precompile"
+	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 //go:embed abi.json

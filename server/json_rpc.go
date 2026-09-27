@@ -28,10 +28,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 	ethlog "github.com/ethereum/go-ethereum/log"
 	ethrpc "github.com/ethereum/go-ethereum/rpc"
-	"github.com/mezo-org/mezod/rpc"
+	"github.com/hoodium-io/hoodium/rpc"
 
-	"github.com/mezo-org/mezod/server/config"
-	mezodtypes "github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/server/config"
+	mezodtypes "github.com/hoodium-io/hoodium/types"
 )
 
 const ServerStartTime = 5 * time.Second

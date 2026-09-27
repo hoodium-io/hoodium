@@ -20,8 +20,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	v4types "github.com/mezo-org/mezod/x/evm/migrations/v4/types"
-	"github.com/mezo-org/mezod/x/evm/types"
+	v4types "github.com/hoodium-io/hoodium/x/evm/migrations/v4/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // MigrateStore migrates the x/evm module state from the consensus version 3 to

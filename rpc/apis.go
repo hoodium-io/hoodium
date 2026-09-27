@@ -23,17 +23,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/mezo-org/mezod/rpc/backend"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/debug"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/eth"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/eth/filters"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/mezo"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/miner"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/net"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/personal"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/txpool"
-	"github.com/mezo-org/mezod/rpc/namespaces/ethereum/web3"
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/rpc/backend"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/debug"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/eth"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/eth/filters"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/mezo"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/miner"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/net"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/personal"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/txpool"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/web3"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 // RPC namespaces and API version

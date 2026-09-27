@@ -31,7 +31,7 @@ import (
 // However, this approach turned out to be problematic for Hoodium Passport
 // hence, we switched to the EmptyHash strategy which returns an empty hash
 // as storage root for every account, regardless of the actual storage.
-// See https://github.com/mezo-org/mezod/issues/368 for more details.
+// See https://github.com/hoodium-io/hoodium/issues/368 for more details.
 // If we ever need to support storage roots, we should implement it as a
 // new strategy.
 type StorageRootStrategy uint32
@@ -42,7 +42,7 @@ const (
 	//
 	// Deprecated: this strategy is unreachable in practice. It was abandoned
 	// in the v0.4.0 fork because the dummy hash broke Hoodium Passport CREATE2
-	// reuse (see https://github.com/mezo-org/mezod/issues/368) and the default
+	// reuse (see https://github.com/hoodium-io/hoodium/issues/368) and the default
 	// has been [StorageRootStrategyEmptyHash] ever since. The enum value is
 	// kept only because it is persisted as the `storage_root_strategy` chain
 	// param; removing it requires a param migration in a future upgrade.

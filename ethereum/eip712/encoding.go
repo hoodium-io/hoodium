@@ -33,7 +33,7 @@ import (
 	txTypes "github.com/cosmos/cosmos-sdk/types/tx"
 
 	apitypes "github.com/ethereum/go-ethereum/signer/core/apitypes"
-	mezotypes "github.com/mezo-org/mezod/types"
+	mezotypes "github.com/hoodium-io/hoodium/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 )

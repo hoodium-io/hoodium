@@ -34,11 +34,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	"github.com/mezo-org/mezod/server/config"
-	"github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	"github.com/hoodium-io/hoodium/server/config"
+	"github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // Accounts returns the list of accounts available to this node.

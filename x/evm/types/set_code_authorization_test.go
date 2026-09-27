@@ -10,7 +10,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func TestNewAuthorizationList_NilAndEmpty(t *testing.T) {

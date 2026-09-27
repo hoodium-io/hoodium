@@ -33,9 +33,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	simtypes "github.com/cosmos/cosmos-sdk/types/simulation"
 
-	"github.com/mezo-org/mezod/x/evm/client/cli"
-	"github.com/mezo-org/mezod/x/evm/keeper"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/client/cli"
+	"github.com/hoodium-io/hoodium/x/evm/keeper"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 var (

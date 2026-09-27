@@ -41,12 +41,12 @@ import (
 	"cosmossdk.io/log"
 	tmtypes "github.com/cometbft/cometbft/types"
 
-	"github.com/mezo-org/mezod/rpc/ethereum/pubsub"
-	rpcfilters "github.com/mezo-org/mezod/rpc/namespaces/ethereum/eth/filters"
-	"github.com/mezo-org/mezod/rpc/types"
-	"github.com/mezo-org/mezod/server/config"
-	mezodtypes "github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/rpc/ethereum/pubsub"
+	rpcfilters "github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/eth/filters"
+	"github.com/hoodium-io/hoodium/rpc/types"
+	"github.com/hoodium-io/hoodium/server/config"
+	mezodtypes "github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 type WebsocketsServer interface {

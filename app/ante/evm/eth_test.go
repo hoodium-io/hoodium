@@ -8,13 +8,13 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	ethante "github.com/mezo-org/mezod/app/ante/evm"
-	"github.com/mezo-org/mezod/server/config"
-	"github.com/mezo-org/mezod/testutil"
-	testutiltx "github.com/mezo-org/mezod/testutil/tx"
-	"github.com/mezo-org/mezod/types"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	ethante "github.com/hoodium-io/hoodium/app/ante/evm"
+	"github.com/hoodium-io/hoodium/server/config"
+	"github.com/hoodium-io/hoodium/testutil"
+	testutiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	"github.com/hoodium-io/hoodium/types"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"

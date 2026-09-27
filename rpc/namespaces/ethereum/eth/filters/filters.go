@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/mezo-org/mezod/rpc/backend"
-	"github.com/mezo-org/mezod/rpc/types"
+	"github.com/hoodium-io/hoodium/rpc/backend"
+	"github.com/hoodium-io/hoodium/rpc/types"
 
 	"cosmossdk.io/log"
 	tmrpctypes "github.com/cometbft/cometbft/rpc/core/types"

@@ -6,8 +6,8 @@ import (
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	"github.com/mezo-org/mezod/app/ante"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/app/ante"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 )
 
 func generatePubKeysAndSignatures(n int, msg []byte, _ bool) (pubkeys []cryptotypes.PubKey, signatures [][]byte) {

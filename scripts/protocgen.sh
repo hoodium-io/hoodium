@@ -15,5 +15,5 @@ for dir in $proto_dirs; do
 done
 
 # move proto files to the right places
-cp -r github.com/mezo-org/mezod/* ./
+cp -r github.com/hoodium-io/hoodium/* ./
 rm -rf github.com

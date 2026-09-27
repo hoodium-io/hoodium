@@ -31,9 +31,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/ethereum/go-ethereum/common"
-	mezokr "github.com/mezo-org/mezod/crypto/keyring"
-	"github.com/mezo-org/mezod/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	mezokr "github.com/hoodium-io/hoodium/crypto/keyring"
+	"github.com/hoodium-io/hoodium/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"github.com/spf13/cobra"
 )
 

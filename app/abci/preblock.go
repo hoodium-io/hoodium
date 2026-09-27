@@ -10,7 +10,7 @@ import (
 
 	cmtabci "github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/mezo-org/mezod/app/abci/types"
+	"github.com/hoodium-io/hoodium/app/abci/types"
 )
 
 // IModuleManager is an interface representing the module manager.

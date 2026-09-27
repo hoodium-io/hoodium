@@ -27,11 +27,11 @@ import (
 	"google.golang.org/grpc/status"
 
 	ethlogger "github.com/ethereum/go-ethereum/eth/tracers/logger"
-	rpctypes "github.com/mezo-org/mezod/rpc/types"
-	"github.com/mezo-org/mezod/server/config"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	"github.com/mezo-org/mezod/x/evm/statedb"
-	"github.com/mezo-org/mezod/x/evm/types"
+	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
+	"github.com/hoodium-io/hoodium/server/config"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // Not valid Ethereum address

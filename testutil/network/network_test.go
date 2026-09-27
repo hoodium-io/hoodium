@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/mezo-org/mezod/server/config"
-	"github.com/mezo-org/mezod/testutil/network"
+	"github.com/hoodium-io/hoodium/server/config"
+	"github.com/hoodium-io/hoodium/testutil/network"
 
-	mezonetwork "github.com/mezo-org/mezod/testutil/network"
+	mezonetwork "github.com/hoodium-io/hoodium/testutil/network"
 )
 
 type IntegrationTestSuite struct {

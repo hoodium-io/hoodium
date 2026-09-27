@@ -8,7 +8,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
-	"github.com/mezo-org/mezod/precompile/priceoracle"
+	"github.com/hoodium-io/hoodium/precompile/priceoracle"
 	oracletypes "github.com/skip-mev/connect/v2/x/oracle/types"
 
 	"github.com/cometbft/cometbft/crypto/ed25519"
@@ -17,12 +17,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	"github.com/mezo-org/mezod/precompile"
-	"github.com/mezo-org/mezod/testutil"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
-	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/testutil"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/stretchr/testify/suite"
 )
 

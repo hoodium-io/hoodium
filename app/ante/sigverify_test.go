@@ -17,10 +17,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/app/ante"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
-	"github.com/mezo-org/mezod/encoding"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/app/ante"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/encoding"
 )
 
 func TestConsumeSignatureVerificationGas(t *testing.T) {

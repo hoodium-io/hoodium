@@ -23,11 +23,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	"github.com/stretchr/testify/require"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/encoding"
-	v5 "github.com/mezo-org/mezod/x/evm/migrations/v5"
-	v5types "github.com/mezo-org/mezod/x/evm/migrations/v5/types"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/encoding"
+	v5 "github.com/hoodium-io/hoodium/x/evm/migrations/v5"
+	v5types "github.com/hoodium-io/hoodium/x/evm/migrations/v5/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 func TestMigrate(t *testing.T) {

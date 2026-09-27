@@ -22,7 +22,7 @@ import (
 	// TODO update import to local pkg when rpc pkg is migrated
 	"github.com/gorilla/mux"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
-	"github.com/mezo-org/mezod/server/config"
+	"github.com/hoodium-io/hoodium/server/config"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/netutil"
 

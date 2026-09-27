@@ -20,7 +20,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
-	"github.com/mezo-org/mezod/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/x/feemarket/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )

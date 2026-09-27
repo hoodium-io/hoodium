@@ -13,12 +13,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 
-	"github.com/mezo-org/mezod/app"
-	"github.com/mezo-org/mezod/crypto/hd"
-	"github.com/mezo-org/mezod/encoding"
-	"github.com/mezo-org/mezod/tests/integration/ledger/mocks"
-	"github.com/mezo-org/mezod/testutil"
-	utiltx "github.com/mezo-org/mezod/testutil/tx"
+	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/crypto/hd"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/tests/integration/ledger/mocks"
+	"github.com/hoodium-io/hoodium/testutil"
+	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 
 	"github.com/spf13/cobra"
 

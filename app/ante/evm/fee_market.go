@@ -21,7 +21,7 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 // GasWantedDecorator keeps track of the gasWanted amount on the current block in transient store

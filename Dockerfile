@@ -5,7 +5,7 @@
 #
 FROM golang:1.24.0-bullseye AS build
 
-WORKDIR /go/src/github.com/mezo-org/mezod
+WORKDIR /go/src/github.com/hoodium-io/hoodium
 
 RUN apt-get update -y && \
     apt-get install jq -y
@@ -42,7 +42,7 @@ FROM gcr.io/distroless/base-nossl-debian12:nonroot AS production
 ADD --chmod=755 https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 /bin/jq
 
 COPY --from=busybox /bin/sh /bin/cat /bin/test /bin/ls /bin/grep /bin/awk /bin/tail /bin/rm /bin/yes /bin/
-COPY --from=build /go/src/github.com/mezo-org/mezod/build/mezod /usr/bin/mezod
+COPY --from=build /go/src/github.com/hoodium-io/hoodium/build/mezod /usr/bin/mezod
 COPY entrypoint.sh /entrypoint.sh
 
 ENTRYPOINT [ "/entrypoint.sh" ]

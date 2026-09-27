@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	evmtypes "github.com/mezo-org/mezod/x/evm/types"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // runCreate builds, signs, and runs a contract-creation EVM tx with the given

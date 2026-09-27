@@ -25,7 +25,7 @@ import (
 	tmstore "github.com/cometbft/cometbft/store"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
-	"github.com/mezo-org/mezod/indexer"
+	"github.com/hoodium-io/hoodium/indexer"
 )
 
 func NewIndexTxCmd() *cobra.Command {

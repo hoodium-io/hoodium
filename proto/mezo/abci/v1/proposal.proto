@@ -1,7 +1,7 @@
 syntax = "proto3";
 package mezo.abci.v1;
 
-option go_package = "github.com/mezo-org/mezod/app/abci/types";
+option go_package = "github.com/hoodium-io/hoodium/app/abci/types";
 
 // InjectedTx defines the pseudo-tx used to inject previous-block vote
 // extensions into the current block proposal.

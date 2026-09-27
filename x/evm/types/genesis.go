@@ -18,7 +18,7 @@ package types
 import (
 	"fmt"
 
-	"github.com/mezo-org/mezod/types"
+	"github.com/hoodium-io/hoodium/types"
 )
 
 // Validate performs a basic validation of a GenesisAccount fields.

@@ -5,7 +5,7 @@ import "gogoproto/gogo.proto";
 import "google/api/annotations.proto";
 import "mezo/poa/v1/poa.proto";
 
-option go_package = "github.com/mezo-org/mezod/x/poa/types";
+option go_package = "github.com/hoodium-io/hoodium/x/poa/types";
 
 // Query defines the gRPC querier service.
 service Query {

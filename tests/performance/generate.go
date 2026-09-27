@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	token "github.com/mezo-org/mezod/tests/performance/bindings"
+	token "github.com/hoodium-io/hoodium/tests/performance/bindings"
 	"golang.org/x/exp/maps"
 )
 

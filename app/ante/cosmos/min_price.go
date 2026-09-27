@@ -23,7 +23,7 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	errortypes "github.com/cosmos/cosmos-sdk/types/errors"
-	evmante "github.com/mezo-org/mezod/app/ante/evm"
+	evmante "github.com/hoodium-io/hoodium/app/ante/evm"
 )
 
 // MinGasPriceDecorator will check if the transaction's fee is at least as large

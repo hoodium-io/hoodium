@@ -24,9 +24,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/cosmos/cosmos-sdk/crypto"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mezo-org/mezod/crypto/ethsecp256k1"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 
-	"github.com/mezo-org/mezod/crypto/hd"
+	"github.com/hoodium-io/hoodium/crypto/hd"
 )
 
 // UnsafeImportKeyCommand imports private keys from a keyfile.

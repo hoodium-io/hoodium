@@ -29,7 +29,7 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/spf13/cobra"
 
-	"github.com/mezo-org/mezod/utils"
+	"github.com/hoodium-io/hoodium/utils"
 )
 
 // FlagGenesisTime defines the genesis time in string format

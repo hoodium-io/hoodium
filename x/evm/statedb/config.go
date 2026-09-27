@@ -12,7 +12,7 @@
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the Hoodium packages. If not, see https://github.com/mezo-org/mezod/blob/main/LICENSE
+// along with the Hoodium packages. If not, see https://github.com/hoodium-io/hoodium/blob/main/LICENSE
 package statedb
 
 import (
@@ -20,7 +20,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/mezo-org/mezod/x/evm/types"
+	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
 // TxConfig encapulates the readonly information of current tx for `StateDB`.
