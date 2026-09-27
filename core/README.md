@@ -1,1 +1,1 @@
-# Core | Contracts
+# Core | EVM Contracts
