@@ -1,0 +1,91 @@
+# OS
+.DS_Store
+*.swp
+*.swo
+*.swl
+*.swm
+*.swn
+.vscode
+.idea
+*.pyc
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+.dccache
+
+# Build
+*.test
+.glide/
+vendor
+build
+bin
+tools/bin/*
+docs/_build
+docs/tutorial
+docs/node_modules
+docs/modules
+docs/cosmos-sdk
+docs/ethermint
+docs/ibc-go
+dist
+golangci-lint
+keyring_test_cosmos
+./**/dist
+secret.yml
+artifacts/*
+github.com/
+
+# Local docker volume mappings
+localnet-setup
+.testnets
+
+# Binary-based localnet
+.env
+.localnet
+
+# Single-node localnet
+.localnode
+
+# Public testnet
+.public-testnet
+
+# Testing
+coverage.txt
+*.out
+sim_log_file
+tests/**/tmp/*
+yarn.lock
+
+# Vagrant
+.vagrant/
+*.box
+*.log
+vagrant
+
+# IDE
+.idea/
+*.iml
+*.code-workspace
+
+# Graphviz
+dependency-graph.png
+
+# Latex
+*.aux
+*.out
+*.synctex.gz
+
+# Contracts
+*.bin
+*.abi
+
+# Node.js
+**/node_modules
+
+# Directory for storing temporary data (e.g. fetched npm packages)
+tmp/
+
+# Ignore generated credentials from google-github-actions/auth
+gha-creds-*.json

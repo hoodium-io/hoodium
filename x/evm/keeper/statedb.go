@@ -1,0 +1,308 @@
+// Copyright 2022 Evmos Foundation
+// This file is part of the Evmos Network packages.
+//
+// Evmos is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The Evmos packages are distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
+package keeper
+
+import (
+	"fmt"
+	"math/big"
+
+	storetypes "cosmossdk.io/store/types"
+
+	sdkmath "cosmossdk.io/math"
+
+	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/store/prefix"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/holiman/uint256"
+	mezotypes "github.com/mezo-org/mezod/types"
+	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/mezo-org/mezod/x/evm/types"
+)
+
+var _ statedb.Keeper = &Keeper{}
+
+// ----------------------------------------------------------------------------
+// StateDB Keeper implementation
+// ----------------------------------------------------------------------------
+
+// GetAccount returns the EVM account at addr, or nil if the address has neither
+// an x/auth record nor a native balance. go-ethereum treats an address with a
+// balance as existing, so GetAccount reports one even when x/auth has no record,
+// keeping Exist and Empty aligned with go-ethereum semantics.
+func (k *Keeper) GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account {
+	acct := k.GetAccountWithoutBalance(ctx, addr)
+
+	balance := k.GetBalance(ctx, addr)
+
+	if acct == nil {
+		if balance.Sign() == 0 {
+			return nil
+		}
+
+		acct = statedb.NewEmptyAccount()
+	}
+
+	// Use conversion to bytes rather than uint64 to avoid an overflow error.
+	acct.Balance = new(uint256.Int).SetBytes(balance.Bytes())
+
+	return acct
+}
+
+// GetState loads contract state from database, implements `statedb.Keeper` interface.
+func (k *Keeper) GetState(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.AddressStoragePrefix(addr))
+
+	return stateValue(store, key)
+}
+
+// GetStateExtension loads contract state from database. This is used as a separate storage
+// that is not part of the main EVM persistent store. One of the use cases is storage
+// for RUNE precompile functionality.
+func (k *Keeper) GetStateExtension(ctx sdk.Context, addr common.Address, key common.Hash) common.Hash {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.AddressStorageExtensionPrefix(addr))
+
+	return stateValue(store, key)
+}
+
+func stateValue(store prefix.Store, key common.Hash) common.Hash {
+	value := store.Get(key.Bytes())
+	if len(value) == 0 {
+		return common.Hash{}
+	}
+
+	return common.BytesToHash(value)
+}
+
+// GetCode loads contract code from database, implements `statedb.Keeper` interface.
+func (k *Keeper) GetCode(ctx sdk.Context, codeHash common.Hash) []byte {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCode)
+	return store.Get(codeHash.Bytes())
+}
+
+// ForEachStorage iterate contract storage, callback return false to break early
+func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(key, value common.Hash) bool) {
+	store := ctx.KVStore(k.storeKey)
+	prefix := types.AddressStoragePrefix(addr)
+
+	iterator := storetypes.KVStorePrefixIterator(store, prefix)
+	defer iterator.Close()
+
+	for ; iterator.Valid(); iterator.Next() {
+		key := common.BytesToHash(iterator.Key())
+		value := common.BytesToHash(iterator.Value())
+
+		// check if iteration stops
+		if !cb(key, value) {
+			return
+		}
+	}
+}
+
+// SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
+func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *big.Int) error {
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+
+	params := k.GetParams(ctx)
+	coin := k.bankKeeper.GetBalance(ctx, cosmosAddr, params.EvmDenom)
+	balance := coin.Amount.BigInt()
+	delta := new(big.Int).Sub(amount, balance)
+	switch delta.Sign() {
+	case 1:
+		// mint
+		coins := sdk.NewCoins(sdk.NewCoin(params.EvmDenom, sdkmath.NewIntFromBigInt(delta)))
+		if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
+			return err
+		}
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, cosmosAddr, coins); err != nil {
+			return err
+		}
+	case -1:
+		// burn
+		coins := sdk.NewCoins(sdk.NewCoin(params.EvmDenom, sdkmath.NewIntFromBigInt(new(big.Int).Neg(delta))))
+		if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, cosmosAddr, types.ModuleName, coins); err != nil {
+			return err
+		}
+		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, coins); err != nil {
+			return err
+		}
+	default:
+		// not changed
+	}
+	return nil
+}
+
+// bumpAccNonce increments the account-keeper sequence at addr by one,
+// mirroring the consensus-path bump that
+// EthIncrementSenderSequenceDecorator performs in ante. Query-only
+// entry points (eth_call, eth_estimateGas, debug_trace*,
+// eth_simulateV1) bypass ante and would otherwise read a pre-bump
+// sender nonce while consensus reads the post-bump one, so
+// applyMessageWithConfig stays a single geth-pure path regardless of
+// caller.
+//
+// One concrete consequence is EIP-7702: a self-sponsored authorization
+// signs its tuple against state_nonce + 1, and applyMessageWithConfig
+// validates against the post-bump value — without this bump every
+// self-sponsored auth on a query path is silently nonce-mismatched.
+//
+// Mutations land on the supplied ctx; callers that need a stable
+// baseline across iterations must pass a CacheContext.
+func (k *Keeper) bumpAccNonce(ctx sdk.Context, addr common.Address) error {
+	acct := k.GetAccount(ctx, addr)
+	if acct == nil {
+		acc := k.accountKeeper.NewAccountWithAddress(ctx, addr[:])
+		k.accountKeeper.SetAccount(ctx, acc)
+		acct = statedb.NewEmptyAccount()
+	}
+	acct.Nonce = k.GetNonce(ctx, addr) + 1
+	return k.SetAccount(ctx, addr, *acct)
+}
+
+// SetAccount updates nonce/balance/codeHash together.
+func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error {
+	// update account
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
+	if acct == nil {
+		acct = k.accountKeeper.NewAccountWithAddress(ctx, cosmosAddr)
+	}
+
+	if err := acct.SetSequence(account.Nonce); err != nil {
+		return err
+	}
+
+	codeHash := common.BytesToHash(account.CodeHash)
+
+	if ethAcct, ok := acct.(mezotypes.EthAccountI); ok {
+		if err := ethAcct.SetCodeHash(codeHash); err != nil {
+			return err
+		}
+	}
+
+	k.accountKeeper.SetAccount(ctx, acct)
+
+	if err := k.SetBalance(ctx, addr, account.Balance.ToBig()); err != nil {
+		return err
+	}
+
+	k.Logger(ctx).Debug(
+		"account updated",
+		"ethereum-address", addr.Hex(),
+		"nonce", account.Nonce,
+		"codeHash", codeHash.Hex(),
+		"balance", account.Balance,
+	)
+	return nil
+}
+
+// SetState update contract storage, delete if value is empty.
+func (k *Keeper) SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.AddressStoragePrefix(addr))
+	k.stateAction(store, ctx, addr, key, value)
+}
+
+// SetStateExtension update contract extension storage, delete if value is empty. This is used as
+// a separate storage that is not part of the main EVM persistent store. One of the use cases is storage
+// for RUNE precompile functionality.
+func (k *Keeper) SetStateExtension(ctx sdk.Context, addr common.Address, key common.Hash, value []byte) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.AddressStorageExtensionPrefix(addr))
+	k.stateAction(store, ctx, addr, key, value)
+}
+
+func (k *Keeper) stateAction(store prefix.Store, ctx sdk.Context, addr common.Address, key common.Hash, value []byte) {
+	action := "updated"
+	if len(value) == 0 {
+		store.Delete(key.Bytes())
+		action = "deleted"
+	} else {
+		store.Set(key.Bytes(), value)
+	}
+	k.Logger(ctx).Debug(
+		fmt.Sprintf("state %s", action),
+		"ethereum-address", addr.Hex(),
+		"key", key.Hex(),
+	)
+}
+
+// SetCode set contract code, delete if code is empty.
+func (k *Keeper) SetCode(ctx sdk.Context, codeHash, code []byte) {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), types.KeyPrefixCode)
+
+	// store or delete code
+	action := "updated"
+	if len(code) == 0 {
+		store.Delete(codeHash)
+		action = "deleted"
+	} else {
+		store.Set(codeHash, code)
+	}
+	k.Logger(ctx).Debug(
+		fmt.Sprintf("code %s", action),
+		"code-hash", common.BytesToHash(codeHash).Hex(),
+	)
+}
+
+// DeleteAccount handles contract's suicide call:
+// - clear balance
+// - remove code
+// - remove states
+// - remove auth account
+func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address, balance *big.Int) error {
+	cosmosAddr := sdk.AccAddress(addr.Bytes())
+	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
+	if acct == nil {
+		return nil
+	}
+
+	// NOTE: only Ethereum accounts (contracts) can be selfdestructed
+	_, ok := acct.(mezotypes.EthAccountI)
+	if !ok {
+		return errorsmod.Wrapf(types.ErrInvalidAccount, "type %T, address %s", acct, addr)
+	}
+
+	// clear balance
+	if err := k.SetBalance(ctx, addr, balance); err != nil {
+		return err
+	}
+
+	// clear storage
+	store := ctx.KVStore(k.storeKey)
+	prefix := types.AddressStoragePrefix(addr)
+	iterator := storetypes.KVStorePrefixIterator(store, prefix)
+
+	var keys []common.Hash
+	for ; iterator.Valid(); iterator.Next() {
+		key := common.BytesToHash(iterator.Key())
+		keys = append(keys, key)
+	}
+	iterator.Close()
+
+	for _, key := range keys {
+		k.SetState(ctx, addr, key, nil)
+	}
+
+	// remove auth account
+	k.accountKeeper.RemoveAccount(ctx, acct)
+
+	k.Logger(ctx).Debug(
+		"account suicided",
+		"ethereum-address", addr.Hex(),
+		"cosmos-address", cosmosAddr.String(),
+	)
+
+	return nil
+}

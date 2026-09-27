@@ -1,0 +1,803 @@
+// Copyright 2022 Evmos Foundation
+// This file is part of the Evmos Network packages.
+//
+// Evmos is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The Evmos packages are distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the Evmos packages. If not, see https://github.com/evmos/evmos/blob/main/LICENSE
+package keeper
+
+import (
+	"math/big"
+
+	sdkmath "cosmossdk.io/math"
+
+	"golang.org/x/exp/maps"
+
+	tmtypes "github.com/cometbft/cometbft/types"
+	"github.com/holiman/uint256"
+
+	errorsmod "cosmossdk.io/errors"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	mezotypes "github.com/mezo-org/mezod/types"
+	"github.com/mezo-org/mezod/x/evm/statedb"
+	"github.com/mezo-org/mezod/x/evm/types"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/tracers"
+	"github.com/ethereum/go-ethereum/params"
+)
+
+// EVMOverrides carries optional construction-time overrides for read-only
+// simulate paths. All fields are optional; a nil *EVMOverrides reproduces
+// the default [Keeper.NewEVM] behavior.
+//
+// Each override is applied on top of the default value the non-override
+// path would have produced. PrecompileMoves, when non-empty, relocates
+// the listed stdlib precompiles src→dst on the live EVM registry after
+// the default registry (geth defaults + mezo customs) is installed.
+//
+// OnEVMConstructed, when non-nil, is invoked synchronously with the
+// freshly constructed *vm.EVM after vm.NewEVM and before precompile
+// registration. It fires once per [Keeper.NewEVMWithOverrides] call —
+// i.e. once per applyMessageWithConfig invocation, which in the
+// simulate path means once per simulated call (not per simulated
+// block). The simulate driver uses this hook to publish the live EVM
+// to a single per-block watcher goroutine via an atomic pointer, so
+// the upstream request ctx can cancel whichever call is currently
+// executing without needing to export the EVM handle through every
+// other code path.
+type EVMOverrides struct {
+	BlockContext     *vm.BlockContext
+	PrecompileMoves  map[common.Address]common.Address
+	NoBaseFee        *bool
+	OnEVMConstructed func(*vm.EVM)
+}
+
+// IMPORTANT: Extend this check when new hooks are added.
+func hasTracingHooks(hooks *tracing.Hooks) bool {
+	if hooks == nil {
+		return false
+	}
+	return hooks.OnTxStart != nil ||
+		hooks.OnTxEnd != nil ||
+		hooks.OnEnter != nil ||
+		hooks.OnExit != nil ||
+		hooks.OnOpcode != nil ||
+		hooks.OnFault != nil ||
+		hooks.OnGasChange != nil ||
+		hooks.OnBlockchainInit != nil ||
+		hooks.OnClose != nil ||
+		hooks.OnBlockStart != nil ||
+		hooks.OnBlockEnd != nil ||
+		hooks.OnSkippedBlock != nil ||
+		hooks.OnGenesisBlock != nil ||
+		hooks.OnSystemCallStart != nil ||
+		hooks.OnSystemCallStartV2 != nil ||
+		hooks.OnSystemCallEnd != nil ||
+		hooks.OnBalanceChange != nil ||
+		hooks.OnNonceChange != nil ||
+		hooks.OnNonceChangeV2 != nil ||
+		hooks.OnCodeChange != nil ||
+		hooks.OnCodeChangeV2 != nil ||
+		hooks.OnStorageChange != nil ||
+		hooks.OnLog != nil ||
+		hooks.OnBlockHashRead != nil
+}
+
+// CanReceiveTransfer rejects credits to addresses the bank keeper blocks,
+// mirroring the predicate that gates SendCoinsFromModuleToAccount.
+func (k *Keeper) CanReceiveTransfer(_ vm.StateDB, recipient common.Address, _ *uint256.Int) bool {
+	return !k.bankKeeper.BlockedAddr(sdk.AccAddress(recipient.Bytes()))
+}
+
+// NewEVM generates a go-ethereum VM from the provided Message fields and the chain parameters
+// (ChainConfig and module Params). It additionally sets the validator operator address as the
+// coinbase address to make it available for the COINBASE opcode, even though there is no
+// beneficiary of the coinbase transaction (since we're not mining).
+//
+// NOTE: Hoodium does not support PREVRANDAO randomness semantics. However, a
+// non-nil Random value is needed to activate Merge fork rules/opcodes.
+func (k *Keeper) NewEVM(
+	ctx sdk.Context,
+	msg core.Message,
+	cfg *statedb.EVMConfig,
+	tracer *tracers.Tracer,
+	stateDB vm.StateDB,
+) *vm.EVM {
+	return k.NewEVMWithOverrides(ctx, msg, cfg, tracer, stateDB, nil)
+}
+
+// NewEVMWithOverrides constructs a [vm.EVM] using the default derivation of
+// block context / precompile registry / VM config, optionally replacing any
+// of those with values carried in evmOverrides. A nil evmOverrides reproduces
+// the legacy [Keeper.NewEVM] behavior; non-nil usage is reserved for simulate.
+func (k *Keeper) NewEVMWithOverrides(
+	ctx sdk.Context,
+	msg core.Message,
+	cfg *statedb.EVMConfig,
+	tracer *tracers.Tracer,
+	stateDB vm.StateDB,
+	evmOverrides *EVMOverrides,
+) *vm.EVM {
+	// Enable Merge rules when MergeNetsplitBlock is configured.
+	isMerge := cfg.ChainConfig.MergeNetsplitBlock != nil
+
+	// Hoodium does NOT support PREVRANDAO. However, go-ethereum uses
+	// `BlockContext.Random != nil` as the switch to enable Paris (the
+	// Merge) when selecting fork rules/opcodes (e.g. PUSH0 in Shanghai).
+	// Therefore we set Random to a non-nil zero hash post-merge.
+	var random *common.Hash // nil pre-merge
+	if isMerge {
+		random = new(common.Hash) // non-nil post-merge
+	}
+
+	blockCtx := vm.BlockContext{
+		CanTransfer:        core.CanTransfer,
+		CanReceiveTransfer: k.CanReceiveTransfer,
+		Transfer:           core.Transfer,
+		GetHash:            k.GetHashFn(ctx),
+		Coinbase:           cfg.CoinBase,
+		GasLimit:           mezotypes.BlockGasLimit(ctx),
+		BlockNumber:        big.NewInt(ctx.BlockHeight()),
+		Time:               uint64(ctx.BlockHeader().Time.Unix()), //nolint:gosec
+		Difficulty:         big.NewInt(0),                         // unused. Only required in PoW context
+		BaseFee:            cfg.BaseFee,
+		BlobBaseFee:        big.NewInt(0), // EIP-4844: blob txs are rejected
+		Random:             random,
+	}
+	if evmOverrides != nil && evmOverrides.BlockContext != nil {
+		blockCtx = *evmOverrides.BlockContext
+	}
+
+	txCtx := core.NewEVMTxContext(&msg)
+	if tracer == nil {
+		tracer = k.Tracer(ctx, msg, cfg.ChainConfig)
+	}
+
+	vmConfig := k.VMConfig(ctx, msg, cfg, tracer)
+	if evmOverrides != nil && evmOverrides.NoBaseFee != nil {
+		vmConfig.NoBaseFee = *evmOverrides.NoBaseFee
+	}
+
+	evm := vm.NewEVM(blockCtx, stateDB, cfg.ChainConfig, vmConfig)
+	evm.SetTxContext(txCtx)
+
+	if evmOverrides != nil && evmOverrides.OnEVMConstructed != nil {
+		evmOverrides.OnEVMConstructed(evm)
+	}
+
+	// Default path: geth seeds the EVM with the fork-default precompile set;
+	// WithCustomPrecompiles overlays the chain's mezo-custom entries on top.
+	evm.WithCustomPrecompiles(k.resolveCustomPrecompiles(ctx))
+
+	// Simulate-only path: relocate selected stdlib precompiles on the live
+	// registry. SetPrecompiles is reached here only when a simulate caller
+	// supplied a non-empty PrecompileMoves override.
+	if evmOverrides != nil && len(evmOverrides.PrecompileMoves) > 0 {
+		applyPrecompileMoves(evm, evmOverrides.PrecompileMoves)
+	}
+
+	return evm
+}
+
+// resolveCustomPrecompiles flattens the keeper's versioned custom-precompile
+// registry into an address→contract map by resolving each entry to the
+// version recorded in chain params. The returned map carries only mezo
+// custom precompiles; stdlib defaults come from geth via WithCustomPrecompiles.
+func (k *Keeper) resolveCustomPrecompiles(ctx sdk.Context) map[common.Address]vm.PrecompiledContract {
+	precompilesVersions := make(map[common.Address]uint32)
+	for _, pv := range k.GetParams(ctx).PrecompilesVersions {
+		precompilesVersions[common.HexToAddress(pv.PrecompileAddress)] = pv.Version
+	}
+
+	customPrecompiles := make(map[common.Address]vm.PrecompiledContract)
+	for address, versionMap := range k.customPrecompiles {
+		// If the precompile version is not in the state, it will resolve to 0.
+		version := precompilesVersions[address]
+
+		precompile, ok := versionMap.GetByVersion(int(version))
+		if !ok {
+			continue
+		}
+
+		customPrecompiles[address] = vm.PrecompiledContract(precompile)
+	}
+	return customPrecompiles
+}
+
+// applyPrecompileMoves relocates each src→dst pair on the EVM's live
+// precompile registry. Used only by simulate paths via [EVMOverrides].
+func applyPrecompileMoves(evm *vm.EVM, moves map[common.Address]common.Address) {
+	live := evm.Precompiles()
+	for src, dst := range moves {
+		if p, ok := live[src]; ok {
+			live[dst] = p
+			delete(live, src)
+		}
+	}
+	evm.SetPrecompiles(live)
+}
+
+// GetHashFn implements vm.GetHashFunc for Ethermint. It handles 3 cases:
+//  1. The requested height matches the current height from context (and thus same epoch number)
+//  2. The requested height is from an previous height from the same chain epoch
+//  3. The requested height is from a height greater than the latest one
+func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
+	return func(height uint64) common.Hash {
+		h, err := mezotypes.SafeInt64(height)
+		if err != nil {
+			k.Logger(ctx).Error("failed to cast height to int64", "error", err)
+			return common.Hash{}
+		}
+
+		switch {
+		case ctx.BlockHeight() == h:
+			// Case 1: The requested height matches the one from the context so we can retrieve the header
+			// hash directly from the context.
+			// Note: The headerHash is only set at begin block, it will be nil in case of a query context
+			headerHash := ctx.HeaderHash()
+			if len(headerHash) != 0 {
+				return common.BytesToHash(headerHash)
+			}
+
+			// only recompute the hash if not set (eg: checkTxState)
+			contextBlockHeader := ctx.BlockHeader()
+			header, err := tmtypes.HeaderFromProto(&contextBlockHeader)
+			if err != nil {
+				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
+				return common.Hash{}
+			}
+
+			headerHash = header.Hash()
+			return common.BytesToHash(headerHash)
+
+		case ctx.BlockHeight() > h:
+			// Case 2: if the chain is not the current height we need to retrieve the hash from the store for the
+			// current chain epoch. This only applies if the current height is greater than the requested height.
+			histInfo, found := k.stakingKeeper.GetHistoricalInfo(ctx, h)
+			if !found {
+				k.Logger(ctx).Debug("historical info not found", "height", h)
+				return common.Hash{}
+			}
+
+			header, err := tmtypes.HeaderFromProto(&histInfo.Header)
+			if err != nil {
+				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
+				return common.Hash{}
+			}
+
+			return common.BytesToHash(header.Hash())
+		default:
+			// Case 3: heights greater than the current one returns an empty hash.
+			return common.Hash{}
+		}
+	}
+}
+
+// ApplyTransaction runs and attempts to perform a state transition with the given transaction (i.e Message), that will
+// only be persisted (committed) to the underlying KVStore if the transaction does not fail.
+//
+// # Gas tracking
+//
+// Ethereum consumes gas according to the EVM opcodes instead of general reads and writes to store. Because of this, the
+// state transition needs to ignore the SDK gas consumption mechanism defined by the GasKVStore and instead consume the
+// amount of gas used by the VM execution. The amount of gas used is tracked by the EVM and returned in the execution
+// result.
+//
+// Prior to the execution, the starting tx gas meter is saved and replaced with an infinite gas meter in a new context
+// in order to ignore the SDK gas consumption config values (read, write, has, delete).
+// After the execution, the gas used from the message execution will be added to the starting gas consumed, taking into
+// consideration the amount of gas returned. Finally, the context is updated with the EVM gas consumed value prior to
+// returning.
+//
+// For relevant discussion see: https://github.com/cosmos/cosmos-sdk/discussions/9072
+func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*types.MsgEthereumTxResponse, error) {
+	var (
+		bloom        *big.Int
+		bloomReceipt ethtypes.Bloom
+	)
+
+	cfg, err := k.EVMConfig(ctx, sdk.ConsAddress(ctx.BlockHeader().ProposerAddress), k.eip155ChainID)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to load evm config")
+	}
+	txConfig := k.TxConfig(ctx, tx.Hash())
+
+	blockTime := big.NewInt(ctx.BlockTime().Unix())
+	// get the signer according to the chain rules from the config and block height
+	signer := ethtypes.MakeSigner(cfg.ChainConfig, big.NewInt(ctx.BlockHeight()), blockTime.Uint64())
+	msg, err := core.TransactionToMessage(tx, signer, cfg.BaseFee)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to return ethereum transaction as core message")
+	}
+
+	// snapshot to contain the tx processing and post processing in same scope
+	var commit func()
+	tmpCtx := ctx
+	if k.hooks != nil {
+		// Create a cache context to revert state when tx hooks fails,
+		// the cache context is only committed when both tx and hooks executed successfully.
+		// Didn't use `Snapshot` because the context stack has exponential complexity on certain operations,
+		// thus restricted to be used only inside `ApplyMessage`.
+		tmpCtx, commit = ctx.CacheContext()
+	}
+
+	// pass true to commit the StateDB
+	res, _, err := k.ApplyMessageWithConfig(tmpCtx, WrapMessageWithSource(*msg, tx), nil, true, cfg, txConfig)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to apply ethereum core message")
+	}
+
+	logs := types.LogsToEthereum(res.Logs)
+
+	// Compute block bloom filter
+	if len(logs) > 0 {
+		bloom = k.GetBlockBloomTransient(ctx)
+		receipt := &ethtypes.Receipt{Logs: logs}
+		bloom.Or(bloom, big.NewInt(0).SetBytes(ethtypes.CreateBloom(receipt).Bytes()))
+		bloomReceipt = ethtypes.BytesToBloom(bloom.Bytes())
+	}
+
+	cumulativeGasUsed := res.GasUsed
+	if ctx.BlockGasMeter() != nil {
+		limit := ctx.BlockGasMeter().Limit()
+		cumulativeGasUsed += ctx.BlockGasMeter().GasConsumed()
+		if cumulativeGasUsed > limit {
+			cumulativeGasUsed = limit
+		}
+	}
+
+	var contractAddr common.Address
+	if msg.To == nil {
+		contractAddr = crypto.CreateAddress(msg.From, msg.Nonce)
+	}
+
+	receipt := &ethtypes.Receipt{
+		Type:              tx.Type(),
+		PostState:         nil, // TODO: intermediate state root
+		CumulativeGasUsed: cumulativeGasUsed,
+		Bloom:             bloomReceipt,
+		Logs:              logs,
+		TxHash:            txConfig.TxHash,
+		ContractAddress:   contractAddr,
+		GasUsed:           res.GasUsed,
+		BlockHash:         txConfig.BlockHash,
+		BlockNumber:       big.NewInt(ctx.BlockHeight()),
+		TransactionIndex:  txConfig.TxIndex,
+	}
+
+	if !res.Failed() {
+		receipt.Status = ethtypes.ReceiptStatusSuccessful
+		// Only call hooks if tx executed successfully.
+		if err = k.PostTxProcessing(tmpCtx, *msg, receipt); err != nil {
+			// If hooks return error, revert the whole tx.
+			res.VmError = types.ErrPostTxProcessing.Error()
+			k.Logger(ctx).Error("tx post processing failed", "error", err)
+
+			// If the tx failed in post processing hooks, we should clear the logs
+			res.Logs = nil
+		} else if commit != nil {
+			// PostTxProcessing is successful, commit the tmpCtx
+			commit()
+			// Since the post-processing can alter the log, we need to update the result
+			res.Logs = types.NewLogsFromEth(receipt.Logs)
+			ctx.EventManager().EmitEvents(tmpCtx.EventManager().Events())
+		}
+	}
+
+	// refund gas in order to match the Ethereum gas consumption instead of the default SDK one.
+	if err = k.RefundGas(ctx, *msg, msg.GasLimit-res.GasUsed, cfg.Params.EvmDenom); err != nil {
+		return nil, errorsmod.Wrapf(err, "failed to refund gas leftover gas to sender %s", msg.From)
+	}
+
+	if len(receipt.Logs) > 0 {
+		// Update transient block bloom filter
+		k.SetBlockBloomTransient(ctx, receipt.Bloom.Big())
+		k.SetLogSizeTransient(ctx, uint64(txConfig.LogIndex)+uint64(len(receipt.Logs)))
+	}
+
+	k.SetTxIndexTransient(ctx, uint64(txConfig.TxIndex)+1)
+
+	totalGasUsed, err := k.AddTransientGasUsed(ctx, res.GasUsed)
+	if err != nil {
+		return nil, errorsmod.Wrap(err, "failed to add transient gas used")
+	}
+
+	// reset the gas meter for current cosmos transaction
+	k.ResetGasMeterAndConsumeGas(ctx, totalGasUsed)
+	return res, nil
+}
+
+// ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
+func (k *Keeper) ApplyMessage(ctx sdk.Context, msg core.Message, tracer *tracers.Tracer, commit bool) (*types.MsgEthereumTxResponse, []statedb.StateChange, error) {
+	cfg, err := k.EVMConfig(ctx, sdk.ConsAddress(ctx.BlockHeader().ProposerAddress), k.eip155ChainID)
+	if err != nil {
+		return nil, nil, errorsmod.Wrap(err, "failed to load evm config")
+	}
+
+	txConfig := statedb.NewEmptyTxConfig(common.BytesToHash(ctx.HeaderHash()))
+	return k.ApplyMessageWithConfig(ctx, WrapMessage(msg), tracer, commit, cfg, txConfig)
+}
+
+// ApplyMessageWithConfig computes the new state by applying the given message against the existing state.
+// If the message fails, the VM execution error with the reason will be returned to the client
+// and the transaction won't be committed to the store.
+//
+// # Reverted state
+//
+// The snapshot and rollback are supported by the `statedb.StateDB`.
+//
+// # Different Callers
+//
+// It's called in three scenarios:
+// 1. `ApplyTransaction`, in the transaction processing flow.
+// 2. `TraceTx/TraceBlock` grpc query handler.
+// 3. Called by other native modules directly.
+//
+// For read-only simulation with optional state overrides (eth_call, eth_estimateGas),
+// use [SimulateMessage] instead.
+//
+// # Prechecks and Preprocessing
+//
+// All relevant state transition prechecks for the MsgEthereumTx are performed on the AnteHandler,
+// prior to running the transaction against the state. The prechecks run are the following:
+//
+// 1. the nonce of the message caller is correct
+// 2. caller has enough balance to cover transaction fee(gaslimit * gasprice)
+// 3. the amount of gas required is available in the block
+// 4. the purchased gas is enough to cover intrinsic usage
+// 5. there is no overflow when calculating intrinsic gas
+// 6. caller has enough balance to cover asset transfer for **topmost** call
+//
+// The preprocessing steps performed by the AnteHandler are:
+//
+// 1. set up the initial access list (iff fork > Berlin)
+//
+// # Tracer parameter
+//
+// It should be a `vm.Tracer` object or nil, if pass `nil`, it'll create a default one based on keeper options.
+//
+// # Commit parameter
+//
+// If commit is true, the `StateDB` will be committed, otherwise discarded.
+func (k *Keeper) ApplyMessageWithConfig(
+	ctx sdk.Context,
+	wrapper MessageWrapper,
+	tracer *tracers.Tracer,
+	commit bool,
+	cfg *statedb.EVMConfig,
+	txConfig statedb.TxConfig,
+) (*types.MsgEthereumTxResponse, []statedb.StateChange, error) {
+	stateDB := statedb.New(ctx, k, txConfig)
+	return k.applyMessageWithConfig(ctx, wrapper, tracer, commit, cfg, txConfig, stateDB, nil)
+}
+
+// SimulateMessage applies the given message against the existing state without
+// committing changes. It optionally applies pre-parsed state overrides to the
+// StateDB before execution, including MovePrecompileTo relocations. This
+// method is intended for read-only simulation (eth_call, eth_estimateGas).
+//
+// onEVMConstructed, when non-nil, is forwarded to EVMOverrides so a caller can
+// publish the live *vm.EVM to a cancellation watcher; pass nil when no
+// interruption is needed.
+func (k *Keeper) SimulateMessage(
+	ctx sdk.Context,
+	wrapper MessageWrapper,
+	tracer *tracers.Tracer,
+	cfg *statedb.EVMConfig,
+	txConfig statedb.TxConfig,
+	overrides types.StateOverride,
+	onEVMConstructed func(*vm.EVM),
+) (*types.MsgEthereumTxResponse, error) {
+	stateDB := statedb.New(ctx, k, txConfig)
+
+	var moves map[common.Address]common.Address
+	if overrides != nil {
+		var err error
+		rules := cfg.Rules(ctx.BlockHeight(), uint64(ctx.BlockTime().Unix())) //nolint:gosec
+		moves, err = applyStateOverrides(stateDB, overrides, rules)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var evmOverrides *EVMOverrides
+	if len(moves) > 0 || onEVMConstructed != nil {
+		evmOverrides = &EVMOverrides{
+			PrecompileMoves:  moves,
+			OnEVMConstructed: onEVMConstructed,
+		}
+	}
+
+	res, _, err := k.applyMessageWithConfig(
+		ctx, wrapper, tracer, false, cfg, txConfig, stateDB, evmOverrides,
+	)
+	return res, err
+}
+
+// applyMessageWithConfig is the private core that executes an EVM message
+// against the provided StateDB. A nil evmOverrides is equivalent to the
+// default consensus build; simulate paths inject custom block contexts or
+// precompile registries through it.
+func (k *Keeper) applyMessageWithConfig(
+	ctx sdk.Context,
+	wrapper MessageWrapper,
+	tracer *tracers.Tracer,
+	commit bool,
+	cfg *statedb.EVMConfig,
+	txConfig statedb.TxConfig,
+	stateDB *statedb.StateDB,
+	evmOverrides *EVMOverrides,
+) (*types.MsgEthereumTxResponse, []statedb.StateChange, error) {
+	msg := wrapper.Unwrap()
+
+	var (
+		ret     []byte // return bytes from evm execution
+		vmErr   error  // vm errors do not effect consensus and are therefore not assigned to err
+		gasUsed uint64
+	)
+
+	rules := cfg.Rules(ctx.BlockHeight(), uint64(ctx.BlockTime().Unix())) //nolint:gosec
+
+	// Re-assert geth's EIP-7702 invariants. On the consensus
+	// path these are enforced by SetCodeTx.Validate and the ante handler.
+	// Non-consensus paths (e.g. simulate, eth_call) build a core.Message
+	// directly, so neither check runs and the invariants must be
+	// re-asserted here.
+	if msg.SetCodeAuthorizations != nil {
+		if !rules.IsPrague {
+			return nil, nil, errorsmod.Wrap(ethtypes.ErrTxTypeNotSupported, "set code tx not supported")
+		}
+		if msg.To == nil {
+			return nil, nil, errorsmod.Wrap(core.ErrSetCodeTxCreate, "apply message")
+		}
+		if len(msg.SetCodeAuthorizations) == 0 {
+			return nil, nil, errorsmod.Wrap(core.ErrEmptyAuthList, "apply message")
+		}
+	}
+
+	// return error if contract creation or call are disabled through governance
+	if !cfg.Params.EnableCreate && msg.To == nil {
+		return nil, nil, errorsmod.Wrap(types.ErrCreateDisabled, "failed to create new contract")
+	} else if !cfg.Params.EnableCall && msg.To != nil {
+		return nil, nil, errorsmod.Wrap(types.ErrCallDisabled, "failed to call contract")
+	}
+
+	evm := k.NewEVMWithOverrides(ctx, msg, cfg, tracer, stateDB, evmOverrides)
+	if hasTracingHooks(evm.Config.Tracer) {
+		removeTracingHooks := stateDB.AddTracingHooks(evm.Config.Tracer)
+		defer removeTracingHooks()
+	}
+
+	leftoverGas := msg.GasLimit
+
+	// Allow the tracer captures the tx level events, mainly the gas consumption.
+	vmCfg := evm.Config
+	if t := vmCfg.Tracer; t != nil && t.OnGasChange != nil {
+		startLeftoverGas := leftoverGas
+		defer func() {
+			// leftoverGas during function execution represents the gas at the end of the transaction.
+
+			// TODO: we can trace this more granularly by providing the specific reason for entire
+			// transaction: intrinsic, call, create, refund, and EIP-7623 data floor
+			t.OnGasChange(startLeftoverGas, leftoverGas, tracing.GasChangeUnspecified)
+		}()
+	}
+
+	sender := msg.From
+	contractCreation := msg.To == nil
+	isLondon := cfg.ChainConfig.IsLondon(evm.Context.BlockNumber)
+
+	intrinsicGas, err := k.GetEthIntrinsicGas(ctx, msg, cfg.ChainConfig, contractCreation)
+	if err != nil {
+		// should have already been checked on Ante Handler
+		return nil, nil, errorsmod.Wrap(err, "intrinsic gas failed")
+	}
+
+	// EIP-7623 floor. Pre-Prague the helper returns (0, nil), so the
+	// downstream checks are no-ops without an explicit fork gate.
+	floorDataGas, err := k.GetEthFloorDataGas(ctx, msg, cfg.ChainConfig)
+	if err != nil {
+		return nil, nil, errorsmod.Wrap(err, "floor data gas failed")
+	}
+
+	// Should check again even if it is checked on Ante Handler, because eth_call don't go through Ante Handler.
+	if leftoverGas < intrinsicGas {
+		// eth_estimateGas will check for this exact error
+		return nil, nil, errorsmod.Wrap(core.ErrIntrinsicGas, "apply message")
+	}
+	if msg.GasLimit < floorDataGas {
+		return nil, nil, errorsmod.Wrapf(core.ErrFloorDataGas, "apply message: have %d, want %d", msg.GasLimit, floorDataGas)
+	}
+	leftoverGas -= intrinsicGas
+
+	if t := vmCfg.Tracer; t != nil && t.OnTxStart != nil {
+		if sourceTx, ok := wrapper.GetSourceTx(); ok {
+			t.OnTxStart(evm.GetVMContext(), sourceTx, msg.From)
+
+			if t.OnTxEnd != nil {
+				defer func() {
+					// Create an impromptu receipt with only GasUsed being set.
+					// Only this field is used by all existing implementations
+					// of OnTxEnd but beware, future implementations may need
+					// more so, this code may become subject of a bigger refactoring.
+					receipt := &ethtypes.Receipt{
+						GasUsed: gasUsed,
+					}
+
+					t.OnTxEnd(receipt, vmErr)
+				}()
+			}
+		}
+	}
+
+	// access list preparation is moved from ante handler to here, because it's needed when `ApplyMessage` is called
+	// under contexts where ante handlers are not run, for example `eth_call` and `eth_estimateGas`.
+	if rules.IsBerlin {
+		stateDB.Prepare(rules, msg.From, evm.Context.Coinbase, msg.To, maps.Keys(evm.Precompiles()), msg.AccessList)
+	}
+
+	value := uint256.NewInt(0)
+	value.SetFromBig(msg.Value)
+	if contractCreation {
+		// take over the nonce management from evm:
+		// - reset sender's nonce to msg.Nonce() before calling evm.
+		// - increase sender's nonce by one no matter the result.
+		stateDB.SetNonce(sender, msg.Nonce, tracing.NonceChangeUnspecified)
+		ret, _, leftoverGas, vmErr = evm.Create(sender, msg.Data, leftoverGas, value)
+		stateDB.SetNonce(sender, msg.Nonce+1, tracing.NonceChangeUnspecified)
+	} else {
+		// Apply set-code authorizations before calling evm.Call.
+		//
+		// Sender nonce was bumped before reaching here — by
+		// EthIncrementSenderSequenceDecorator on consensus paths, and by an
+		// explicit bump at each non-consensus path (e.g. simulate, eth_call).
+		// Self-sponsored auths therefore see the post-bump nonce.
+		//
+		// applySetCodeAuthorizations is EIP-7702 logic but needs no
+		// IsPrague gate here. Pre-Prague both of its inputs are absent:
+		// msg.SetCodeAuthorizations is rejected by the check at the
+		// top of applyMessageWithConfig, and msg.To cannot carry a
+		// delegation marker because none could have been installed yet.
+		// The call is a no-op in that case.
+		precompiles := evm.Precompiles()
+		isPrecompile := func(addr common.Address) bool {
+			_, ok := precompiles[addr]
+			return ok
+		}
+		applySetCodeAuthorizations(k.Logger(ctx), stateDB, cfg.ChainConfig.ChainID, msg, isPrecompile)
+
+		ret, leftoverGas, vmErr = evm.Call(sender, *msg.To, msg.Data, leftoverGas, value)
+	}
+
+	refundQuotient := params.RefundQuotient
+
+	// After EIP-3529: refunds are capped to gasUsed / 5
+	if isLondon {
+		refundQuotient = params.RefundQuotientEIP3529
+	}
+
+	// calculate gas refund
+	if msg.GasLimit < leftoverGas {
+		return nil, nil, errorsmod.Wrap(types.ErrGasOverflow, "apply message")
+	}
+	// refund gas
+	temporaryGasUsed := msg.GasLimit - leftoverGas
+	refund := GasToRefund(stateDB.GetRefund(), temporaryGasUsed, refundQuotient)
+
+	// update leftoverGas and temporaryGasUsed with refund amount
+	leftoverGas += refund
+	temporaryGasUsed -= refund
+
+	// EVM execution error needs to be available for the JSON-RPC client
+	var vmError string
+	if vmErr != nil {
+		vmError = vmErr.Error()
+	}
+
+	// The dirty states in `StateDB` is either committed or discarded after return
+	var committedChanges []statedb.StateChange
+	if commit {
+		if err := stateDB.Commit(); err != nil {
+			return nil, nil, errorsmod.Wrap(err, "failed to commit stateDB")
+		}
+
+		committedChanges = stateDB.CommittedStateChanges()
+		if len(committedChanges) > 0 {
+			ctx.Logger().Debug(
+				"EVM state committed",
+				"changesCount", len(committedChanges),
+				"txHash", txConfig.TxHash.Hex(),
+			)
+		}
+	}
+
+	// EIP-7623: clamp temporaryGasUsed up to the floor. The subtraction is
+	// safe because the pre-check guarantees msg.GasLimit >= floorDataGas.
+	// The subsequent LegacyMaxDec(minimumGasUsed, temporaryGasUsed) composes
+	// both floors automatically — whichever is larger wins. Pre-Prague the
+	// helper returns 0, so the comparison is inert without an explicit gate.
+	// Tracer attribution stays coarse with intrinsic / refund / call (see
+	// the deferred GasChangeUnspecified above); per-segment OnGasChange
+	// events are tracked under that TODO and emitted together when the
+	// time comes.
+	if temporaryGasUsed < floorDataGas {
+		temporaryGasUsed = floorDataGas
+		leftoverGas = msg.GasLimit - temporaryGasUsed
+	}
+
+	// calculate a minimum amount of gas to be charged to sender if GasLimit
+	// is considerably higher than GasUsed to stay more aligned with Tendermint gas mechanics
+	// for more info https://github.com/mezo/ethermint/issues/1085
+	gasLimit := sdkmath.LegacyNewDec(int64(msg.GasLimit)) //nolint:gosec
+	minGasMultiplier := k.GetMinGasMultiplier(ctx)
+	minimumGasUsed := gasLimit.Mul(minGasMultiplier)
+
+	if msg.GasLimit < leftoverGas {
+		return nil, nil, errorsmod.Wrapf(types.ErrGasOverflow, "message gas limit < leftover gas (%d < %d)", msg.GasLimit, leftoverGas)
+	}
+
+	gasUsed = sdkmath.LegacyMaxDec(minimumGasUsed, sdkmath.LegacyNewDec(int64(temporaryGasUsed))).TruncateInt().Uint64() //nolint:gosec
+
+	// reset leftoverGas, to be used by the tracer
+	leftoverGas = msg.GasLimit - gasUsed
+
+	return &types.MsgEthereumTxResponse{
+		GasUsed: gasUsed,
+		VmError: vmError,
+		Ret:     ret,
+		Logs:    types.NewLogsFromEth(stateDB.Logs()),
+		Hash:    txConfig.TxHash.Hex(),
+	}, committedChanges, nil
+}
+
+// MessageWrapper is an auxiliary structure holding the msg with its
+// (optional) source transaction.
+type MessageWrapper struct {
+	// msg the actual message to be executed.
+	msg core.Message
+	// sourceTx is an optional field holding the transaction the msg was
+	// generated from.
+	sourceTx *ethtypes.Transaction
+}
+
+// WrapMessage creates a MessageWrapper from the given message, without
+// the source transaction.
+func WrapMessage(msg core.Message) MessageWrapper {
+	return MessageWrapper{msg: msg, sourceTx: nil}
+}
+
+// WrapMessageWithSource creates a MessageWrapper from the given message, with
+// the source transaction.
+func WrapMessageWithSource(
+	msg core.Message,
+	sourceTx *ethtypes.Transaction,
+) MessageWrapper {
+	return MessageWrapper{msg: msg, sourceTx: sourceTx}
+}
+
+// Unwrap gets the underlying core.Message.
+func (mw MessageWrapper) Unwrap() core.Message {
+	return mw.msg
+}
+
+// GetSourceTx gets the source transaction and a boolean flag indicating
+// its presence.
+func (mw MessageWrapper) GetSourceTx() (*ethtypes.Transaction, bool) {
+	return mw.sourceTx, mw.sourceTx != nil
+}

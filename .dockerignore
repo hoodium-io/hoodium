@@ -1,0 +1,17 @@
+.localnode
+.localnet
+.public-testnet
+
+build
+deployment
+!deployment/docker/*.sh
+.github
+infrastructure
+networks
+Dockerfile
+**/tmp/
+.gitignore
+docs/
+scripts/
+# Do not add `.git` to this file.
+# It is needed when building Docker image.

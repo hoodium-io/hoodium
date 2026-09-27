@@ -1,0 +1,217 @@
+import { task } from 'hardhat/config'
+import '@nomicfoundation/hardhat-toolbox'
+
+import abi from '../../maintenance/abi.json'
+const precompileAddress = '0x7b7c000000000000000000000000000000000013'
+
+task('maintenance:getSupportNonEIP155Txs', 'Checks status of support for the non-EIP155 txs without replay protection', async (taskArguments, hre) => {
+  const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const value = await maintenance.getSupportNonEIP155Txs()
+  console.log(value)
+})
+
+task('maintenance:setSupportNonEIP155Txs', 'Enables/disables support for the non-EIP155 txs without replay protection')
+  .addParam('signer', 'The signer address (msg.sender)')
+  .addParam('value', 'The new value of the flag')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setSupportNonEIP155Txs(taskArguments.value === 'true')
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:getSelfDestructDisabled', 'Checks whether the SELFDESTRUCT opcode is disabled', async (taskArguments, hre) => {
+  const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const value = await maintenance.getSelfDestructDisabled()
+  console.log(value)
+})
+
+task('maintenance:setSelfDestructDisabled', 'Enables/disables the SELFDESTRUCT opcode')
+  .addParam('signer', 'The owner address (msg.sender)')
+  .addParam('value', 'The new value of the flag')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setSelfDestructDisabled(taskArguments.value === 'true')
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:setPrecompileByteCode', 'Updates the byte code associated with a precompile')
+  .addParam('signer', 'The signer address (msg.sender)')
+  .addParam('precompile', 'The precompile contract address')
+  .addParam('code', 'The new byte code')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setPrecompileByteCode(taskArguments.precompile, taskArguments.code)
+    const confirmed = await pending.wait()
+    console.log(confirmed)
+  })
+
+task('maintenance:getPrecompileByteCode', '')
+  .addParam('precompile', 'The precompile contract address')
+  .setAction(async (taskArguments, hre) => {
+    const code = await hre.ethers.provider.getCode(taskArguments.precompile)
+    console.log(code)
+  })
+
+task('maintenance:setChainFeeSplitterAddress', 'Sets the chain fee splitter address')
+  .addParam('signer', 'The owner address (msg.sender)')
+  .addParam('address', 'Address of the chain fee splitter contract')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setChainFeeSplitterAddress(taskArguments.address)
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:getChainFeeSplitterAddress', 'Gets the chain fee splitter address')
+  .setAction(async (taskArguments, hre) => {
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const address = await maintenance.getChainFeeSplitterAddress()
+    console.log(address)
+  })
+
+task('maintenance:setMinGasPrice', 'Sets the minimum gas price')
+  .addParam('signer', 'The owner address (msg.sender)')
+  .addParam('price', 'The minimum gas price')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setMinGasPrice(taskArguments.price)
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:getMinGasPrice', 'Gets the minimum gas price')
+  .setAction(async (taskArguments, hre) => {
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const price = await maintenance.getMinGasPrice()
+    console.log(price)
+  })
+
+task('maintenance:setMaxPrecompilesCallsPerExecution', 'Sets the maximum number of precompile calls allowed per transaction execution')
+  .addParam('signer', 'The owner address (msg.sender)')
+  .addParam('value', 'The maximum precompile calls per execution')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setMaxPrecompilesCallsPerExecution(taskArguments.value)
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:getMaxPrecompilesCallsPerExecution', 'Gets the maximum number of precompile calls allowed per transaction execution')
+  .setAction(async (taskArguments, hre) => {
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const value = await maintenance.getMaxPrecompilesCallsPerExecution()
+    console.log(value)
+  })
+
+task('maintenance:setEmergencyTeam', 'Grants the Emergency Team role to the given address')
+  .addParam('signer', 'The owner address (msg.sender)')
+  .addParam('team', 'The address that takes the role (0x0 revokes the role)')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setEmergencyTeam(taskArguments.team)
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:getEmergencyTeam', 'Gets the current Emergency Team')
+  .setAction(async (taskArguments, hre) => {
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const team = await maintenance.getEmergencyTeam()
+    console.log(team)
+  })
+
+task('maintenance:setBridgeLockdown', 'Enables or disables the bridge lockdown, per direction')
+  .addParam('signer', 'The Emergency Team or owner address (msg.sender)')
+  .addParam('bridgeIn', 'Whether to stop bridging in (true/false)')
+  .addParam('bridgeOut', 'Whether to stop bridging out (true/false)')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setBridgeLockdown(
+      taskArguments.bridgeIn === 'true',
+      taskArguments.bridgeOut === 'true'
+    )
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:getBridgeLockdown', 'Gets the bridge lockdown state, per direction')
+  .setAction(async (taskArguments, hre) => {
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const lockdown = await maintenance.getBridgeLockdown()
+    console.log('bridgeIn:', lockdown[0])
+    console.log('bridgeOut:', lockdown[1])
+  })
+
+task('maintenance:setTxLockdown', 'Enables or disables the transaction lockdown')
+  .addParam('signer', 'The Emergency Team or owner address (msg.sender)')
+  .addParam('enabled', 'Whether to stop transactions (true/false)')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setTxLockdown(taskArguments.enabled === 'true')
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:getTxLockdown', 'Gets the transaction lockdown state')
+  .setAction(async (taskArguments, hre) => {
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const enabled = await maintenance.getTxLockdown()
+    console.log(enabled)
+  })
+
+// parseAddressList turns a comma-separated list of addresses into an array.
+// An empty string gives an empty array.
+const parseAddressList = (list: string): string[] =>
+  list.split(',').map((address) => address.trim()).filter((address) => address.length > 0)
+
+task('maintenance:setTxLockdownAllowlist', 'Replaces the extra allowlists of the transaction lockdown')
+  .addParam('signer', 'The Emergency Team or owner address (msg.sender)')
+  .addParam('senders', 'The extra allowed senders, comma-separated (empty matches every sender)')
+  .addParam('targets', 'The extra allowed targets, comma-separated (empty matches every target)')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setTxLockdownAllowlist(
+      parseAddressList(taskArguments.senders),
+      parseAddressList(taskArguments.targets)
+    )
+    const confirmed = await pending.wait()
+    console.log(confirmed.hash)
+  })
+
+task('maintenance:getTxLockdownAllowlist', 'Gets the extra allowlists of the transaction lockdown')
+  .setAction(async (taskArguments, hre) => {
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const allowlist = await maintenance.getTxLockdownAllowlist()
+    console.log('senders:', allowlist[0])
+    console.log('targets:', allowlist[1])
+  })
+
+task('maintenance:setChainLockdown', 'WARNING: HALTS THE CHAIN. Every validator stops at the next block and recovery is off chain')
+  .addParam('signer', 'The Emergency Team or owner address (msg.sender)')
+  .addParam('planName', 'The upgrade plan name; the recovery release must carry this exact name')
+  .setAction(async (taskArguments, hre) => {
+    const signer = await hre.ethers.getSigner(taskArguments.signer)
+    const maintenance = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await maintenance.setChainLockdown(taskArguments.planName)
+    // Print the hash before the wait. The node stops one block after this
+    // transaction, so the receipt may never arrive.
+    console.log(pending.hash)
+    try {
+      await pending.wait()
+      console.log('confirmed, the chain halts at the next block')
+    } catch (err) {
+      console.log('cannot read the receipt, the node may already be down:', (err as Error).message)
+    }
+  })
