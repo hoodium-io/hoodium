@@ -36,12 +36,12 @@ if ! [[ "$NODE_INDEX" =~ ^[0-9]+$ ]] || [ "$NODE_INDEX" -ge "${#NODE_NAMES[@]}" 
 fi
 
 NODE_NAME=${NODE_NAMES[$NODE_INDEX]}
-NODE_HOMEDIR="$HOMEDIR/$NODE_NAME/mezod"
+NODE_HOMEDIR="$HOMEDIR/$NODE_NAME/runed"
 
 echo "starting node $NODE_NAME with home directory $NODE_HOMEDIR"
 
-# start the mezod binary
-./build/mezod start --home "$NODE_HOMEDIR" \
+# start the runed binary
+./build/runed start --home "$NODE_HOMEDIR" \
   --chain-id=$LOCALNET_CHAIN_ID \
   --json-rpc.api="eth,web3,net,debug,miner,txpool,personal,mezo" \
   --json-rpc.enable

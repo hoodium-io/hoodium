@@ -31,7 +31,7 @@ import (
 	"github.com/hoodium-io/hoodium/rpc"
 
 	"github.com/hoodium-io/hoodium/server/config"
-	mezodtypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 )
 
 const ServerStartTime = 5 * time.Second
@@ -42,9 +42,9 @@ func StartJSONRPC(ctx *server.Context,
 	tmRPCAddr,
 	tmEndpoint string,
 	config *config.Config,
-	indexer mezodtypes.EVMTxIndexer,
+	indexer runetypes.EVMTxIndexer,
 ) (*http.Server, chan struct{}, error) {
-	cometWsClient, err := mezodtypes.ConnectCometWS(ctx.Logger, tmRPCAddr, tmEndpoint, "evm-jsonrpc-http")
+	cometWsClient, err := runetypes.ConnectCometWS(ctx.Logger, tmRPCAddr, tmEndpoint, "evm-jsonrpc-http")
 	if err != nil {
 		return nil, nil, fmt.Errorf("internal cometbft ws client could not be created for evm-jsonrpc-http: %w", err)
 	}
@@ -116,7 +116,7 @@ func StartJSONRPC(ctx *server.Context,
 	ctx.Logger.Info("Starting JSON WebSocket server", "address", config.JSONRPC.WsAddress)
 
 	// allocate separate WS connection to CometBFT RPC
-	cometWsClient, err = mezodtypes.ConnectCometWS(ctx.Logger, tmRPCAddr, tmEndpoint, "evm-jsonrpc-ws")
+	cometWsClient, err = runetypes.ConnectCometWS(ctx.Logger, tmRPCAddr, tmEndpoint, "evm-jsonrpc-ws")
 	if err != nil {
 		return nil, nil, fmt.Errorf("internal cometbft ws client could not be created for evm-jsonrpc-ws: %w", err)
 	}

@@ -9,7 +9,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/hoodium-io/hoodium/crypto/hd"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 )
 
 type LocalKey struct {
@@ -17,7 +17,7 @@ type LocalKey struct {
 }
 
 func importMnemonic(mnemonic string) string {
-	privKey, _ := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, mezotypes.BIP44HDPath)
+	privKey, _ := hd.EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, runetypes.BIP44HDPath)
 
 	_, _, address := getAccountFromRaw(privKey)
 	fmt.Printf("loaded menomic key: %v\n", address)
@@ -37,7 +37,7 @@ func importKey(path string) string {
 		log.Fatalf("invalid local key file: %v", err)
 	}
 
-	privKey, _ := hd.EthSecp256k1.Derive()(lkey.Secret, keyring.DefaultBIP39Passphrase, mezotypes.BIP44HDPath)
+	privKey, _ := hd.EthSecp256k1.Derive()(lkey.Secret, keyring.DefaultBIP39Passphrase, runetypes.BIP44HDPath)
 
 	_, _, address := getAccountFromRaw(privKey)
 	fmt.Printf("loaded local key: %v\n", address)

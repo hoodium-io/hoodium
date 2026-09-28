@@ -20,7 +20,7 @@ import (
 	"github.com/hoodium-io/hoodium/rpc/backend/mocks"
 	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"google.golang.org/grpc/metadata"
 )
@@ -477,7 +477,7 @@ func (suite *BackendTestSuite) TestQueryTendermintTxIndexer() {
 		registerMock func()
 		txGetter     func(*rpctypes.ParsedTxs) *rpctypes.ParsedTx
 		query        string
-		expTxResult  *mezotypes.TxResult
+		expTxResult  *runetypes.TxResult
 		expPass      bool
 	}{
 		{
@@ -490,7 +490,7 @@ func (suite *BackendTestSuite) TestQueryTendermintTxIndexer() {
 				return &rpctypes.ParsedTx{}
 			},
 			"",
-			&mezotypes.TxResult{},
+			&runetypes.TxResult{},
 			false,
 		},
 	}
@@ -588,7 +588,7 @@ func (suite *BackendTestSuite) TestGetGasUsed() {
 	testCases := []struct {
 		name                     string
 		fixRevertGasRefundHeight int64
-		txResult                 *mezotypes.TxResult
+		txResult                 *runetypes.TxResult
 		price                    *big.Int
 		gas                      uint64
 		exp                      uint64
@@ -596,7 +596,7 @@ func (suite *BackendTestSuite) TestGetGasUsed() {
 		{
 			"success txResult",
 			1,
-			&mezotypes.TxResult{
+			&runetypes.TxResult{
 				Height:  1,
 				Failed:  false,
 				GasUsed: 53026,
@@ -608,7 +608,7 @@ func (suite *BackendTestSuite) TestGetGasUsed() {
 		{
 			"fail txResult before cap",
 			2,
-			&mezotypes.TxResult{
+			&runetypes.TxResult{
 				Height:  1,
 				Failed:  true,
 				GasUsed: 53026,
@@ -620,7 +620,7 @@ func (suite *BackendTestSuite) TestGetGasUsed() {
 		{
 			"fail txResult after cap",
 			2,
-			&mezotypes.TxResult{
+			&runetypes.TxResult{
 				Height:  3,
 				Failed:  true,
 				GasUsed: 53026,

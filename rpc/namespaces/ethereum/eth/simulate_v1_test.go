@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
@@ -163,7 +163,7 @@ func (f *fakeBackend) SuggestGasTipCap(*big.Int) (*big.Int, error) { return nil,
 func (f *fakeBackend) GetTransactionByHash(common.Hash) (*rpctypes.RPCTransaction, error) {
 	return nil, nil
 }
-func (f *fakeBackend) GetTxByEthHash(common.Hash) (*mezotypes.TxResult, error) { return nil, nil }
+func (f *fakeBackend) GetTxByEthHash(common.Hash) (*runetypes.TxResult, error) { return nil, nil }
 func (f *fakeBackend) GetTransactionByBlockAndIndex(*tmrpctypes.ResultBlock, hexutil.Uint) (*rpctypes.RPCTransaction, error) {
 	return nil, nil
 }

@@ -17,7 +17,7 @@ import (
 
 	cryptocodec "github.com/hoodium-io/hoodium/crypto/codec"
 	enccodec "github.com/hoodium-io/hoodium/encoding/codec"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 )
 
 var TestCodec amino.Codec
@@ -52,7 +52,7 @@ func TestKeyring(t *testing.T) {
 	require.Nil(t, info)
 
 	mockIn.Reset("password\npassword\n")
-	info, mnemonic, err := kr.NewMnemonic("foo", keyring.English, mezotypes.BIP44HDPath, keyring.DefaultBIP39Passphrase, EthSecp256k1)
+	info, mnemonic, err := kr.NewMnemonic("foo", keyring.English, runetypes.BIP44HDPath, keyring.DefaultBIP39Passphrase, EthSecp256k1)
 	require.NoError(t, err)
 	require.NotEmpty(t, mnemonic)
 	require.Equal(t, "foo", info.Name)
@@ -61,7 +61,7 @@ func TestKeyring(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, string(EthSecp256k1Type), pubKey.Type())
 
-	hdPath := mezotypes.BIP44HDPath
+	hdPath := runetypes.BIP44HDPath
 
 	bz, err := EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, hdPath)
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func TestKeyring(t *testing.T) {
 }
 
 func TestDerivation(t *testing.T) {
-	bz, err := EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, mezotypes.BIP44HDPath)
+	bz, err := EthSecp256k1.Derive()(mnemonic, keyring.DefaultBIP39Passphrase, runetypes.BIP44HDPath)
 	require.NoError(t, err)
 	require.NotEmpty(t, bz)
 
@@ -105,7 +105,7 @@ func TestDerivation(t *testing.T) {
 	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
 	require.NoError(t, err)
 
-	path := hdwallet.MustParseDerivationPath(mezotypes.BIP44HDPath)
+	path := hdwallet.MustParseDerivationPath(runetypes.BIP44HDPath)
 	account, err := wallet.Derive(path, false)
 	require.NoError(t, err)
 

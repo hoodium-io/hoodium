@@ -26,7 +26,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/hoodium-io/hoodium/rpc/types"
-	mezodtypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 
 	"cosmossdk.io/log"
 
@@ -98,7 +98,7 @@ type PublicFilterAPI struct {
 }
 
 // NewPublicAPI returns a new PublicFilterAPI instance.
-func NewPublicAPI(logger log.Logger, clientCtx client.Context, cometWSClient *mezodtypes.CometWSClient, backend Backend) *PublicFilterAPI {
+func NewPublicAPI(logger log.Logger, clientCtx client.Context, cometWSClient *runetypes.CometWSClient, backend Backend) *PublicFilterAPI {
 	logger = logger.With("api", "filter")
 
 	eventSystem := NewEventSystem(

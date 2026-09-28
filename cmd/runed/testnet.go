@@ -57,11 +57,11 @@ import (
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
 	"github.com/hoodium-io/hoodium/utils"
 
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
-	mezokr "github.com/hoodium-io/hoodium/crypto/keyring"
+	runekr "github.com/hoodium-io/hoodium/crypto/keyring"
 	"github.com/hoodium-io/hoodium/testutil/network"
 
 	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
@@ -144,7 +144,7 @@ or a similar setup where each node has a manually configurable IP address.
 Note, strict routability for addresses is turned off in the config file.
 
 Example:
-	mezod testnet init-files --v 4 --output-dir ./.testnets --starting-ip-address 192.168.10.2
+	runed testnet init-files --v 4 --output-dir ./.testnets --starting-ip-address 192.168.10.2
 	`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -171,7 +171,7 @@ Example:
 
 	addTestnetFlagsToCmd(cmd)
 	cmd.Flags().String(flagNodeDirPrefix, "node", "Prefix the directory name for each node with (node results in node0, node1, ...)")
-	cmd.Flags().String(flagNodeDaemonHome, "mezod", "Home directory of the node's daemon configuration")
+	cmd.Flags().String(flagNodeDaemonHome, "runed", "Home directory of the node's daemon configuration")
 	cmd.Flags().String(flagStartingIPAddress, "192.168.0.1", "Starting IP address (192.168.0.1 results in persistent peers list ID0@192.168.0.1:46656, ID1@192.168.0.2:46656, ...). Setting this flag to localhost results in configuration generation for binary-based localnet")
 	cmd.Flags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend (os|file|test)")
 
@@ -188,7 +188,7 @@ and generate "v" directories, populated with necessary validator configuration f
 (private validator, genesis, config, etc.).
 
 Example:
-	mezod testnet --v 4 --output-dir ./.testnets
+	runed testnet --v 4 --output-dir ./.testnets
 	`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			args := startArgs{}
@@ -287,7 +287,7 @@ func initTestnetFiles(
 			nodeDir,
 			inBuf,
 			clientCtx.Codec,
-			mezokr.Option(),
+			runekr.Option(),
 		)
 		if err != nil {
 			return err
@@ -337,7 +337,7 @@ func initTestnetFiles(
 			banktypes.Balance{Address: address.String(), Coins: coins.Sort()},
 		)
 		genAccounts = append(
-			genAccounts, &mezotypes.EthAccount{
+			genAccounts, &runetypes.EthAccount{
 				BaseAccount: authtypes.NewBaseAccount(address, nil, 0, 0),
 				CodeHash:    common.BytesToHash(evmtypes.EmptyCodeHash).Hex(),
 			},

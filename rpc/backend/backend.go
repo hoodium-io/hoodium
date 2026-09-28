@@ -37,7 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
 	"github.com/hoodium-io/hoodium/server/config"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
@@ -119,7 +119,7 @@ type EVMBackend interface {
 
 	// Tx Info
 	GetTransactionByHash(txHash common.Hash) (*rpctypes.RPCTransaction, error)
-	GetTxByEthHash(txHash common.Hash) (*mezotypes.TxResult, error)
+	GetTxByEthHash(txHash common.Hash) (*runetypes.TxResult, error)
 	GetTransactionByBlockAndIndex(block *tmrpctypes.ResultBlock, idx hexutil.Uint) (*rpctypes.RPCTransaction, error)
 	GetTransactionReceipt(hash common.Hash) (map[string]interface{}, error)
 	GetTransactionByBlockHashAndIndex(hash common.Hash, idx hexutil.Uint) (*rpctypes.RPCTransaction, error)
@@ -156,7 +156,7 @@ type Backend struct {
 	chainID             *big.Int
 	cfg                 config.Config
 	allowUnprotectedTxs bool
-	indexer             mezotypes.EVMTxIndexer
+	indexer             runetypes.EVMTxIndexer
 }
 
 // NewBackend creates a new Backend instance for cosmos and ethereum namespaces
@@ -165,9 +165,9 @@ func NewBackend(
 	logger log.Logger,
 	clientCtx client.Context,
 	allowUnprotectedTxs bool,
-	indexer mezotypes.EVMTxIndexer,
+	indexer runetypes.EVMTxIndexer,
 ) *Backend {
-	chainID, err := mezotypes.ParseChainID(clientCtx.ChainID)
+	chainID, err := runetypes.ParseChainID(clientCtx.ChainID)
 	if err != nil {
 		panic(err)
 	}

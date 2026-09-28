@@ -31,7 +31,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/ethereum/go-ethereum/common"
-	mezokr "github.com/hoodium-io/hoodium/crypto/keyring"
+	runekr "github.com/hoodium-io/hoodium/crypto/keyring"
 	"github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"github.com/spf13/cobra"
@@ -74,7 +74,7 @@ func NewAddAccountCmd() *cobra.Command {
 						clientCtx.HomeDir,
 						inBuf,
 						clientCtx.Codec,
-						mezokr.Option(),
+						runekr.Option(),
 					)
 					if err != nil {
 						return err

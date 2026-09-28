@@ -70,7 +70,7 @@ import (
 	simutils "github.com/cosmos/cosmos-sdk/testutil/sims"
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/server/config"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	netutils "github.com/cosmos/cosmos-sdk/testutil/network"
@@ -131,10 +131,10 @@ func DefaultConfig() Config {
 		ChainID:           fmt.Sprintf("mezo_%d-1", tmrand.Int63n(9999999999999)+1),
 		NumValidators:     4,
 		BondDenom:         "arune",
-		MinGasPrices:      fmt.Sprintf("0.000006%s", mezotypes.AttoBtc),
-		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, mezotypes.PowerReduction),
-		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, mezotypes.PowerReduction),
-		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, mezotypes.PowerReduction),
+		MinGasPrices:      fmt.Sprintf("0.000006%s", runetypes.AttoBtc),
+		AccountTokens:     sdk.TokensFromConsensusPower(1000000000000000000, runetypes.PowerReduction),
+		StakingTokens:     sdk.TokensFromConsensusPower(500000000000000000, runetypes.PowerReduction),
+		BondedTokens:      sdk.TokensFromConsensusPower(100000000000000000, runetypes.PowerReduction),
 		PruningStrategy:   pruningtypes.PruningOptionNothing,
 		CleanupDir:        true,
 		SigningAlgo:       string(hd.EthSecp256k1Type),
@@ -237,7 +237,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 	l.Log("acquiring test network lock")
 	lock.Lock()
 
-	if !mezotypes.IsValidChainID(cfg.ChainID) {
+	if !runetypes.IsValidChainID(cfg.ChainID) {
 		return nil, fmt.Errorf("invalid chain-id: %s", cfg.ChainID)
 	}
 
@@ -367,8 +367,8 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 		ctx.Logger = logger
 
 		nodeDirName := fmt.Sprintf("node%d", i)
-		nodeDir := filepath.Join(network.BaseDir, nodeDirName, "mezod")
-		clientDir := filepath.Join(network.BaseDir, nodeDirName, "mezocli")
+		nodeDir := filepath.Join(network.BaseDir, nodeDirName, "runed")
+		clientDir := filepath.Join(network.BaseDir, nodeDirName, "runecli")
 		gentxsDir := filepath.Join(network.BaseDir, "gentxs")
 
 		err := os.MkdirAll(filepath.Join(nodeDir, "config"), 0o750)
@@ -449,7 +449,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 
 		genFiles = append(genFiles, tmCfg.GenesisFile())
 		genBalances = append(genBalances, banktypes.Balance{Address: addr.String(), Coins: balances.Sort()})
-		genAccounts = append(genAccounts, &mezotypes.EthAccount{
+		genAccounts = append(genAccounts, &runetypes.EthAccount{
 			BaseAccount: authtypes.NewBaseAccount(addr, nil, 0, 0),
 			CodeHash:    common.BytesToHash(evmtypes.EmptyCodeHash).Hex(),
 		})
@@ -513,7 +513,7 @@ func New(l Logger, baseDir string, cfg Config) (*Network, error) {
 			return nil, err
 		}
 
-		customAppTemplate, _ := config.AppConfig(mezotypes.AttoBtc)
+		customAppTemplate, _ := config.AppConfig(runetypes.AttoBtc)
 		srvconfig.SetConfigTemplate(customAppTemplate)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appCfg)
 

@@ -28,7 +28,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/hoodium-io/hoodium/x/evm/types"
 )
@@ -187,7 +187,7 @@ func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account stated
 
 	codeHash := common.BytesToHash(account.CodeHash)
 
-	if ethAcct, ok := acct.(mezotypes.EthAccountI); ok {
+	if ethAcct, ok := acct.(runetypes.EthAccountI); ok {
 		if err := ethAcct.SetCodeHash(codeHash); err != nil {
 			return err
 		}
@@ -269,7 +269,7 @@ func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address, balance *bi
 	}
 
 	// NOTE: only Ethereum accounts (contracts) can be selfdestructed
-	_, ok := acct.(mezotypes.EthAccountI)
+	_, ok := acct.(runetypes.EthAccountI)
 	if !ok {
 		return errorsmod.Wrapf(types.ErrInvalidAccount, "type %T, address %s", acct, addr)
 	}

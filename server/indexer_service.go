@@ -23,7 +23,7 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	"github.com/cometbft/cometbft/types"
 
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 )
 
 const (
@@ -36,13 +36,13 @@ const (
 type EVMIndexerService struct {
 	service.BaseService
 
-	txIdxr mezotypes.EVMTxIndexer
+	txIdxr runetypes.EVMTxIndexer
 	client rpcclient.Client
 }
 
 // NewEVMIndexerService returns a new service instance.
 func NewEVMIndexerService(
-	txIdxr mezotypes.EVMTxIndexer,
+	txIdxr runetypes.EVMTxIndexer,
 	client rpcclient.Client,
 ) *EVMIndexerService {
 	is := &EVMIndexerService{txIdxr: txIdxr, client: client}

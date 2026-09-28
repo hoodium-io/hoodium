@@ -33,7 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/holiman/uint256"
 	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/hoodium-io/hoodium/x/evm/types"
@@ -153,7 +153,7 @@ func (suite *EvmTestSuite) DoSetupTest(t require.TestingT) {
 
 	nextAccNumber := suite.app.AccountKeeper.NextAccountNumber(suite.ctx)
 
-	acc := &mezotypes.EthAccount{
+	acc := &runetypes.EthAccount{
 		BaseAccount: authtypes.NewBaseAccount(sdk.AccAddress(address.Bytes()), nil, nextAccNumber, 0),
 		CodeHash:    common.BytesToHash(crypto.Keccak256(nil)).String(),
 	}
@@ -290,7 +290,7 @@ func (suite *EvmTestSuite) TestInitGenesis() {
 			func() {
 				nextAccNumber := suite.app.AccountKeeper.NextAccountNumber(suite.ctx)
 
-				ethAcc := &mezotypes.EthAccount{
+				ethAcc := &runetypes.EthAccount{
 					BaseAccount: authtypes.NewBaseAccount(address.Bytes(), nil, nextAccNumber, 0),
 					CodeHash:    common.BytesToHash([]byte{1, 2, 3}).Hex(),
 				}

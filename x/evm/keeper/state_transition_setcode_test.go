@@ -21,7 +21,7 @@ import (
 	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	"github.com/hoodium-io/hoodium/server/config"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/keeper"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
@@ -202,7 +202,7 @@ func (suite *KeeperTestSuite) freshEthSecp256k1Account() (
 	suite.Require().NoError(err)
 	addr := crypto.PubkeyToAddress(ecdsaPriv.PublicKey)
 
-	acc := &mezotypes.EthAccount{
+	acc := &runetypes.EthAccount{
 		BaseAccount: authtypes.NewBaseAccount(
 			addr.Bytes(),
 			nil,

@@ -9,7 +9,7 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hoodium-io/hoodium/precompile"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmkeeper "github.com/hoodium-io/hoodium/x/evm/keeper"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
@@ -47,7 +47,7 @@ func NewPrecompile(bankKeeper bankkeeper.Keeper, authzkeeper authzkeeper.Keeper,
 	if err != nil {
 		return nil, fmt.Errorf("failed to load abi file: [%w]", err)
 	}
-	chainID, err = mezotypes.ParseChainID(id)
+	chainID, err = runetypes.ParseChainID(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse chain ID: [%w]", err)
 	}

@@ -27,7 +27,7 @@ jobs:
 
       - name: 📦 Archive client binary
         run: |
-          tar -czvf linux-amd64.tar.gz -C build mezod
+          tar -czvf linux-amd64.tar.gz -C build runed
 
       - name: 🔐 Authenticate to Google Cloud
         if: contains(github.ref_name, '-rc')
@@ -57,7 +57,7 @@ jobs:
             --project=mezo-test-420708 \
             --location=us-central1 \
             --repository=mezo-staging-binary-public \
-            --package=mezod \
+            --package=runed \
             --version=${{ github.ref_name }} \
             --source=linux-amd64.tar.gz
 

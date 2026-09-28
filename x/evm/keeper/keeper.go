@@ -36,7 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/hoodium-io/hoodium/precompile"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/hoodium-io/hoodium/x/evm/types"
 
@@ -164,7 +164,7 @@ func (k Keeper) Logger(ctx sdk.Context) log.Logger {
 
 // WithChainID sets the chain id to the local variable in the keeper
 func (k *Keeper) WithChainID(ctx sdk.Context) {
-	chainID, err := mezotypes.ParseChainID(ctx.ChainID())
+	chainID, err := runetypes.ParseChainID(ctx.ChainID())
 	if err != nil {
 		panic(err)
 	}
@@ -338,7 +338,7 @@ func (k *Keeper) GetAccountWithoutBalance(ctx sdk.Context, addr common.Address) 
 	}
 
 	codeHash := types.EmptyCodeHash
-	ethAcct, ok := acct.(mezotypes.EthAccountI)
+	ethAcct, ok := acct.(runetypes.EthAccountI)
 	if ok {
 		codeHash = ethAcct.GetCodeHash().Bytes()
 	}

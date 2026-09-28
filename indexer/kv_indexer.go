@@ -30,7 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
 
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
@@ -42,7 +42,7 @@ const (
 	TxIndexKeyLength = 1 + 8 + 8
 )
 
-var _ mezotypes.EVMTxIndexer = &KVIndexer{}
+var _ runetypes.EVMTxIndexer = &KVIndexer{}
 
 // KVIndexer implements a eth tx indexer on a KV db.
 type KVIndexer struct {
@@ -96,7 +96,7 @@ func (kv *KVIndexer) IndexBlock(block *tmtypes.Block, txResults []*abci.ExecTxRe
 			ethMsg := msg.(*evmtypes.MsgEthereumTx)
 			txHash := common.HexToHash(ethMsg.Hash)
 
-			txResult := mezotypes.TxResult{
+			txResult := runetypes.TxResult{
 				Height:     height,
 				TxIndex:    uint32(txIndex),  //nolint:gosec
 				MsgIndex:   uint32(msgIndex), //nolint:gosec
@@ -147,7 +147,7 @@ func (kv *KVIndexer) FirstIndexedBlock() (int64, error) {
 }
 
 // GetByTxHash finds eth tx by eth tx hash
-func (kv *KVIndexer) GetByTxHash(hash common.Hash) (*mezotypes.TxResult, error) {
+func (kv *KVIndexer) GetByTxHash(hash common.Hash) (*runetypes.TxResult, error) {
 	bz, err := kv.db.Get(TxHashKey(hash))
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "GetByTxHash %s", hash.Hex())
@@ -155,7 +155,7 @@ func (kv *KVIndexer) GetByTxHash(hash common.Hash) (*mezotypes.TxResult, error) 
 	if len(bz) == 0 {
 		return nil, fmt.Errorf("tx not found, hash: %s", hash.Hex())
 	}
-	var txKey mezotypes.TxResult
+	var txKey runetypes.TxResult
 	if err := kv.clientCtx.Codec.Unmarshal(bz, &txKey); err != nil {
 		return nil, errorsmod.Wrapf(err, "GetByTxHash %s", hash.Hex())
 	}
@@ -163,7 +163,7 @@ func (kv *KVIndexer) GetByTxHash(hash common.Hash) (*mezotypes.TxResult, error) 
 }
 
 // GetByBlockAndIndex finds eth tx by block number and eth tx index
-func (kv *KVIndexer) GetByBlockAndIndex(blockNumber int64, txIndex int32) (*mezotypes.TxResult, error) {
+func (kv *KVIndexer) GetByBlockAndIndex(blockNumber int64, txIndex int32) (*runetypes.TxResult, error) {
 	bz, err := kv.db.Get(TxIndexKey(blockNumber, txIndex))
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "GetByBlockAndIndex %d %d", blockNumber, txIndex)
@@ -226,7 +226,7 @@ func isEthTx(tx sdk.Tx) bool {
 }
 
 // saveTxResult index the txResult into the kv db batch
-func saveTxResult(codec codec.Codec, batch dbm.Batch, txHash common.Hash, txResult *mezotypes.TxResult) error {
+func saveTxResult(codec codec.Codec, batch dbm.Batch, txHash common.Hash, txResult *runetypes.TxResult) error {
 	bz := codec.MustMarshal(txResult)
 	if err := batch.Set(TxHashKey(txHash), bz); err != nil {
 		return errorsmod.Wrap(err, "set tx-hash key")

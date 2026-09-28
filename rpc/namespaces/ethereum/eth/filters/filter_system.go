@@ -36,7 +36,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/hoodium-io/hoodium/rpc/ethereum/pubsub"
-	mezodtypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
@@ -62,7 +62,7 @@ type EventSystemConfig struct {
 type EventSystem struct {
 	logger        log.Logger
 	ctx           context.Context
-	cometWSClient *mezodtypes.CometWSClient
+	cometWSClient *runetypes.CometWSClient
 
 	// light client mode
 	lightMode bool
@@ -84,7 +84,7 @@ type EventSystem struct {
 //
 // The returned manager has a loop that needs to be stopped with the Stop function
 // or by stopping the given mux.
-func NewEventSystem(logger log.Logger, cometWSClient *mezodtypes.CometWSClient, config EventSystemConfig) *EventSystem {
+func NewEventSystem(logger log.Logger, cometWSClient *runetypes.CometWSClient, config EventSystemConfig) *EventSystem {
 	index := make(filterIndex)
 	for i := filters.UnknownSubscription; i < filters.LastIndexSubscription; i++ {
 		index[i] = make(map[rpc.ID]*Subscription)

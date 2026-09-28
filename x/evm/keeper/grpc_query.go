@@ -44,7 +44,7 @@ import (
 	ethparams "github.com/ethereum/go-ethereum/params"
 
 	rpctypes "github.com/hoodium-io/hoodium/rpc/types"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/hoodium-io/hoodium/x/evm/types"
 )
@@ -63,7 +63,7 @@ func (k Keeper) Account(c context.Context, req *types.QueryAccountRequest) (*typ
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
-	if err := mezotypes.ValidateAddress(req.Address); err != nil {
+	if err := runetypes.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
 			codes.InvalidArgument, err.Error(),
 		)
@@ -86,7 +86,7 @@ func (k Keeper) CosmosAccount(c context.Context, req *types.QueryCosmosAccountRe
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
-	if err := mezotypes.ValidateAddress(req.Address); err != nil {
+	if err := runetypes.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
 			codes.InvalidArgument, err.Error(),
 		)
@@ -151,7 +151,7 @@ func (k Keeper) Balance(c context.Context, req *types.QueryBalanceRequest) (*typ
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
-	if err := mezotypes.ValidateAddress(req.Address); err != nil {
+	if err := runetypes.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
 			codes.InvalidArgument,
 			types.ErrZeroAddress.Error(),
@@ -173,7 +173,7 @@ func (k Keeper) Storage(c context.Context, req *types.QueryStorageRequest) (*typ
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
-	if err := mezotypes.ValidateAddress(req.Address); err != nil {
+	if err := runetypes.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
 			codes.InvalidArgument,
 			types.ErrZeroAddress.Error(),
@@ -199,7 +199,7 @@ func (k Keeper) Code(c context.Context, req *types.QueryCodeRequest) (*types.Que
 		return nil, status.Error(codes.InvalidArgument, "empty request")
 	}
 
-	if err := mezotypes.ValidateAddress(req.Address); err != nil {
+	if err := runetypes.ValidateAddress(req.Address); err != nil {
 		return nil, status.Error(
 			codes.InvalidArgument,
 			types.ErrZeroAddress.Error(),
@@ -496,7 +496,7 @@ func (k Keeper) EstimateGasInternal(c context.Context, req *types.EthCallRequest
 				return true, nil, err
 			}
 			// Resetting the gasMeter after increasing the sequence to have an accurate gas estimation on transactions against EVM precompiles.
-			gasMeter := mezotypes.NewInfiniteGasMeterWithLimit(msg.GasLimit)
+			gasMeter := runetypes.NewInfiniteGasMeterWithLimit(msg.GasLimit)
 			tmpCtx = tmpCtx.WithGasMeter(gasMeter).
 				WithKVGasConfig(storetypes.GasConfig{}).
 				WithTransientKVGasConfig(storetypes.GasConfig{})
@@ -996,7 +996,7 @@ func (k Keeper) BaseFee(c context.Context, _ *types.QueryBaseFeeRequest) (*types
 // getChainID parse chainID from current context if not provided
 func getChainID(ctx sdk.Context, chainID int64) (*big.Int, error) {
 	if chainID == 0 {
-		return mezotypes.ParseChainID(ctx.ChainID())
+		return runetypes.ParseChainID(ctx.ChainID())
 	}
 	return big.NewInt(chainID), nil
 }

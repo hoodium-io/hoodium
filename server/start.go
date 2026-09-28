@@ -68,7 +68,7 @@ import (
 	ethdebug "github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/debug"
 	"github.com/hoodium-io/hoodium/server/config"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 )
@@ -453,7 +453,7 @@ func startInProcess(ctx *server.Context, clientCtx client.Context, opts StartOpt
 		ethmetricsexp.Setup(config.JSONRPC.MetricsAddress)
 	}
 
-	var idxer mezotypes.EVMTxIndexer
+	var idxer runetypes.EVMTxIndexer
 	if config.JSONRPC.EnableIndexer {
 		idxDB, err := OpenIndexerDB(home, server.GetAppDBBackend(ctx.Viper))
 		if err != nil {

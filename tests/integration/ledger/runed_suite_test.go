@@ -33,7 +33,7 @@ import (
 	cosmosledger "github.com/cosmos/cosmos-sdk/crypto/ledger"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientkeys "github.com/hoodium-io/hoodium/client/keys"
-	mezokeyring "github.com/hoodium-io/hoodium/crypto/keyring"
+	runekeyring "github.com/hoodium-io/hoodium/crypto/keyring"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -168,12 +168,12 @@ func (suite *LedgerTestSuite) mezoAddKeyCmd() *cobra.Command {
 
 func (suite *LedgerTestSuite) MockKeyringOption() keyring.Option {
 	return func(options *keyring.Options) {
-		options.SupportedAlgos = mezokeyring.SupportedAlgorithms
-		options.SupportedAlgosLedger = mezokeyring.SupportedAlgorithmsLedger
+		options.SupportedAlgos = runekeyring.SupportedAlgorithms
+		options.SupportedAlgosLedger = runekeyring.SupportedAlgorithmsLedger
 		options.LedgerDerivation = func() (cosmosledger.SECP256K1, error) { return suite.ledger, nil }
-		options.LedgerCreateKey = mezokeyring.CreatePubkey
-		options.LedgerAppName = mezokeyring.AppName
-		options.LedgerSigSkipDERConv = mezokeyring.SkipDERConversion
+		options.LedgerCreateKey = runekeyring.CreatePubkey
+		options.LedgerAppName = runekeyring.AppName
+		options.LedgerSigSkipDERConv = runekeyring.SkipDERConversion
 	}
 }
 

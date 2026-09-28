@@ -28,7 +28,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/hoodium-io/hoodium/testutil"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/keeper"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/hoodium-io/hoodium/x/evm/types"
@@ -1362,7 +1362,7 @@ func (suite *KeeperTestSuite) balanceOf(addr common.Address) *big.Int {
 	return suite.app.BankKeeper.GetBalance(
 		suite.ctx,
 		sdk.AccAddress(addr.Bytes()),
-		mezotypes.AttoBtc,
+		runetypes.AttoBtc,
 	).Amount.BigInt()
 }
 
@@ -1374,7 +1374,7 @@ func (suite *KeeperTestSuite) fundSender() {
 			suite.ctx,
 			suite.app.BankKeeper,
 			suite.address.Bytes(),
-			sdk.Coins{mezotypes.NewHoodiumCoinInt64(1000)},
+			sdk.Coins{runetypes.NewHoodiumCoinInt64(1000)},
 		),
 	)
 }

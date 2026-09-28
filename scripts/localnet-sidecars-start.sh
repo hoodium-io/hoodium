@@ -15,7 +15,7 @@ else
 fi
 
 #start the ethereum sidecar
-./build/mezod ethereum-sidecar \
+./build/runed ethereum-sidecar \
   --ethereum-sidecar.server.ethereum-node-address=$ETH_SIDECAR_RPC_PROVIDER \
   --ethereum-sidecar.server.address=0.0.0.0:7500 &
 ETH_SIDECAR_PID=$!

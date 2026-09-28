@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hoodium-io/hoodium/precompile"
 	"github.com/hoodium-io/hoodium/precompile/erc20"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmkeeper "github.com/hoodium-io/hoodium/x/evm/keeper"
 )
 
@@ -56,7 +56,7 @@ func NewPrecompile(bankKeeper bankkeeper.Keeper, authzkeeper authzkeeper.Keeper,
 		return nil, fmt.Errorf("failed to load abi file: [%w]", err)
 	}
 
-	chainID, err := mezotypes.ParseChainID(id)
+	chainID, err := runetypes.ParseChainID(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse chain ID: [%w]", err)
 	}

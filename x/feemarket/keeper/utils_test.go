@@ -27,7 +27,7 @@ import (
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/testutil"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	"github.com/hoodium-io/hoodium/x/feemarket/types"
 
@@ -62,7 +62,7 @@ func (suite *KeeperTestSuite) SetupApp(checkTx bool, chainID string) {
 
 	nextAccNumber := suite.app.AccountKeeper.NextAccountNumber(suite.ctx)
 
-	acc := &mezotypes.EthAccount{
+	acc := &runetypes.EthAccount{
 		BaseAccount: authtypes.NewBaseAccount(
 			suite.address.Bytes(),
 			nil,

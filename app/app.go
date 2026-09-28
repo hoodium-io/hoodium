@@ -99,7 +99,7 @@ import (
 	upgradelocal "github.com/hoodium-io/hoodium/precompile/upgrade"
 	"github.com/hoodium-io/hoodium/precompile/validatorpool"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 
 	"github.com/hoodium-io/hoodium/x/evm"
 	evmkeeper "github.com/hoodium-io/hoodium/x/evm/keeper"
@@ -128,17 +128,17 @@ func init() {
 		panic(err)
 	}
 
-	DefaultNodeHome = filepath.Join(userHomeDir, ".mezod")
+	DefaultNodeHome = filepath.Join(userHomeDir, ".runed")
 
 	// manually update the power reduction by replacing micro (u) -> atto (a) btc
-	sdk.DefaultPowerReduction = mezotypes.PowerReduction
+	sdk.DefaultPowerReduction = runetypes.PowerReduction
 	// modify fee market parameter defaults through global
 	feemarkettypes.DefaultMinGasPrice = MainnetMinGasPrices
 	feemarkettypes.DefaultMinGasMultiplier = MainnetMinGasMultiplier
 }
 
 // Name defines the application binary name
-const Name = "mezod"
+const Name = "runed"
 
 var (
 	// DefaultNodeHome default home directories for the application daemon
@@ -323,7 +323,7 @@ func NewHoodium(
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[authtypes.StoreKey]),
-		mezotypes.ProtoAccount,
+		runetypes.ProtoAccount,
 		maccPerms,
 		addressCodec,
 		bech32Prefix,
@@ -556,7 +556,7 @@ func (app *Hoodium) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64
 		Cdc:                    app.appCodec,
 		AccountKeeper:          app.AccountKeeper,
 		BankKeeper:             app.BankKeeper,
-		ExtensionOptionChecker: mezotypes.HasDynamicFeeExtensionOption,
+		ExtensionOptionChecker: runetypes.HasDynamicFeeExtensionOption,
 		EvmKeeper:              app.EvmKeeper,
 		PoaKeeper:              app.PoaKeeper,
 		FeeMarketKeeper:        app.FeeMarketKeeper,

@@ -45,7 +45,7 @@ import (
 	rpcfilters "github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/eth/filters"
 	"github.com/hoodium-io/hoodium/rpc/types"
 	"github.com/hoodium-io/hoodium/server/config"
-	mezodtypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
@@ -90,7 +90,7 @@ type websocketsServer struct {
 	logger   log.Logger
 }
 
-func NewWebsocketsServer(clientCtx client.Context, logger log.Logger, cometWSClient *mezodtypes.CometWSClient, cfg *config.Config) WebsocketsServer {
+func NewWebsocketsServer(clientCtx client.Context, logger log.Logger, cometWSClient *runetypes.CometWSClient, cfg *config.Config) WebsocketsServer {
 	logger = logger.With("api", "websocket-server")
 	_, port, _ := net.SplitHostPort(cfg.JSONRPC.Address) // #nosec G703
 
@@ -382,7 +382,7 @@ type pubSubAPI struct {
 func newPubSubAPI(
 	clientCtx client.Context,
 	logger log.Logger,
-	cometWSClient *mezodtypes.CometWSClient,
+	cometWSClient *runetypes.CometWSClient,
 	cfg *config.Config,
 ) *pubSubAPI {
 	logger = logger.With("module", "websocket-client")

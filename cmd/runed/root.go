@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hoodium-io/hoodium/cmd/mezod/genesis"
-	"github.com/hoodium-io/hoodium/cmd/mezod/poa"
-	"github.com/hoodium-io/hoodium/cmd/mezod/toml"
+	"github.com/hoodium-io/hoodium/cmd/runed/genesis"
+	"github.com/hoodium-io/hoodium/cmd/runed/poa"
+	"github.com/hoodium-io/hoodium/cmd/runed/toml"
 
 	storetypes "cosmossdk.io/store/types"
 
@@ -58,23 +58,23 @@ import (
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
-	mezoclient "github.com/hoodium-io/hoodium/client"
+	runeclient "github.com/hoodium-io/hoodium/client"
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/ethereum/eip712"
-	mezoserver "github.com/hoodium-io/hoodium/server"
+	runeserver "github.com/hoodium-io/hoodium/server"
 	servercfg "github.com/hoodium-io/hoodium/server/config"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
 
 	"github.com/hoodium-io/hoodium/app"
 	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
-	mezokr "github.com/hoodium-io/hoodium/crypto/keyring"
+	runekr "github.com/hoodium-io/hoodium/crypto/keyring"
 )
 
 const (
-	EnvPrefix = "MEZOD"
+	EnvPrefix = "RUNED"
 )
 
-// NewRootCmd creates a new root command for mezod. It is called once in the
+// NewRootCmd creates a new root command for runed. It is called once in the
 // main function.
 func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	encodingConfig := encoding.MakeConfig(app.ModuleBasics)
@@ -87,7 +87,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		WithAccountRetriever(types.AccountRetriever{}).
 		WithBroadcastMode(flags.BroadcastSync).
 		WithHomeDir(app.DefaultNodeHome).
-		WithKeyringOptions(mezokr.Option()).
+		WithKeyringOptions(runekr.Option()).
 		WithViper(EnvPrefix).
 		WithLedgerHasProtobuf(true)
 
@@ -138,9 +138,9 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		poa.NewCmd(),
 	)
 
-	mezoserver.AddCommands(
+	runeserver.AddCommands(
 		rootCmd,
-		mezoserver.NewDefaultStartOptions(a.newApp, app.DefaultNodeHome),
+		runeserver.NewDefaultStartOptions(a.newApp, app.DefaultNodeHome),
 		a.appExport,
 		addModuleInitFlags,
 	)
@@ -149,7 +149,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	rootCmd.AddCommand(
 		sdkserver.StatusCommand(),
 		queryCommand(),
-		mezoclient.KeyCommands(app.DefaultNodeHome),
+		runeclient.KeyCommands(app.DefaultNodeHome),
 	)
 	rootCmd, err := srvflags.AddTxFlags(rootCmd)
 	if err != nil {

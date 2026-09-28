@@ -25,7 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/holiman/uint256"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/keeper"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/hoodium-io/hoodium/x/evm/types"
@@ -76,7 +76,7 @@ func InitGenesis(
 				panic(fmt.Errorf("account not found for address %s", account.Address))
 			}
 
-			ethAcct, ok := acc.(mezotypes.EthAccountI)
+			ethAcct, ok := acc.(runetypes.EthAccountI)
 			if !ok {
 				panic(
 					fmt.Errorf("account %s must be an EthAccount interface, got %T",
@@ -108,7 +108,7 @@ func InitGenesis(
 func ExportGenesis(ctx sdk.Context, k *keeper.Keeper, ak types.AccountKeeper) *types.GenesisState {
 	var ethGenAccounts []types.GenesisAccount
 	ak.IterateAccounts(ctx, func(account sdk.AccountI) bool {
-		ethAccount, ok := account.(mezotypes.EthAccountI)
+		ethAccount, ok := account.(runetypes.EthAccountI)
 		if !ok {
 			// ignore non EthAccounts
 			return false

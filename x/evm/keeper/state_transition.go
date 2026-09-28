@@ -28,7 +28,7 @@ import (
 	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/hoodium-io/hoodium/x/evm/types"
 
@@ -152,7 +152,7 @@ func (k *Keeper) NewEVMWithOverrides(
 		Transfer:           core.Transfer,
 		GetHash:            k.GetHashFn(ctx),
 		Coinbase:           cfg.CoinBase,
-		GasLimit:           mezotypes.BlockGasLimit(ctx),
+		GasLimit:           runetypes.BlockGasLimit(ctx),
 		BlockNumber:        big.NewInt(ctx.BlockHeight()),
 		Time:               uint64(ctx.BlockHeader().Time.Unix()), //nolint:gosec
 		Difficulty:         big.NewInt(0),                         // unused. Only required in PoW context
@@ -239,7 +239,7 @@ func applyPrecompileMoves(evm *vm.EVM, moves map[common.Address]common.Address) 
 //  3. The requested height is from a height greater than the latest one
 func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 	return func(height uint64) common.Hash {
-		h, err := mezotypes.SafeInt64(height)
+		h, err := runetypes.SafeInt64(height)
 		if err != nil {
 			k.Logger(ctx).Error("failed to cast height to int64", "error", err)
 			return common.Hash{}

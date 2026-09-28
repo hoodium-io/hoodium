@@ -6,11 +6,11 @@ CMTVERSION := $(shell go list -m github.com/cometbft/cometbft | sed 's:.* ::')
 COMMIT := $(shell git log -1 --format='%H')
 LEDGER_ENABLED ?= true
 BINDIR ?= $(GOPATH)/bin
-MEZO_BINARY = mezod
+RUNED_BINARY = runed
 BUILDDIR ?= $(CURDIR)/build
 DOCKER := $(shell which docker)
 NAMESPACE := mezo-org
-PROJECT := mezod
+PROJECT := runed
 DOCKER_IMAGE := $(NAMESPACE)/$(PROJECT)
 COMMIT_HASH := $(shell git rev-parse --short=7 HEAD)
 DOCKER_TAG := $(COMMIT_HASH)
@@ -56,8 +56,8 @@ build_tags := $(strip $(build_tags))
 
 # process linker flags
 
-ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=mezo \
-          -X github.com/cosmos/cosmos-sdk/version.AppName=$(MEZO_BINARY) \
+ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=rune \
+          -X github.com/cosmos/cosmos-sdk/version.AppName=$(RUNED_BINARY) \
           -X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
           -X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT) \
           -X github.com/cometbft/cometbft/version.CMTSemVer=$(CMTVERSION) \
@@ -131,18 +131,18 @@ build-docker:
 	$(DOCKER) tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
 	# docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:${COMMIT_HASH}
 	# update old container
-	$(DOCKER) rm mezo || true
+	$(DOCKER) rm rune || true
 	# create a new container from the latest image
-	$(DOCKER) create --name mezo -t -i ${DOCKER_IMAGE}:latest mezo
+	$(DOCKER) create --name rune -t -i ${DOCKER_IMAGE}:latest runed
 	# move the binaries to the ./build directory
 	mkdir -p ./build/
-	$(DOCKER) cp mezo:/usr/bin/mezod ./build/
+	$(DOCKER) cp rune:/usr/bin/runed ./build/
 
 build-docker-linux:
 	$(DOCKER) buildx build --platform linux/amd64 --tag ${DOCKER_IMAGE}:${DOCKER_TAG} .
 
 build-docker-linux-local:
-	$(DOCKER) buildx build --platform linux/amd64 --tag local/mezod .
+	$(DOCKER) buildx build --platform linux/amd64 --tag local/runed .
 
 $(MOCKS_DIR):
 	mkdir -p $(MOCKS_DIR)
@@ -275,7 +275,7 @@ localnet-bin-init:
 	fi
 	@if ! [ -d $(LOCALNET_DIR) ]; then \
 		echo "Initializing localnet configuration..."; \
-		./build/mezod testnet init-files \
+		./build/runed testnet init-files \
 		--v 4 \
 		--output-dir $(LOCALNET_DIR) \
 		--home $(LOCALNET_DIR) \

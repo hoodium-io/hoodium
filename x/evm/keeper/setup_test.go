@@ -32,7 +32,7 @@ import (
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/testutil"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
-	mezotypes "github.com/hoodium-io/hoodium/types"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 	"github.com/stretchr/testify/require"
@@ -186,7 +186,7 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 	suite.ctx = suite.app.NewContextLegacy(checkTx, header)
 	// NewContextLegacy does not inject consensus params; baseapp
 	// normally does this inside FinalizeBlock. Populate them here so
-	// downstream readers (notably mezotypes.BlockGasLimit) see the
+	// downstream readers (notably runetypes.BlockGasLimit) see the
 	// chain's real MaxGas instead of the zero-value fallback.
 	suite.ctx = suite.ctx.WithConsensusParams(*app.DefaultConsensusParams)
 
@@ -196,7 +196,7 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 
 	nextAccNumber := suite.app.AccountKeeper.NextAccountNumber(suite.ctx)
 
-	acc := &mezotypes.EthAccount{
+	acc := &runetypes.EthAccount{
 		BaseAccount: authtypes.NewBaseAccount(sdk.AccAddress(suite.address.Bytes()), nil, nextAccNumber, 0),
 		CodeHash:    common.BytesToHash(crypto.Keccak256(nil)).String(),
 	}
