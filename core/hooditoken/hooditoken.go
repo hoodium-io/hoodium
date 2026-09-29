@@ -3,7 +3,9 @@ package hooditoken
 import (
 	"embed"
 	"fmt"
+	"math/big"
 
+	sdkmath "cosmossdk.io/math"
 	"github.com/hoodium-io/hoodium/utils"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
@@ -29,6 +31,20 @@ const (
 	Decimals = uint8(18)
 	Symbol   = "HOODI"
 	Name     = "HOODI"
+)
+
+// maxSupplyWholeUnits is the hard cap on the total HOODI supply expressed in
+// whole HOODI units (10 million). HOODI has 18 decimals, so this is multiplied
+// by 10^18 to obtain the cap in the base denomination (ahoodi).
+const maxSupplyWholeUnits = 10_000_000
+
+// MaxSupply is the hard cap on the total HOODI supply expressed in the base
+// denomination (ahoodi / "wei"). It is 10,000,000 HOODI, i.e. 10^25 ahoodi.
+var MaxSupply = sdkmath.NewIntFromBigInt(
+	new(big.Int).Mul(
+		new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil),
+		big.NewInt(maxSupplyWholeUnits),
+	),
 )
 
 // PoaKeeper defines the expected interface for the POA keeper.
@@ -138,6 +154,7 @@ func newPrecompileMethods(
 	methods := []core.Method{
 		erc20.NewBalanceOfMethod(bankKeeper, denom),
 		erc20.NewTotalSupplyMethod(bankKeeper, denom),
+		erc20.NewMaxSupplyMethod(MaxSupply),
 		erc20.NewNameMethod(Name),
 		erc20.NewSymbolMethod(Symbol),
 		erc20.NewDecimalsMethod(Decimals),

@@ -3,7 +3,9 @@ package runetoken
 import (
 	"embed"
 	"fmt"
+	"math/big"
 
+	sdkmath "cosmossdk.io/math"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
@@ -27,6 +29,20 @@ const (
 	Decimals = uint8(18)
 	Symbol   = "RUNE"
 	Name     = "RUNE"
+)
+
+// maxSupplyWholeUnits is the hard cap on the total RUNE supply expressed in
+// whole RUNE units (10 billion). RUNE has 18 decimals, so this is multiplied by
+// 10^18 to obtain the cap in the base denomination (arune).
+const maxSupplyWholeUnits = 10_000_000_000
+
+// MaxSupply is the hard cap on the total RUNE supply expressed in the base
+// denomination (arune / "wei"). It is 10,000,000,000 RUNE, i.e. 10^28 arune.
+var MaxSupply = sdkmath.NewIntFromBigInt(
+	new(big.Int).Mul(
+		new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil),
+		big.NewInt(maxSupplyWholeUnits),
+	),
 )
 
 // NewPrecompileVersionMap creates a new version map for the RUNE token precompile.
@@ -97,6 +113,7 @@ func newPrecompileMethods(
 	return []core.Method{
 		erc20.NewBalanceOfMethod(bankKeeper, denom),
 		erc20.NewTotalSupplyMethod(bankKeeper, denom),
+		erc20.NewMaxSupplyMethod(MaxSupply),
 		erc20.NewNameMethod(Name),
 		erc20.NewSymbolMethod(Symbol),
 		erc20.NewDecimalsMethod(Decimals),
