@@ -31,11 +31,11 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	ethcore "github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/hoodium-io/hoodium/precompile"
+	"github.com/hoodium-io/hoodium/core"
 	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/hoodium-io/hoodium/x/evm/types"
@@ -91,7 +91,7 @@ type Keeper struct {
 	ss paramstypes.Subspace
 
 	// Custom precompiles registered with the keeper.
-	customPrecompiles map[common.Address]*precompile.VersionMap
+	customPrecompiles map[common.Address]*core.VersionMap
 }
 
 // NewKeeper generates new evm module keeper
@@ -136,7 +136,7 @@ func NewKeeper(
 		ethCallTimeout:    ethCallTimeout,
 		enableJSTracers:   enableJSTracers,
 		ss:                ss,
-		customPrecompiles: make(map[common.Address]*precompile.VersionMap),
+		customPrecompiles: make(map[common.Address]*core.VersionMap),
 	}
 }
 
@@ -307,7 +307,7 @@ func (k *Keeper) CleanHooks() *Keeper {
 }
 
 // PostTxProcessing delegate the call to the hooks. If no hook has been registered, this function returns with a `nil` error
-func (k *Keeper) PostTxProcessing(ctx sdk.Context, msg core.Message, receipt *ethtypes.Receipt) error {
+func (k *Keeper) PostTxProcessing(ctx sdk.Context, msg ethcore.Message, receipt *ethtypes.Receipt) error {
 	if k.hooks == nil {
 		return nil
 	}
@@ -315,7 +315,7 @@ func (k *Keeper) PostTxProcessing(ctx sdk.Context, msg core.Message, receipt *et
 }
 
 // Tracer return a default vm.Tracer based on current keeper state
-func (k Keeper) Tracer(ctx sdk.Context, msg core.Message, ethCfg *params.ChainConfig) *tracers.Tracer {
+func (k Keeper) Tracer(ctx sdk.Context, msg ethcore.Message, ethCfg *params.ChainConfig) *tracers.Tracer {
 	return types.NewTracer(
 		k.tracer,
 		msg,
@@ -453,7 +453,7 @@ func (k Keeper) AddTransientGasUsed(ctx sdk.Context, gasUsed uint64) (uint64, er
 // RegisterCustomPrecompiles registers custom precompiled contracts with the keeper.
 // This function does not check for duplicates. If a precompile with the same
 // address is already registered, it will be overwritten.
-func (k *Keeper) RegisterCustomPrecompiles(precompiles ...*precompile.VersionMap) {
+func (k *Keeper) RegisterCustomPrecompiles(precompiles ...*core.VersionMap) {
 	for _, precompile := range precompiles {
 		k.customPrecompiles[precompile.Address()] = precompile
 	}

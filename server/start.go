@@ -65,7 +65,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/server/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/hoodium-io/hoodium/indexer"
-	ethdebug "github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/debug"
+	ethdebug "github.com/hoodium-io/hoodium/rpc/namespaces/evm/debug"
 	"github.com/hoodium-io/hoodium/server/config"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
 	runetypes "github.com/hoodium-io/hoodium/types"

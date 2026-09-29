@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hoodium-io/hoodium/chain"
+	"github.com/hoodium-io/hoodium/chains"
 
 	"github.com/hoodium-io/hoodium/types"
 

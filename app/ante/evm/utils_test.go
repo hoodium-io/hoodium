@@ -10,7 +10,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/evm/eip712"
 
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"

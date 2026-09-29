@@ -37,7 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
-	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/evm/eip712"
 	"github.com/hoodium-io/hoodium/types"
 
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"

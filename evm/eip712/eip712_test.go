@@ -14,7 +14,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
-	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/evm/eip712"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 

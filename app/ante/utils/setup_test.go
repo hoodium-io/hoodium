@@ -20,7 +20,7 @@ import (
 	"github.com/hoodium-io/hoodium/app"
 	"github.com/hoodium-io/hoodium/app/ante"
 	"github.com/hoodium-io/hoodium/encoding"
-	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/evm/eip712"
 	"github.com/hoodium-io/hoodium/testutil"
 	"github.com/hoodium-io/hoodium/utils"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"

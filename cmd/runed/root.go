@@ -60,7 +60,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	runeclient "github.com/hoodium-io/hoodium/client"
 	"github.com/hoodium-io/hoodium/encoding"
-	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/evm/eip712"
 	runeserver "github.com/hoodium-io/hoodium/server"
 	servercfg "github.com/hoodium-io/hoodium/server/config"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"

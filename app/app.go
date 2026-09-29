@@ -89,15 +89,15 @@ import (
 	appabci "github.com/hoodium-io/hoodium/app/abci"
 	ethante "github.com/hoodium-io/hoodium/app/ante/evm"
 	"github.com/hoodium-io/hoodium/encoding"
-	"github.com/hoodium-io/hoodium/ethereum/eip712"
-	"github.com/hoodium-io/hoodium/precompile"
-	"github.com/hoodium-io/hoodium/precompile/runetoken"
-	"github.com/hoodium-io/hoodium/precompile/maintenance"
-	"github.com/hoodium-io/hoodium/precompile/hooditoken"
-	"github.com/hoodium-io/hoodium/precompile/priceoracle"
-	"github.com/hoodium-io/hoodium/precompile/testbed"
-	upgradelocal "github.com/hoodium-io/hoodium/precompile/upgrade"
-	"github.com/hoodium-io/hoodium/precompile/validatorpool"
+	"github.com/hoodium-io/hoodium/evm/eip712"
+	"github.com/hoodium-io/hoodium/core"
+	"github.com/hoodium-io/hoodium/core/runetoken"
+	"github.com/hoodium-io/hoodium/core/maintenance"
+	"github.com/hoodium-io/hoodium/core/hooditoken"
+	"github.com/hoodium-io/hoodium/core/priceoracle"
+	"github.com/hoodium-io/hoodium/core/testbed"
+	upgradelocal "github.com/hoodium-io/hoodium/core/upgrade"
+	"github.com/hoodium-io/hoodium/core/validatorpool"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
 	runetypes "github.com/hoodium-io/hoodium/types"
 
@@ -839,7 +839,7 @@ func customEvmPrecompiles(
 	feemarketKeeper feemarketkeeper.Keeper,
 	chainID string,
 	enableTestbedPrecompile bool,
-) ([]*precompile.VersionMap, error) {
+) ([]*core.VersionMap, error) {
 	// RUNE token precompile.
 	runeTokenVersionMap, err := runetoken.NewPrecompileVersionMap(
 		bankKeeper,
@@ -898,7 +898,7 @@ func customEvmPrecompiles(
 		return nil, fmt.Errorf("failed to create price oracle precompile: [%w]", err)
 	}
 
-	pvmap := []*precompile.VersionMap{
+	pvmap := []*core.VersionMap{
 		runeTokenVersionMap,
 		hoodiTokenVersionMap,
 		validatorPoolVersionMap,

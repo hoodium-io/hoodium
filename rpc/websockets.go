@@ -41,8 +41,8 @@ import (
 	"cosmossdk.io/log"
 	tmtypes "github.com/cometbft/cometbft/types"
 
-	"github.com/hoodium-io/hoodium/rpc/ethereum/pubsub"
-	rpcfilters "github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/eth/filters"
+	"github.com/hoodium-io/hoodium/rpc/evm/pubsub"
+	rpcfilters "github.com/hoodium-io/hoodium/rpc/namespaces/evm/eth/filters"
 	"github.com/hoodium-io/hoodium/rpc/types"
 	"github.com/hoodium-io/hoodium/server/config"
 	runetypes "github.com/hoodium-io/hoodium/types"

@@ -35,7 +35,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/hoodium-io/hoodium/rpc/ethereum/pubsub"
+	"github.com/hoodium-io/hoodium/rpc/evm/pubsub"
 	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )

@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/ethclient"
 	clientkeys "github.com/hoodium-io/hoodium/client/keys"
-	"github.com/hoodium-io/hoodium/precompile/validatorpool"
-	validatorpoolgen "github.com/hoodium-io/hoodium/precompile/validatorpool/gen"
+	"github.com/hoodium-io/hoodium/core/validatorpool"
+	validatorpoolgen "github.com/hoodium-io/hoodium/core/validatorpool/gen"
 )
 
 type Validator struct {

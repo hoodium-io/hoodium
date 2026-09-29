@@ -39,7 +39,7 @@ Compared to `eth_call`, `eth_simulateV1`:
   and block overrides, runs each call through `applyMessageWithConfig`, and
   assembles each simulated block via `ethtypes.NewBlock` so that header roots
   and bloom derive from the synthetic transactions and receipts.
-- **JSON-RPC entry point.** `rpc/namespaces/ethereum/eth/simulate_v1.go`
+- **JSON-RPC entry point.** `rpc/namespaces/evm/eth/simulate_v1.go`
   exposes the method on the `eth` namespace. `rpc/backend/simulate_v1.go`
   resolves the caller's anchor block to a concrete numeric height, plumbs the
   node-wide `RPCGasCap` and `RPCEVMTimeout`, and adapts the keeper's gRPC

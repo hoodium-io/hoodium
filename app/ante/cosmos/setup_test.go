@@ -26,7 +26,7 @@ import (
 	evmante "github.com/hoodium-io/hoodium/app/ante/evm"
 	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	"github.com/hoodium-io/hoodium/encoding"
-	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/evm/eip712"
 	"github.com/hoodium-io/hoodium/testutil"
 	"github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/utils"

@@ -17,7 +17,7 @@ import (
 	"github.com/hoodium-io/hoodium/app"
 	"github.com/hoodium-io/hoodium/cmd/config"
 	"github.com/hoodium-io/hoodium/encoding"
-	"github.com/hoodium-io/hoodium/ethereum/eip712"
+	"github.com/hoodium-io/hoodium/evm/eip712"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	"github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/utils"
