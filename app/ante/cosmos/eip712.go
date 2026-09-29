@@ -43,12 +43,12 @@ import (
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
-var mezoCodec codec.ProtoCodecMarshaler
+var runeCodec codec.ProtoCodecMarshaler
 
 func init() {
 	registry := codectypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
-	mezoCodec = codec.NewProtoCodec(registry)
+	runeCodec = codec.NewProtoCodec(registry)
 }
 
 // Deprecated: LegacyEip712SigVerificationDecorator Verify all signatures for a tx and return an error if any are invalid. Note,
@@ -248,7 +248,7 @@ func VerifySignature(
 			FeePayer: feePayer,
 		}
 
-		typedData, err := eip712.LegacyWrapTxToTypedData(mezoCodec, extOpt.TypedDataChainID, msgs[0], txBytes, feeDelegation)
+		typedData, err := eip712.LegacyWrapTxToTypedData(runeCodec, extOpt.TypedDataChainID, msgs[0], txBytes, feeDelegation)
 		if err != nil {
 			return errorsmod.Wrap(err, "failed to create EIP-712 typed data from tx")
 		}

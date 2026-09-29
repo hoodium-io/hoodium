@@ -42,7 +42,7 @@ const AddAccountCmdLong = `Add a genesis account to genesis.json. The provided a
 	`name is given, the address will be looked up in the local keyring. ` +
 	`The list of initial tokens must contain valid denominations.`
 
-const AddAccountCmdExample = "add-account mezo1qnmzwu4vx66gzvku37eflad3c0twp86psv5gtc 100000000000000000000000000arune"
+const AddAccountCmdExample = "add-account rune1qnmzwu4vx66gzvku37eflad3c0twp86phuzzjr 100000000000000000000000000arune"
 
 // NewAddAccountCmd returns add-account cobra Command.
 func NewAddAccountCmd() *cobra.Command {

@@ -48,7 +48,7 @@ type PrecompileTestSuite struct {
 
 	app                 *app.Hoodium
 	ctx                 sdk.Context
-	mezoPrecompile      *precompile.Contract
+	runePrecompile      *precompile.Contract
 	poaOwner            common.Address
 	poaOwnerSDK         sdk.AccAddress
 	minter              common.Address
@@ -123,7 +123,7 @@ func (s *PrecompileTestSuite) SetupTest() {
 	s.unauthorizedAddrSDK = sdk.AccAddress(unauthorizedAddr.Bytes())
 
 	// Create precompile
-	s.mezoPrecompile, err = hooditoken.NewPrecompile(
+	s.runePrecompile, err = hooditoken.NewPrecompile(
 		s.app.BankKeeper,
 		s.app.AuthzKeeper,
 		*s.app.EvmKeeper,

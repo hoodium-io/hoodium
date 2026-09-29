@@ -264,7 +264,7 @@ func (a appCreator) newApp(logger log.Logger, db dbm.DB, traceStore io.Writer, a
 		chainID = clientConfig.ChainID
 	}
 
-	mezoApp := app.NewHoodium(
+	runeApp := app.NewHoodium(
 		logger,
 		db,
 		traceStore,
@@ -288,7 +288,7 @@ func (a appCreator) newApp(logger log.Logger, db dbm.DB, traceStore io.Writer, a
 		baseapp.SetChainID(chainID),
 	)
 
-	return mezoApp
+	return runeApp
 }
 
 // appExport creates a new simapp (optionally at a given height)
@@ -303,7 +303,7 @@ func (a appCreator) appExport(
 	appOpts servertypes.AppOptions,
 	_ []string,
 ) (servertypes.ExportedApp, error) {
-	var mezoApp *app.Hoodium
+	var runeApp *app.Hoodium
 	homePath, ok := appOpts.Get(flags.FlagHome).(string)
 	if !ok || homePath == "" {
 		return servertypes.ExportedApp{}, errors.New("application home not set")
@@ -329,7 +329,7 @@ func (a appCreator) appExport(
 	}
 
 	if height != -1 {
-		mezoApp = app.NewHoodium(
+		runeApp = app.NewHoodium(
 			logger,
 			db,
 			traceStore,
@@ -342,11 +342,11 @@ func (a appCreator) appExport(
 			baseapp.SetChainID(chainID),
 		)
 
-		if err := mezoApp.LoadHeight(height); err != nil {
+		if err := runeApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
 	} else {
-		mezoApp = app.NewHoodium(
+		runeApp = app.NewHoodium(
 			logger,
 			db,
 			traceStore,
@@ -360,7 +360,7 @@ func (a appCreator) appExport(
 		)
 	}
 
-	return mezoApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs)
+	return runeApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs)
 }
 
 // initTendermintConfig helps to override default Tendermint Config values.

@@ -10,7 +10,7 @@ import (
 )
 
 func (s *PrecompileTestSuite) TestGetMinterWhenNotSet() {
-	method := s.mezoPrecompile.Abi.Methods["getMinter"]
+	method := s.runePrecompile.Abi.Methods["getMinter"]
 
 	methodInputArgs, err := method.Inputs.Pack()
 	s.Require().NoError(err)
@@ -23,7 +23,7 @@ func (s *PrecompileTestSuite) TestGetMinterWhenNotSet() {
 		StateDB: statedb.New(s.ctx, statedb.NewMockKeeper(), statedb.TxConfig{}),
 	}
 
-	output, err := s.mezoPrecompile.Run(evm, vmContract, false)
+	output, err := s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	out, err := method.Outputs.Unpack(output)
@@ -39,7 +39,7 @@ func (s *PrecompileTestSuite) TestGetMinterWhenNotSet() {
 
 func (s *PrecompileTestSuite) TestSetMinterByOwner() {
 	// Set minter
-	method := s.mezoPrecompile.Abi.Methods["setMinter"]
+	method := s.runePrecompile.Abi.Methods["setMinter"]
 
 	methodInputArgs, err := method.Inputs.Pack(s.minter)
 	s.Require().NoError(err)
@@ -53,7 +53,7 @@ func (s *PrecompileTestSuite) TestSetMinterByOwner() {
 		StateDB: stateDB,
 	}
 
-	_, err = s.mezoPrecompile.Run(evm, vmContract, false)
+	_, err = s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	// Commit the statedb to persist changes
@@ -62,11 +62,11 @@ func (s *PrecompileTestSuite) TestSetMinterByOwner() {
 
 	// Verify minter was set by checking params
 	params := s.app.EvmKeeper.GetParams(s.ctx)
-	s.Require().Equal(s.minter.Hex(), params.MezoMinterAddress)
+	s.Require().Equal(s.minter.Hex(), params.RuneMinterAddress)
 }
 
 func (s *PrecompileTestSuite) TestSetMinterByNonOwner() {
-	method := s.mezoPrecompile.Abi.Methods["setMinter"]
+	method := s.runePrecompile.Abi.Methods["setMinter"]
 
 	methodInputArgs, err := method.Inputs.Pack(s.minter)
 	s.Require().NoError(err)
@@ -79,7 +79,7 @@ func (s *PrecompileTestSuite) TestSetMinterByNonOwner() {
 		StateDB: statedb.New(s.ctx, statedb.NewMockKeeper(), statedb.TxConfig{}),
 	}
 
-	output, err := s.mezoPrecompile.Run(evm, vmContract, false)
+	output, err := s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().Error(err)
 	s.Require().Nil(output)
 	s.Require().ErrorContains(err, "unauthorized")
@@ -87,7 +87,7 @@ func (s *PrecompileTestSuite) TestSetMinterByNonOwner() {
 
 func (s *PrecompileTestSuite) TestGetMinterAfterSet() {
 	// First set minter
-	setMethod := s.mezoPrecompile.Abi.Methods["setMinter"]
+	setMethod := s.runePrecompile.Abi.Methods["setMinter"]
 	methodInputArgs, err := setMethod.Inputs.Pack(s.minter)
 	s.Require().NoError(err)
 
@@ -99,11 +99,11 @@ func (s *PrecompileTestSuite) TestGetMinterAfterSet() {
 		StateDB: statedb.New(s.ctx, statedb.NewMockKeeper(), statedb.TxConfig{}),
 	}
 
-	_, err = s.mezoPrecompile.Run(evm, vmContract, false)
+	_, err = s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	// Now get minter
-	getMethod := s.mezoPrecompile.Abi.Methods["getMinter"]
+	getMethod := s.runePrecompile.Abi.Methods["getMinter"]
 	methodInputArgs, err = getMethod.Inputs.Pack()
 	s.Require().NoError(err)
 
@@ -111,7 +111,7 @@ func (s *PrecompileTestSuite) TestGetMinterAfterSet() {
 	//nolint:gocritic
 	vmContract.Input = append(getMethod.ID, methodInputArgs...)
 
-	output, err := s.mezoPrecompile.Run(evm, vmContract, false)
+	output, err := s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	out, err := getMethod.Outputs.Unpack(output)
@@ -130,7 +130,7 @@ func (s *PrecompileTestSuite) TestMintByMinter() {
 	}
 
 	// First set minter
-	setMethod := s.mezoPrecompile.Abi.Methods["setMinter"]
+	setMethod := s.runePrecompile.Abi.Methods["setMinter"]
 	methodInputArgs, err := setMethod.Inputs.Pack(s.minter)
 	s.Require().NoError(err)
 
@@ -138,7 +138,7 @@ func (s *PrecompileTestSuite) TestMintByMinter() {
 	//nolint:gocritic
 	vmContract.Input = append(setMethod.ID, methodInputArgs...)
 
-	_, err = s.mezoPrecompile.Run(evm, vmContract, false)
+	_, err = s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	// Commit to persist minter setting
@@ -155,7 +155,7 @@ func (s *PrecompileTestSuite) TestMintByMinter() {
 		StateDB: stateDB,
 	}
 
-	mintMethod := s.mezoPrecompile.Abi.Methods["mint"]
+	mintMethod := s.runePrecompile.Abi.Methods["mint"]
 	mintAmount := big.NewInt(1000000000000000000) // 1 token with 18 decimals
 	methodInputArgs, err = mintMethod.Inputs.Pack(s.recipient, mintAmount)
 	s.Require().NoError(err)
@@ -164,7 +164,7 @@ func (s *PrecompileTestSuite) TestMintByMinter() {
 	//nolint:gocritic
 	vmContract.Input = append(mintMethod.ID, methodInputArgs...)
 
-	_, err = s.mezoPrecompile.Run(evm, vmContract, false)
+	_, err = s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	// Commit to persist minting
@@ -178,7 +178,7 @@ func (s *PrecompileTestSuite) TestMintByMinter() {
 
 func (s *PrecompileTestSuite) TestMintByNonMinter() {
 	// First set minter
-	setMethod := s.mezoPrecompile.Abi.Methods["setMinter"]
+	setMethod := s.runePrecompile.Abi.Methods["setMinter"]
 	methodInputArgs, err := setMethod.Inputs.Pack(s.minter)
 	s.Require().NoError(err)
 
@@ -190,11 +190,11 @@ func (s *PrecompileTestSuite) TestMintByNonMinter() {
 		StateDB: statedb.New(s.ctx, statedb.NewMockKeeper(), statedb.TxConfig{}),
 	}
 
-	_, err = s.mezoPrecompile.Run(evm, vmContract, false)
+	_, err = s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	// Try to mint tokens with unauthorized address
-	mintMethod := s.mezoPrecompile.Abi.Methods["mint"]
+	mintMethod := s.runePrecompile.Abi.Methods["mint"]
 	mintAmount := big.NewInt(1000000000000000000)
 	methodInputArgs, err = mintMethod.Inputs.Pack(s.recipient, mintAmount)
 	s.Require().NoError(err)
@@ -203,14 +203,14 @@ func (s *PrecompileTestSuite) TestMintByNonMinter() {
 	//nolint:gocritic
 	vmContract.Input = append(mintMethod.ID, methodInputArgs...)
 
-	output, err := s.mezoPrecompile.Run(evm, vmContract, false)
+	output, err := s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().Error(err)
 	s.Require().Nil(output)
 	s.Require().ErrorContains(err, "sender is not the minter")
 }
 
 func (s *PrecompileTestSuite) TestMintWhenMinterNotSet() {
-	mintMethod := s.mezoPrecompile.Abi.Methods["mint"]
+	mintMethod := s.runePrecompile.Abi.Methods["mint"]
 	mintAmount := big.NewInt(1000000000000000000)
 	methodInputArgs, err := mintMethod.Inputs.Pack(s.recipient, mintAmount)
 	s.Require().NoError(err)
@@ -223,7 +223,7 @@ func (s *PrecompileTestSuite) TestMintWhenMinterNotSet() {
 		StateDB: statedb.New(s.ctx, statedb.NewMockKeeper(), statedb.TxConfig{}),
 	}
 
-	output, err := s.mezoPrecompile.Run(evm, vmContract, false)
+	output, err := s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().Error(err)
 	s.Require().Nil(output)
 	s.Require().ErrorContains(err, "minter not set")
@@ -231,7 +231,7 @@ func (s *PrecompileTestSuite) TestMintWhenMinterNotSet() {
 
 func (s *PrecompileTestSuite) TestMintToZeroAddress() {
 	// First set minter
-	setMethod := s.mezoPrecompile.Abi.Methods["setMinter"]
+	setMethod := s.runePrecompile.Abi.Methods["setMinter"]
 	methodInputArgs, err := setMethod.Inputs.Pack(s.minter)
 	s.Require().NoError(err)
 
@@ -243,11 +243,11 @@ func (s *PrecompileTestSuite) TestMintToZeroAddress() {
 		StateDB: statedb.New(s.ctx, statedb.NewMockKeeper(), statedb.TxConfig{}),
 	}
 
-	_, err = s.mezoPrecompile.Run(evm, vmContract, false)
+	_, err = s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	// Try to mint to zero address
-	mintMethod := s.mezoPrecompile.Abi.Methods["mint"]
+	mintMethod := s.runePrecompile.Abi.Methods["mint"]
 	mintAmount := big.NewInt(1000000000000000000)
 	methodInputArgs, err = mintMethod.Inputs.Pack(common.Address{}, mintAmount)
 	s.Require().NoError(err)
@@ -256,7 +256,7 @@ func (s *PrecompileTestSuite) TestMintToZeroAddress() {
 	//nolint:gocritic
 	vmContract.Input = append(mintMethod.ID, methodInputArgs...)
 
-	output, err := s.mezoPrecompile.Run(evm, vmContract, false)
+	output, err := s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().Error(err)
 	s.Require().Nil(output)
 	s.Require().ErrorContains(err, "cannot mint to zero address")
@@ -264,7 +264,7 @@ func (s *PrecompileTestSuite) TestMintToZeroAddress() {
 
 func (s *PrecompileTestSuite) TestMintZeroAmount() {
 	// First set minter
-	setMethod := s.mezoPrecompile.Abi.Methods["setMinter"]
+	setMethod := s.runePrecompile.Abi.Methods["setMinter"]
 	methodInputArgs, err := setMethod.Inputs.Pack(s.minter)
 	s.Require().NoError(err)
 
@@ -276,11 +276,11 @@ func (s *PrecompileTestSuite) TestMintZeroAmount() {
 		StateDB: statedb.New(s.ctx, statedb.NewMockKeeper(), statedb.TxConfig{}),
 	}
 
-	_, err = s.mezoPrecompile.Run(evm, vmContract, false)
+	_, err = s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	// Try to mint zero amount
-	mintMethod := s.mezoPrecompile.Abi.Methods["mint"]
+	mintMethod := s.runePrecompile.Abi.Methods["mint"]
 	mintAmount := big.NewInt(0)
 	methodInputArgs, err = mintMethod.Inputs.Pack(s.recipient, mintAmount)
 	s.Require().NoError(err)
@@ -289,14 +289,14 @@ func (s *PrecompileTestSuite) TestMintZeroAmount() {
 	//nolint:gocritic
 	vmContract.Input = append(mintMethod.ID, methodInputArgs...)
 
-	output, err := s.mezoPrecompile.Run(evm, vmContract, false)
+	output, err := s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().Error(err)
 	s.Require().Nil(output)
 	s.Require().ErrorContains(err, "amount must be positive")
 }
 
 func (s *PrecompileTestSuite) TestSetMinterToZeroAddress() {
-	method := s.mezoPrecompile.Abi.Methods["setMinter"]
+	method := s.runePrecompile.Abi.Methods["setMinter"]
 
 	methodInputArgs, err := method.Inputs.Pack(common.Address{})
 	s.Require().NoError(err)
@@ -310,7 +310,7 @@ func (s *PrecompileTestSuite) TestSetMinterToZeroAddress() {
 		StateDB: stateDB,
 	}
 
-	_, err = s.mezoPrecompile.Run(evm, vmContract, false)
+	_, err = s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	// Commit to persist the change
@@ -320,10 +320,10 @@ func (s *PrecompileTestSuite) TestSetMinterToZeroAddress() {
 	// Verify minter was set to zero address
 	params := s.app.EvmKeeper.GetParams(s.ctx)
 	zeroAddr := common.Address{}
-	s.Require().Equal(zeroAddr.Hex(), params.MezoMinterAddress)
+	s.Require().Equal(zeroAddr.Hex(), params.RuneMinterAddress)
 
 	// Now verify getMinter returns zero address
-	getMethod := s.mezoPrecompile.Abi.Methods["getMinter"]
+	getMethod := s.runePrecompile.Abi.Methods["getMinter"]
 	methodInputArgs, err = getMethod.Inputs.Pack()
 	s.Require().NoError(err)
 
@@ -331,7 +331,7 @@ func (s *PrecompileTestSuite) TestSetMinterToZeroAddress() {
 	//nolint:gocritic
 	vmContract.Input = append(getMethod.ID, methodInputArgs...)
 
-	output, err := s.mezoPrecompile.Run(evm, vmContract, false)
+	output, err := s.runePrecompile.Run(evm, vmContract, false)
 	s.Require().NoError(err)
 
 	out, err := getMethod.Outputs.Unpack(output)

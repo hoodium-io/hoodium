@@ -16,7 +16,7 @@ func TestParseChainID(t *testing.T) {
 		expInt   *big.Int
 	}{
 		{
-			"valid chain-id, single digit", "mezo_1-1", false, big.NewInt(1),
+			"valid chain-id, single digit", "rune_1-1", false, big.NewInt(1),
 		},
 		{
 			"valid chain-id, multiple digits", "aragonchain_256-1", false, big.NewInt(256),
@@ -40,22 +40,22 @@ func TestParseChainID(t *testing.T) {
 			"invalid chain-id, uppercases", "MEZO_1-1", true, nil,
 		},
 		{
-			"invalid chain-id, mixed cases", "Mezo_1-1", true, nil,
+			"invalid chain-id, mixed cases", "Rune_1-1", true, nil,
 		},
 		{
 			"invalid chain-id, special chars", "$&*#!_1-1", true, nil,
 		},
 		{
-			"invalid eip155 chain-id, cannot start with 0", "mezo_001-1", true, nil,
+			"invalid eip155 chain-id, cannot start with 0", "rune_001-1", true, nil,
 		},
 		{
-			"invalid eip155 chain-id, cannot invalid base", "mezo_0x212-1", true, nil,
+			"invalid eip155 chain-id, cannot invalid base", "rune_0x212-1", true, nil,
 		},
 		{
-			"invalid eip155 chain-id, non-integer", "mezo_rune_6591-1", true, nil,
+			"invalid eip155 chain-id, non-integer", "rune_rune_6591-1", true, nil,
 		},
 		{
-			"invalid epoch, undefined", "mezo_-", true, nil,
+			"invalid epoch, undefined", "rune_-", true, nil,
 		},
 		{
 			"blank chain ID", " ", true, nil,
@@ -67,7 +67,7 @@ func TestParseChainID(t *testing.T) {
 			"empty content for chain id, eip155 and epoch numbers", "_-", true, nil,
 		},
 		{
-			"long chain-id", "mezo_" + strings.Repeat("1", 45) + "-1", true, nil,
+			"long chain-id", "rune_" + strings.Repeat("1", 45) + "-1", true, nil,
 		},
 	}
 

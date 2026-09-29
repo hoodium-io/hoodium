@@ -14,7 +14,7 @@ import (
 	"github.com/hoodium-io/hoodium/server/config"
 	"github.com/hoodium-io/hoodium/testutil/network"
 
-	mezonetwork "github.com/hoodium-io/hoodium/testutil/network"
+	hoodiumnetwork "github.com/hoodium-io/hoodium/testutil/network"
 )
 
 type IntegrationTestSuite struct {
@@ -27,7 +27,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.T().Log("setting up integration test suite")
 
 	var err error
-	cfg := mezonetwork.DefaultConfig()
+	cfg := hoodiumnetwork.DefaultConfig()
 	cfg.JSONRPCAddress = config.DefaultJSONRPCAddress
 	cfg.NumValidators = 1
 

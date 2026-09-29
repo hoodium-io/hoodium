@@ -230,7 +230,7 @@ func AppConfig(denom string) (string, interface{}) {
 	// - if you set srvCfg.MinGasPrices non-empty, validators CAN tweak their
 	//   own app.toml to override, or use this default value.
 	//
-	// In mezo, we set the min gas prices to 0.
+	// In rune, we set the min gas prices to 0.
 	if denom != "" {
 		srvCfg.MinGasPrices = "0" + denom
 	}
@@ -289,12 +289,12 @@ func (c EVMConfig) Validate() error {
 
 // GetDefaultAPINamespaces returns the default list of JSON-RPC namespaces that should be enabled
 func GetDefaultAPINamespaces() []string {
-	return []string{"eth", "net", "web3", "mezo"}
+	return []string{"eth", "net", "web3", "rune"}
 }
 
 // GetAPINamespaces returns the all the available JSON-RPC API namespaces.
 func GetAPINamespaces() []string {
-	return []string{"web3", "eth", "personal", "net", "txpool", "debug", "miner", "mezo"}
+	return []string{"web3", "eth", "personal", "net", "txpool", "debug", "miner", "rune"}
 }
 
 // DefaultJSONRPCConfig returns an EVM config with the JSON-RPC API enabled by default

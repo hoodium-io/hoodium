@@ -128,7 +128,7 @@ func DefaultConfig() Config {
 		AppConstructor:    NewAppConstructor(encCfg),
 		GenesisState:      app.ModuleBasics.DefaultGenesis(encCfg.Codec),
 		TimeoutCommit:     3 * time.Second,
-		ChainID:           fmt.Sprintf("mezo_%d-1", tmrand.Int63n(9999999999999)+1),
+		ChainID:           fmt.Sprintf("rune_%d-1", tmrand.Int63n(9999999999999)+1),
 		NumValidators:     4,
 		BondDenom:         "arune",
 		MinGasPrices:      fmt.Sprintf("0.000006%s", runetypes.AttoBtc),

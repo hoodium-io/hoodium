@@ -1,4 +1,4 @@
-package mezo
+package rune
 
 import (
 	"cosmossdk.io/log"
@@ -8,7 +8,7 @@ import (
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
-// PublicAPI is the custom set of methods prefixed with mezo_ in the EVM JSON-RPC API.
+// PublicAPI is the custom set of methods prefixed with rune_ in the EVM JSON-RPC API.
 type PublicAPI struct {
 	logger  log.Logger
 	backend backend.EVMBackend
@@ -16,7 +16,7 @@ type PublicAPI struct {
 
 func NewPublicAPI(logger log.Logger, backend backend.EVMBackend) *PublicAPI {
 	api := &PublicAPI{
-		logger:  logger.With("api", "mezo"),
+		logger:  logger.With("api", "rune"),
 		backend: backend,
 	}
 
@@ -25,6 +25,6 @@ func NewPublicAPI(logger log.Logger, backend backend.EVMBackend) *PublicAPI {
 
 // EstimateCost returns the estimated cost of a transaction.
 func (e *PublicAPI) EstimateCost(args evmtypes.TransactionArgs, blockNrOptional *rpctypes.BlockNumber) (*rpctypes.EstimateCostResult, error) {
-	e.logger.Debug("mezo_estimateCost")
+	e.logger.Debug("rune_estimateCost")
 	return e.backend.EstimateCost(args, blockNrOptional)
 }

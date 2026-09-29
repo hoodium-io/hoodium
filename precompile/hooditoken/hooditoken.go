@@ -105,7 +105,7 @@ func NewPrecompile(
 		contractAbi,
 		evmAddress,
 		EvmByteCode,
-		"mezo-token",
+		"rune-token",
 	)
 
 	methods := newPrecompileMethods(

@@ -113,7 +113,7 @@ func commonFlags() {
 		fs.StringVar(&localKey, "localkey", "", "path to a local key to use (testnet)")
 		fs.StringVar(&mnemonic, "mnemonic", "", "mnemonic of the wallet")
 		fs.StringVar(&privKey, "privkey", "", "the private key to use")
-		fs.BoolVar(&waitForReceipt, "wait_for_receipt", true, "wait for the mezo receipt")
+		fs.BoolVar(&waitForReceipt, "wait_for_receipt", true, "wait for the rune receipt")
 		fs.DurationVar(&rateLimit, "rate", 100*time.Millisecond, "rate at which to send transactions")
 	}
 

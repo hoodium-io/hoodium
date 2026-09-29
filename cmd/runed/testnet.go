@@ -232,7 +232,7 @@ func initTestnetFiles(
 	args initArgs,
 ) error {
 	if args.chainID == "" {
-		args.chainID = fmt.Sprintf("mezo_%d-1", tmrand.Int63n(9999999999999)+1)
+		args.chainID = fmt.Sprintf("rune_%d-1", tmrand.Int63n(9999999999999)+1)
 	}
 
 	var (

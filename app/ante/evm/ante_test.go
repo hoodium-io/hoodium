@@ -625,7 +625,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 					addr[:],
 					sdk.NewCoins(
 						sdk.NewCoin(
-							"mezo",
+							"rune",
 							sdkmath.NewInt(1),
 						),
 					),

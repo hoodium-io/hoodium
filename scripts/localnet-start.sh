@@ -43,7 +43,7 @@ echo "starting node $NODE_NAME with home directory $NODE_HOMEDIR"
 # start the runed binary
 ./build/runed start --home "$NODE_HOMEDIR" \
   --chain-id=$LOCALNET_CHAIN_ID \
-  --json-rpc.api="eth,web3,net,debug,miner,txpool,personal,mezo" \
+  --json-rpc.api="eth,web3,net,debug,miner,txpool,personal,rune" \
   --json-rpc.enable
 
 echo "node $NODE_NAME started."

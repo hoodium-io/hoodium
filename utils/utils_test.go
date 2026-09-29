@@ -17,7 +17,7 @@ import (
 
 func init() {
 	cfg := sdk.GetConfig()
-	cfg.SetBech32PrefixForAccount("mezo", "mezopub")
+	cfg.SetBech32PrefixForAccount("rune", "runepub")
 }
 
 func TestIsSupportedKeys(t *testing.T) {
@@ -73,7 +73,7 @@ func TestIsSupportedKeys(t *testing.T) {
 	}
 }
 
-func TestGetMezoAddressFromBech32(t *testing.T) {
+func TestGetRuneAddressFromBech32(t *testing.T) {
 	testCases := []struct {
 		name       string
 		address    string
@@ -88,38 +88,38 @@ func TestGetMezoAddressFromBech32(t *testing.T) {
 		},
 		{
 			"invalid bech32 address",
-			"mezo",
+			"rune",
 			"",
 			true,
 		},
 		{
 			"invalid address bytes",
-			"mezo1123",
+			"rune1123",
 			"",
 			true,
 		},
 		{
-			"mezo address",
-			"mezo1qql8ag4cluz6r4dz28p3w00dnc9w8ueug4dvgf",
-			"mezo1qql8ag4cluz6r4dz28p3w00dnc9w8ueug4dvgf",
+			"rune address",
+			"rune1qql8ag4cluz6r4dz28p3w00dnc9w8ueu09mx3j",
+			"rune1qql8ag4cluz6r4dz28p3w00dnc9w8ueu09mx3j",
 			false,
 		},
 		{
 			"cosmos address",
 			"cosmos1qql8ag4cluz6r4dz28p3w00dnc9w8ueulg2gmc",
-			"mezo1qql8ag4cluz6r4dz28p3w00dnc9w8ueug4dvgf",
+			"rune1qql8ag4cluz6r4dz28p3w00dnc9w8ueu09mx3j",
 			false,
 		},
 		{
 			"osmosis address",
 			"osmo1qql8ag4cluz6r4dz28p3w00dnc9w8ueuhnecd2",
-			"mezo1qql8ag4cluz6r4dz28p3w00dnc9w8ueug4dvgf",
+			"rune1qql8ag4cluz6r4dz28p3w00dnc9w8ueu09mx3j",
 			false,
 		},
 	}
 
 	for _, tc := range testCases {
-		addr, err := GetMezoAddressFromBech32(tc.address)
+		addr, err := GetRuneAddressFromBech32(tc.address)
 		if tc.expError {
 			require.Error(t, err, tc.name)
 		} else {
@@ -129,7 +129,7 @@ func TestGetMezoAddressFromBech32(t *testing.T) {
 	}
 }
 
-func TestMezoCoinDenom(t *testing.T) {
+func TestRuneCoinDenom(t *testing.T) {
 	testCases := []struct {
 		name     string
 		denom    string

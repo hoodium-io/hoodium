@@ -82,7 +82,7 @@ func Commit(ctx sdk.Context, app *app.Hoodium, t time.Duration, vs *tmtypes.Vali
 // DeliverTx delivers a cosmos tx for a given set of msgs
 func DeliverTx(
 	ctx sdk.Context,
-	appMezo *app.Hoodium,
+	appRune *app.Hoodium,
 	priv cryptotypes.PrivKey,
 	gasPrice *sdkmath.Int,
 	msgs ...sdk.Msg,
@@ -90,7 +90,7 @@ func DeliverTx(
 	txConfig := encoding.MakeConfig(app.ModuleBasics).TxConfig
 	tx, err := tx.PrepareCosmosTx(
 		ctx,
-		appMezo,
+		appRune,
 		tx.CosmosTxArgs{
 			TxCfg:    txConfig,
 			Priv:     priv,
@@ -104,7 +104,7 @@ func DeliverTx(
 		return nil, err
 	}
 	return BroadcastTxBytes(
-		appMezo,
+		appRune,
 		txConfig.TxEncoder(),
 		tx,
 		ctx.BlockHeight(),
@@ -117,19 +117,19 @@ func DeliverTx(
 // otherwise, it will assume the messages have already been signed.
 func DeliverEthTx(
 	ctx sdk.Context,
-	appMezo *app.Hoodium,
+	appRune *app.Hoodium,
 	proposer sdk.ConsAddress,
 	priv cryptotypes.PrivKey,
 	msgs ...sdk.Msg,
 ) (*abci.ExecTxResult, error) {
 	txConfig := encoding.MakeConfig(app.ModuleBasics).TxConfig
 
-	tx, err := tx.PrepareEthTx(txConfig, appMezo, priv, msgs...)
+	tx, err := tx.PrepareEthTx(txConfig, appRune, priv, msgs...)
 	if err != nil {
 		return nil, err
 	}
 	return BroadcastTxBytes(
-		appMezo,
+		appRune,
 		txConfig.TxEncoder(),
 		tx,
 		ctx.BlockHeight(),
@@ -140,7 +140,7 @@ func DeliverEthTx(
 // CheckTx checks a cosmos tx for a given set of msgs
 func CheckTx(
 	ctx sdk.Context,
-	appMezo *app.Hoodium,
+	appRune *app.Hoodium,
 	priv cryptotypes.PrivKey,
 	gasPrice *sdkmath.Int,
 	msgs ...sdk.Msg,
@@ -149,7 +149,7 @@ func CheckTx(
 
 	tx, err := tx.PrepareCosmosTx(
 		ctx,
-		appMezo,
+		appRune,
 		tx.CosmosTxArgs{
 			TxCfg:    txConfig,
 			Priv:     priv,
@@ -162,22 +162,22 @@ func CheckTx(
 	if err != nil {
 		return nil, err
 	}
-	return checkTxBytes(appMezo, txConfig.TxEncoder(), tx)
+	return checkTxBytes(appRune, txConfig.TxEncoder(), tx)
 }
 
 // CheckEthTx checks a Ethereum tx for a given set of msgs
 func CheckEthTx(
-	appMezo *app.Hoodium,
+	appRune *app.Hoodium,
 	priv cryptotypes.PrivKey,
 	msgs ...sdk.Msg,
 ) (*abci.ResponseCheckTx, error) {
 	txConfig := encoding.MakeConfig(app.ModuleBasics).TxConfig
 
-	tx, err := tx.PrepareEthTx(txConfig, appMezo, priv, msgs...)
+	tx, err := tx.PrepareEthTx(txConfig, appRune, priv, msgs...)
 	if err != nil {
 		return nil, err
 	}
-	return checkTxBytes(appMezo, txConfig.TxEncoder(), tx)
+	return checkTxBytes(appRune, txConfig.TxEncoder(), tx)
 }
 
 // BroadcastTxBytes encodes a transaction and calls DeliverTx on the app.

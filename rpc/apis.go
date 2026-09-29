@@ -27,7 +27,7 @@ import (
 	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/debug"
 	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/eth"
 	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/eth/filters"
-	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/mezo"
+	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/rune"
 	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/miner"
 	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/net"
 	"github.com/hoodium-io/hoodium/rpc/namespaces/ethereum/personal"
@@ -51,7 +51,7 @@ const (
 	TxPoolNamespace   = "txpool"
 	DebugNamespace    = "debug"
 	MinerNamespace    = "miner"
-	MezoNamespace     = "mezo"
+	RuneNamespace     = "rune"
 
 	apiVersion = "1.0"
 )
@@ -170,7 +170,7 @@ func init() {
 				},
 			}
 		},
-		MezoNamespace: func(
+		RuneNamespace: func(
 			serverCtx *server.Context,
 			clientCtx client.Context,
 			_ *types.CometWSClient,
@@ -180,9 +180,9 @@ func init() {
 			evmBackend := backend.NewBackend(serverCtx, serverCtx.Logger, clientCtx, allowUnprotectedTxs, indexer)
 			return []rpc.API{
 				{
-					Namespace: MezoNamespace,
+					Namespace: RuneNamespace,
 					Version:   apiVersion,
-					Service:   mezo.NewPublicAPI(serverCtx.Logger, evmBackend),
+					Service:   rune.NewPublicAPI(serverCtx.Logger, evmBackend),
 					Public:    true,
 				},
 			}

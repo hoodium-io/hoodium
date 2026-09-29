@@ -26,13 +26,13 @@ func (s *TestSuite) TestPermitHashCollision() {
 	// for the nonceKey, they collide which would corrupt
 	// storage
 	btcHash := common.HexToHash(string(btcNonceKey))
-	mezoHash := common.HexToHash(string(hoodiNonceKey))
-	s.Equal(btcHash, mezoHash)
+	runeHash := common.HexToHash(string(hoodiNonceKey))
+	s.Equal(btcHash, runeHash)
 
 	// new implementation produce different hashes
 	btcHash = common.HexToHash(hex.EncodeToString(btcNonceKey))
-	mezoHash = common.HexToHash(hex.EncodeToString(hoodiNonceKey))
-	s.NotEqual(btcHash, mezoHash)
+	runeHash = common.HexToHash(hex.EncodeToString(hoodiNonceKey))
+	s.NotEqual(btcHash, runeHash)
 }
 
 func (s *TestSuite) TestPermit() {

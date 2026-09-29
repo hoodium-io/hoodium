@@ -21,7 +21,7 @@ import (
 
 var (
 	runeChainID    = sdkmath.NewInt(6590)
-	bigMezoChainID = runeChainID.BigInt()
+	bigMainChainID = runeChainID.BigInt()
 )
 
 func newTestAuth(t *testing.T, chainID *big.Int, addr common.Address, nonce uint64) ethtypes.SetCodeAuthorization {
@@ -60,7 +60,7 @@ func TestNewSetCodeTx(t *testing.T) {
 	auth := newTestAuth(t, big.NewInt(6591), to, 1)
 
 	tx := ethtypes.NewTx(&ethtypes.SetCodeTx{
-		ChainID:   uint256.MustFromBig(bigMezoChainID),
+		ChainID:   uint256.MustFromBig(bigMainChainID),
 		Nonce:     1,
 		GasTipCap: uint256.NewInt(1),
 		GasFeeCap: uint256.NewInt(1),
@@ -85,7 +85,7 @@ func TestSetCodeTxAsEthereumData(t *testing.T) {
 	auth := newSignedTestAuth(t, big.NewInt(6591), to, 1, priv)
 
 	original := &ethtypes.SetCodeTx{
-		ChainID:    uint256.MustFromBig(bigMezoChainID),
+		ChainID:    uint256.MustFromBig(bigMainChainID),
 		Nonce:      7,
 		GasTipCap:  uint256.NewInt(2),
 		GasFeeCap:  uint256.NewInt(5),
@@ -112,7 +112,7 @@ func TestSetCodeTxAsEthereumData(t *testing.T) {
 	require.Equal(t, original.AccessList, resTx.AccessList())
 	require.Equal(t, &original.To, resTx.To())
 	require.Equal(t, original.AuthList, resTx.SetCodeAuthorizations())
-	require.Equal(t, bigMezoChainID, resTx.ChainId())
+	require.Equal(t, bigMainChainID, resTx.ChainId())
 
 	// Signed round-trip pin: the unsigned-field assertions above don't
 	// touch V/R/S, so a regression that dropped or rewrote the outer-tx
@@ -123,7 +123,7 @@ func TestSetCodeTxAsEthereumData(t *testing.T) {
 	signerKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	expectedSigner := crypto.PubkeyToAddress(signerKey.PublicKey)
-	signer := ethtypes.LatestSignerForChainID(bigMezoChainID)
+	signer := ethtypes.LatestSignerForChainID(bigMainChainID)
 	signedTx, err := ethtypes.SignNewTx(signerKey, signer, original)
 	require.NoError(t, err)
 
@@ -581,7 +581,7 @@ func TestSetCodeTxGetAuthorizationList(t *testing.T) {
 	}
 
 	tx := ethtypes.NewTx(&ethtypes.SetCodeTx{
-		ChainID:   uint256.MustFromBig(bigMezoChainID),
+		ChainID:   uint256.MustFromBig(bigMainChainID),
 		GasTipCap: uint256.NewInt(1),
 		GasFeeCap: uint256.NewInt(1),
 		Gas:       100,

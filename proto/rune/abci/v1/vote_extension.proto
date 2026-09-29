@@ -1,9 +1,9 @@
 syntax = "proto3";
-package mezo.abci.v1;
+package rune.abci.v1;
 
 option go_package = "github.com/hoodium-io/hoodium/app/abci/types";
 
-// VoteExtension defines the vote extension structure for the Mezo application.
+// VoteExtension defines the vote extension structure for the Rune application.
 message VoteExtension {
   // height is the height of the block that the vote extension is for.
   int64 height = 1;

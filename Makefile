@@ -291,13 +291,10 @@ localnet-bin-init:
 localnet-bin-start:
 	LOCALNET_CHAIN_ID=$(LOCALNET_CHAIN_ID) ./scripts/localnet-start.sh
 
-localnet-bin-sidecars-start:
-	./scripts/localnet-sidecars-start.sh
-
 localnet-bin-clean:
 	rm -rf $(LOCALNET_DIR) build
 
-.PHONY: localnet-bin-init localnet-bin-start localnet-bin-sidecars-start localnet-bin-clean
+.PHONY: localnet-bin-init localnet-bin-start localnet-bin-clean
 
 ###############################################################################
 ###                         Local node binary-based                         ###
@@ -307,41 +304,3 @@ localnode-bin-start:
 	./scripts/localnode-start.sh
 
 .PHONY: localnode-bin-start
-
-###############################################################################
-###                       Contract bindings generation                      ###
-###############################################################################
-
-# List of NPM packages for which to generate bindings - expand if needed.
-npm_packages := @mezo-org/euphrates-contracts
-
-# Working directory where contracts artifacts should be stored.
-contracts_dir := tmp/contracts
-
-# It requires npm of at least 7.x version to support `pack-destination` flag.
-define get_npm_package
-$(info Fetching package $(1))
-$(eval destination_dir := ${contracts_dir}/$(1))
-@rm -rf ${destination_dir} && mkdir -p ${destination_dir}
-@tarball=$$(npm pack --silent --pack-destination=${destination_dir} $(1)); \
-tar -zxf ${destination_dir}/$${tarball} -C ${destination_dir} --strip-components 1 package/deployments/
-$(info Downloaded NPM package $(1) to ${contracts_dir})
-endef
-
-get_npm_packages:
-	$(foreach pkg,$(npm_packages),$(call get_npm_package,$(pkg)))
-
-generate:
-	# go generate needs some go.sum dependencies that are not actually used
-    # in the codebase and are pruned by go mod tidy. As a workaround, we
-    # temporarily set GOFLAGS=-mod=mod to let go generate fetch necessary
-    # dependencies.
-	go env -w GOFLAGS=-mod=mod
-	go generate ./...
-	# Reset GOFLAGS to its original value and run go mod tidy to remove
-	# unnecessary dependencies fetched by go generate.
-	go env -u GOFLAGS
-	go mod tidy
-
-bindings: get_npm_packages generate
-	$(info Bindings generated)

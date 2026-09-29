@@ -30,7 +30,7 @@ import (
 	"github.com/hoodium-io/hoodium/utils"
 )
 
-func TestMezoExport(t *testing.T) {
+func TestRuneExport(t *testing.T) {
 	// create public key
 	privVal := ed25519.GenPrivKey()
 	pubKey := privVal.PubKey()

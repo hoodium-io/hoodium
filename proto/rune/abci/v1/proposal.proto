@@ -1,5 +1,5 @@
 syntax = "proto3";
-package mezo.abci.v1;
+package rune.abci.v1;
 
 option go_package = "github.com/hoodium-io/hoodium/app/abci/types";
 
