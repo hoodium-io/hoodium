@@ -1,0 +1,236 @@
+package maintenance
+
+import (
+	"context"
+	"embed"
+	"fmt"
+
+	upgradetypes "cosmossdk.io/x/upgrade/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/hoodium-io/hoodium/core"
+	"github.com/hoodium-io/hoodium/x/evm/statedb"
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
+)
+
+//go:embed abi.json
+var filesystem embed.FS
+
+// EvmAddress is the EVM address of the maintenance precompile. The address is
+// prefixed with 0x19be which was used to derive Hoodium chain ID. This prefix is
+// used to avoid potential collisions with EVM native precompiles.
+const EvmAddress = evmtypes.MaintenancePrecompileAddress
+
+// NewPrecompileVersionMap creates a new version map for the maintenance precompile.
+func NewPrecompileVersionMap(
+	poaKeeper PoaKeeper,
+	evmKeeper EvmKeeper,
+	feeMarketKeeper FeeMarketKeeper,
+	upgradeKeeper UpgradeKeeper,
+) (*core.VersionMap, error) {
+	// v1 is just the EVM settings.
+	contractV1, err := NewPrecompile(poaKeeper, evmKeeper, feeMarketKeeper, upgradeKeeper, &Settings{
+		EVM:                 true,
+		Precompiles:         false,
+		ChainFeeSplitter:    false,
+		GasPrice:            false,
+		MaxPrecompilesCalls: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// v2 is the EVM settings and the precompiles settings.
+	contractV2, err := NewPrecompile(poaKeeper, evmKeeper, feeMarketKeeper, upgradeKeeper, &Settings{
+		EVM:                 true,
+		Precompiles:         true,
+		ChainFeeSplitter:    false,
+		GasPrice:            false,
+		MaxPrecompilesCalls: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// v3 is the EVM settings, the precompiles settings and the chain fee splitter settings.
+	contractV3, err := NewPrecompile(poaKeeper, evmKeeper, feeMarketKeeper, upgradeKeeper, &Settings{
+		EVM:                 true,
+		Precompiles:         true,
+		ChainFeeSplitter:    true,
+		GasPrice:            false,
+		MaxPrecompilesCalls: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// v4 is the EVM settings, the precompiles settings, the chain fee splitter settings,
+	// and the gas price settings.
+	contractV4, err := NewPrecompile(poaKeeper, evmKeeper, feeMarketKeeper, upgradeKeeper, &Settings{
+		EVM:                 true,
+		Precompiles:         true,
+		ChainFeeSplitter:    true,
+		GasPrice:            true,
+		MaxPrecompilesCalls: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// v5 adds max precompiles calls per execution settings.
+	contractV5, err := NewPrecompile(poaKeeper, evmKeeper, feeMarketKeeper, upgradeKeeper, &Settings{
+		EVM:                 true,
+		Precompiles:         true,
+		ChainFeeSplitter:    true,
+		GasPrice:            true,
+		MaxPrecompilesCalls: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// v6 adds the SELFDESTRUCT toggle and the emergency controls.
+	contractV6, err := NewPrecompile(poaKeeper, evmKeeper, feeMarketKeeper, upgradeKeeper, &Settings{
+		EVM:                 true,
+		Precompiles:         true,
+		ChainFeeSplitter:    true,
+		GasPrice:            true,
+		MaxPrecompilesCalls: true,
+		SelfDestruct:        true,
+		EmergencyControls:   true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return core.NewVersionMap(
+		map[int]*core.Contract{
+			0: contractV1, // returning v1 as v0 is legacy to support this precompile before versioning was introduced
+			1: contractV1,
+			2: contractV2,
+			3: contractV3,
+			4: contractV4,
+			5: contractV5,
+			evmtypes.MaintenancePrecompileLatestVersion: contractV6,
+		},
+	), nil
+}
+
+type Settings struct {
+	EVM                 bool // enable methods related to the evm
+	Precompiles         bool // enable methods related to the precompiles
+	ChainFeeSplitter    bool // enable methods related to the chain fee splitter
+	GasPrice            bool // enable methods related to the gas price
+	MaxPrecompilesCalls bool // enable methods related to max precompiles calls per execution
+	SelfDestruct        bool // enable methods for the SELFDESTRUCT toggle
+	EmergencyControls   bool // enable methods for the emergency team and the lockdown
+}
+
+// NewPrecompile creates a new maintenance precompile.
+func NewPrecompile(
+	poaKeeper PoaKeeper,
+	evmKeeper EvmKeeper,
+	feeMarketKeeper FeeMarketKeeper,
+	upgradeKeeper UpgradeKeeper,
+	settings *Settings,
+) (*core.Contract, error) {
+	contractAbi, err := core.LoadAbiFile(filesystem, "abi.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load abi file: [%w]", err)
+	}
+
+	contract := core.NewContract(
+		contractAbi,
+		common.HexToAddress(EvmAddress),
+		EvmByteCode,
+		"maintenance",
+	)
+
+	methods := newPrecompileMethods(poaKeeper, evmKeeper, feeMarketKeeper, upgradeKeeper, settings)
+	contract.RegisterMethods(methods...)
+
+	return contract, nil
+}
+
+// newPrecompileMethods builds the list of methods for the maintenance precompile.
+// All methods returned by this function are registered in the maintenance precompile.
+func newPrecompileMethods(
+	poaKeeper PoaKeeper,
+	evmKeeper EvmKeeper,
+	feeMarketKeeper FeeMarketKeeper,
+	upgradeKeeper UpgradeKeeper,
+	settings *Settings,
+) []core.Method {
+	var methods []core.Method
+
+	if settings.EVM {
+		methods = append(methods, newSetSupportNonEIP155TxsMethod(poaKeeper, evmKeeper))
+		methods = append(methods, newGetSupportNonEIP155TxsMethod(evmKeeper))
+	}
+
+	if settings.Precompiles {
+		methods = append(methods, newSetPrecompileByteCodeMethod(poaKeeper, evmKeeper))
+	}
+
+	if settings.ChainFeeSplitter {
+		methods = append(methods, newSetChainFeeSplitterAddressMethod(poaKeeper, evmKeeper))
+		methods = append(methods, newGetChainFeeSplitterAddressMethod(evmKeeper))
+	}
+
+	if settings.GasPrice {
+		methods = append(methods, newSetMinGasPriceMethod(poaKeeper, feeMarketKeeper))
+		methods = append(methods, newGetMinGasPriceMethod(feeMarketKeeper))
+	}
+
+	if settings.MaxPrecompilesCalls {
+		methods = append(methods, newSetMaxPrecompilesCallsPerExecutionMethod(poaKeeper, evmKeeper))
+		methods = append(methods, newGetMaxPrecompilesCallsPerExecutionMethod(evmKeeper))
+	}
+
+	if settings.SelfDestruct {
+		methods = append(methods, newSetSelfDestructDisabledMethod(poaKeeper, evmKeeper))
+		methods = append(methods, newGetSelfDestructDisabledMethod(evmKeeper))
+	}
+
+	if settings.EmergencyControls {
+		methods = append(methods, newSetEmergencyTeamMethod(poaKeeper))
+		methods = append(methods, newGetEmergencyTeamMethod(poaKeeper))
+		methods = append(methods, newSetTxLockdownMethod(poaKeeper, evmKeeper))
+		methods = append(methods, newGetTxLockdownMethod(evmKeeper))
+		methods = append(methods, newSetTxLockdownAllowlistMethod(poaKeeper, evmKeeper))
+		methods = append(methods, newGetTxLockdownAllowlistMethod(evmKeeper))
+		methods = append(methods, newSetChainLockdownMethod(poaKeeper, upgradeKeeper))
+	}
+
+	return methods
+}
+
+type PoaKeeper interface {
+	CheckOwner(ctx sdk.Context, sender sdk.AccAddress) error
+	CheckOwnerOrEmergencyTeam(ctx sdk.Context, sender sdk.AccAddress) error
+	GetEmergencyTeam(ctx sdk.Context) sdk.AccAddress
+	SetEmergencyTeam(ctx sdk.Context, sender, emergencyTeam sdk.AccAddress) error
+}
+
+// UpgradeKeeper is an interface to the x/upgrade module keeper.
+type UpgradeKeeper interface {
+	GetDoneHeight(ctx context.Context, name string) (int64, error)
+	ScheduleUpgrade(ctx context.Context, plan upgradetypes.Plan) error
+	HasHandler(name string) bool
+}
+
+type EvmKeeper interface {
+	GetParams(ctx sdk.Context) (params evmtypes.Params)
+	SetParams(ctx sdk.Context, params evmtypes.Params) error
+	SetCode(ctx sdk.Context, codeHash, code []byte)
+	GetCode(ctx sdk.Context, codeHash common.Hash) []byte
+	IsCustomPrecompile(address common.Address) bool
+	GetAccount(ctx sdk.Context, addr common.Address) *statedb.Account
+	SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error
+}
+
+type FeeMarketKeeper interface {
+	GetParams(ctx sdk.Context) (params feemarkettypes.Params)
+	SetParams(ctx sdk.Context, params feemarkettypes.Params) error
+}

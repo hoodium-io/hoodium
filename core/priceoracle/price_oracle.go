@@ -1,0 +1,78 @@
+package priceoracle
+
+import (
+	"context"
+	"embed"
+	"fmt"
+
+	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
+
+	oracletypes "github.com/skip-mev/connect/v2/x/oracle/types"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/hoodium-io/hoodium/core"
+)
+
+//go:embed abi.json
+var filesystem embed.FS
+
+// EvmAddress is the EVM address of the Price Oracle precompile. The address is
+// prefixed with 0x19be which was used to derive Hoodium chain ID. This prefix is
+// used to avoid potential collisions with EVM native precompiles.
+const EvmAddress = evmtypes.PriceOraclePrecompileAddress
+
+// NewPrecompileVersionMap creates a new version map for the price oracle precompile.
+func NewPrecompileVersionMap(
+	oracleQueryServer OracleQueryServer,
+) (*core.VersionMap, error) {
+	contractV1, err := NewPrecompile(oracleQueryServer)
+	if err != nil {
+		return nil, err
+	}
+
+	return core.NewVersionMap(
+		map[int]*core.Contract{
+			evmtypes.PriceOraclePrecompileLatestVersion: contractV1,
+		},
+	), nil
+}
+
+// NewPrecompile creates a new Price Oracle precompile.
+func NewPrecompile(
+	oracleQueryServer OracleQueryServer,
+) (*core.Contract, error) {
+	contractAbi, err := core.LoadAbiFile(filesystem, "abi.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load abi file: [%w]", err)
+	}
+
+	contract := core.NewContract(
+		contractAbi,
+		common.HexToAddress(EvmAddress),
+		EvmByteCode,
+		"price-oracle",
+	)
+
+	methods := newPrecompileMethods(oracleQueryServer)
+	contract.RegisterMethods(methods...)
+
+	return contract, nil
+}
+
+// newPrecompileMethods builds the list of methods for the Price Oracle precompile.
+// All methods returned by this function are registered in the Price Oracle precompile.
+func newPrecompileMethods(
+	oracleQueryServer OracleQueryServer,
+) []core.Method {
+	return []core.Method{
+		newDecimalsMethod(),
+		newLatestRoundDataMethod(oracleQueryServer),
+	}
+}
+
+type OracleQueryServer interface {
+	GetPrice(
+		ctx context.Context,
+		req *oracletypes.GetPriceRequest,
+	) (*oracletypes.GetPriceResponse, error)
+}
