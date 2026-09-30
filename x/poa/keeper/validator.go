@@ -127,6 +127,22 @@ func (k Keeper) GetValidatorByConsAddr(
 	return k.GetValidator(ctx, operator)
 }
 
+// GetValidatorOperator returns the operator address of the validator identified
+// by the given consensus address. It is a thin wrapper satisfying the narrow
+// StakingKeeper interface expected by x/evm, decoupling x/evm from the concrete
+// poa Validator type.
+func (k Keeper) GetValidatorOperator(
+	ctx sdk.Context,
+	cons sdk.ConsAddress,
+) (sdk.ValAddress, bool) {
+	validator, found := k.GetValidatorByConsAddr(ctx, cons)
+	if !found {
+		return nil, false
+	}
+
+	return validator.GetOperator(), true
+}
+
 // GetValidatorState gets the state of a validator.
 func (k Keeper) GetValidatorState(
 	ctx sdk.Context,

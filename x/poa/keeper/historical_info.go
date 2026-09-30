@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/hoodium-io/hoodium/x/poa/types"
 )
@@ -24,6 +25,22 @@ func (k Keeper) GetHistoricalInfo(
 	}
 
 	return types.MustUnmarshalHistoricalInfo(k.cdc, value), true
+}
+
+// GetHistoricalHeader returns the block header recorded for the given height.
+// It is a thin wrapper over GetHistoricalInfo that satisfies the narrow
+// StakingKeeper interface expected by x/evm, decoupling x/evm from the concrete
+// poa HistoricalInfo type.
+func (k Keeper) GetHistoricalHeader(
+	ctx sdk.Context,
+	height int64,
+) (tmproto.Header, bool) {
+	histInfo, found := k.GetHistoricalInfo(ctx, height)
+	if !found {
+		return tmproto.Header{}, false
+	}
+
+	return histInfo.Header, true
 }
 
 // SetHistoricalInfo sets the historical info at a given height

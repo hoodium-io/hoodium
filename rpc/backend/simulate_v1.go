@@ -68,7 +68,7 @@ func (b *Backend) SimulateV1(
 	// puts a truncated cmtproto.Header on ctx (lacking LastBlockID,
 	// DataHash, and others), and it's exactly that truncated header
 	// PoA's TrackHistoricalInfo persists — so neither ctx.BlockHeader()
-	// nor stakingKeeper.GetHistoricalInfo can produce the canonical
+	// nor stakingKeeper.GetHistoricalHeader can produce the canonical
 	// hash CometBFT's block store carries. Forwarding it from the
 	// rpc layer is the only way the two surfaces line up.
 	baseBlockHash := header.Block.Hash().Bytes()

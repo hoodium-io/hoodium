@@ -21,6 +21,7 @@ import (
 
 	"cosmossdk.io/core/address"
 
+	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 
@@ -30,7 +31,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
-	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 // AccountKeeper defines the expected account keeper interface
@@ -57,10 +57,12 @@ type BankKeeper interface {
 	BlockedAddr(addr sdk.AccAddress) bool
 }
 
-// StakingKeeper returns the historical headers kept in store.
+// StakingKeeper returns the historical headers kept in store and the operator
+// address for a validator's consensus address. It is decoupled from x/poa so
+// that standard x/staking can satisfy it once PoA is removed.
 type StakingKeeper interface {
-	GetHistoricalInfo(ctx sdk.Context, height int64) (poatypes.HistoricalInfo, bool)
-	GetValidatorByConsAddr(ctx sdk.Context, consAddr sdk.ConsAddress) (validator poatypes.Validator, found bool)
+	GetHistoricalHeader(ctx sdk.Context, height int64) (tmproto.Header, bool)
+	GetValidatorOperator(ctx sdk.Context, consAddr sdk.ConsAddress) (sdk.ValAddress, bool)
 }
 
 // FeeMarketKeeper

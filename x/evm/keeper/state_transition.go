@@ -269,13 +269,13 @@ func (k Keeper) GetHashFn(ctx sdk.Context) vm.GetHashFunc {
 		case ctx.BlockHeight() > h:
 			// Case 2: if the chain is not the current height we need to retrieve the hash from the store for the
 			// current chain epoch. This only applies if the current height is greater than the requested height.
-			histInfo, found := k.stakingKeeper.GetHistoricalInfo(ctx, h)
+			histInfo, found := k.stakingKeeper.GetHistoricalHeader(ctx, h)
 			if !found {
 				k.Logger(ctx).Debug("historical info not found", "height", h)
 				return common.Hash{}
 			}
 
-			header, err := tmtypes.HeaderFromProto(&histInfo.Header)
+			header, err := tmtypes.HeaderFromProto(&histInfo)
 			if err != nil {
 				k.Logger(ctx).Error("failed to cast tendermint header from proto", "error", err)
 				return common.Hash{}
