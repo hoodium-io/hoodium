@@ -65,7 +65,7 @@ func (app *Hoodium) connectABCIHandlers() (
 			app.Logger(),
 			voteweighted.MedianFromContext(
 				app.Logger(),
-				app.PoaKeeper,
+				app.StakingKeeper,
 				voteweighted.DefaultPowerThreshold,
 			),
 			currencypair.NewDeltaCurrencyPairStrategy(&app.OracleKeeper),
@@ -91,7 +91,7 @@ func (app *Hoodium) connectABCIHandlers() (
 		// Inject no-ops here since we're not wrapping other handlers, we're including ours as a sub-handler
 		baseapp.NoOpPrepareProposal(),
 		baseapp.NoOpProcessProposal(),
-		connectve.NewDefaultValidateVoteExtensionsFn(app.PoaKeeper),
+		connectve.NewDefaultValidateVoteExtensionsFn(app.StakingKeeper),
 		compositeVeCodec,
 		compression.NewCompressionExtendedCommitCodec(
 			compression.NewDefaultExtendedCommitCodec(),
@@ -103,7 +103,7 @@ func (app *Hoodium) connectABCIHandlers() (
 
 	aggregatorFn := voteweighted.MedianFromContext(
 		app.Logger(),
-		app.PoaKeeper,
+		app.StakingKeeper,
 		voteweighted.DefaultPowerThreshold,
 	)
 	preBlocker := connectpreblocker.NewOraclePreBlockHandler(

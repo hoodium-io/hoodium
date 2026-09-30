@@ -115,7 +115,6 @@ import (
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 
 	"github.com/hoodium-io/hoodium/app/ante"
-	"github.com/hoodium-io/hoodium/x/poa"
 	poakeeper "github.com/hoodium-io/hoodium/x/poa/keeper"
 	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 
@@ -159,7 +158,6 @@ var (
 		consensusparams.AppModuleBasic{},
 		auth.AppModuleBasic{},
 		bank.AppModuleBasic{},
-		poa.AppModuleBasic{},
 		params.AppModuleBasic{},
 		crisis.AppModuleBasic{},
 		authzmodule.AppModuleBasic{},
@@ -175,7 +173,6 @@ var (
 	// module account permissions
 	maccPerms = map[string][]string{
 		authtypes.FeeCollectorName:       nil,
-		poatypes.ModuleName:              nil,
 		evmtypes.ModuleName:              {authtypes.Minter, authtypes.Burner},
 		stakingtypes.BondedPoolName:      {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName:   {authtypes.Burner, authtypes.Staking},
@@ -473,7 +470,6 @@ func NewHoodium(
 		auth.NewAppModule(appCodec, app.AccountKeeper, authsims.RandomGenesisAccounts, app.GetSubspace(authtypes.ModuleName)),
 		bank.NewAppModule(appCodec, app.BankKeeper, app.AccountKeeper, app.GetSubspace(banktypes.ModuleName)),
 		crisis.NewAppModule(app.CrisisKeeper, skipGenesisInvariants, app.GetSubspace(crisistypes.ModuleName)),
-		poa.NewAppModule(app.PoaKeeper),
 		upgrade.NewAppModule(app.UpgradeKeeper, addressCodec),
 		params.NewAppModule(app.ParamsKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
@@ -493,7 +489,6 @@ func NewHoodium(
 	app.mm.SetOrderBeginBlockers(
 		feemarkettypes.ModuleName,
 		evmtypes.ModuleName,
-		poatypes.ModuleName,
 		stakingtypes.ModuleName,
 		distrtypes.ModuleName,
 		oracletypes.ModuleName,
@@ -510,7 +505,6 @@ func NewHoodium(
 	// NOTE: fee market module must go last in order to retrieve the block gas used.
 	app.mm.SetOrderEndBlockers(
 		crisistypes.ModuleName,
-		poatypes.ModuleName,
 		stakingtypes.ModuleName,
 		distrtypes.ModuleName,
 		evmtypes.ModuleName,
@@ -529,7 +523,6 @@ func NewHoodium(
 	app.mm.SetOrderInitGenesis(
 		authtypes.ModuleName,
 		banktypes.ModuleName,
-		poatypes.ModuleName,
 		stakingtypes.ModuleName,
 		distrtypes.ModuleName,
 		evmtypes.ModuleName,
