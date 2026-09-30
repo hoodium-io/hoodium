@@ -47,35 +47,14 @@ var MaxSupply = sdkmath.NewIntFromBigInt(
 	),
 )
 
-// PoaKeeper defines the expected interface for the POA keeper.
-type PoaKeeper interface {
-	CheckOwner(ctx sdk.Context, sender sdk.AccAddress) error
-}
-
-type Settings struct {
-	Minting bool // enable methods related to minting (setMinter, getMinter, mint)
-}
-
 // NewPrecompileVersionMap creates a new version map for the HOODI token precompile.
 func NewPrecompileVersionMap(
 	bankKeeper bankkeeper.Keeper,
 	authzkeeper authzkeeper.Keeper,
 	evmkeeper evmkeeper.Keeper,
-	poaKeeper PoaKeeper,
 	id string,
 ) (*core.VersionMap, error) {
-	// v1 is the base ERC20 functionality without minting
-	contractV1, err := NewPrecompile(bankKeeper, authzkeeper, evmkeeper, poaKeeper, id, &Settings{
-		Minting: false,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// v2 adds minting functionality (setMinter, getMinter, mint)
-	contractV2, err := NewPrecompile(bankKeeper, authzkeeper, evmkeeper, poaKeeper, id, &Settings{
-		Minting: true,
-	})
+	contractV1, err := NewPrecompile(bankKeeper, authzkeeper, evmkeeper, id)
 	if err != nil {
 		return nil, err
 	}
@@ -83,19 +62,21 @@ func NewPrecompileVersionMap(
 	return core.NewVersionMap(
 		map[int]*core.Contract{
 			1: contractV1,
-			evmtypes.HOODITokenPrecompileLatestVersion: contractV2,
+			evmtypes.HOODITokenPrecompileLatestVersion: contractV1,
 		},
 	), nil
 }
 
 // NewPrecompile creates a new HOODI token precompile.
+//
+// NOTE: HOODI is a base ERC-20 token with no minter and no minting path. It is
+// detached from any Mainchain module and reserved for the POX Yieldchain, where
+// its one-time full max-supply mint will be implemented in a later stage.
 func NewPrecompile(
 	bankKeeper bankkeeper.Keeper,
 	authzkeeper authzkeeper.Keeper,
 	evmkeeper evmkeeper.Keeper,
-	poaKeeper PoaKeeper,
 	id string,
-	settings *Settings,
 ) (*core.Contract, error) {
 	contractAbi, err := core.LoadAbiFile(filesystem, "abi.json")
 	if err != nil {
@@ -121,18 +102,16 @@ func NewPrecompile(
 		contractAbi,
 		evmAddress,
 		EvmByteCode,
-		"rune-token",
+		"hoodi-token",
 	)
 
 	methods := newPrecompileMethods(
 		bankKeeper,
 		authzkeeper,
 		evmkeeper,
-		poaKeeper,
 		denom,
 		domainSeparator,
 		nonceKey,
-		settings,
 	)
 	contract.RegisterMethods(methods...)
 
@@ -145,13 +124,11 @@ func newPrecompileMethods(
 	bankKeeper bankkeeper.Keeper,
 	authzkeeper authzkeeper.Keeper,
 	evmkeeper evmkeeper.Keeper,
-	poaKeeper PoaKeeper,
 	denom string,
 	domainSeparator []byte,
 	nonceKey []byte,
-	settings *Settings,
 ) []core.Method {
-	methods := []core.Method{
+	return []core.Method{
 		erc20.NewBalanceOfMethod(bankKeeper, denom),
 		erc20.NewTotalSupplyMethod(bankKeeper, denom),
 		erc20.NewMaxSupplyMethod(MaxSupply),
@@ -168,12 +145,4 @@ func newPrecompileMethods(
 		erc20.NewDomainSeparatorMethod(domainSeparator),
 		erc20.NewPermitTypehashMethod(),
 	}
-
-	if settings.Minting {
-		methods = append(methods, NewSetMinterMethod(evmkeeper, poaKeeper))
-		methods = append(methods, NewGetMinterMethod(evmkeeper))
-		methods = append(methods, NewMintMethod(bankKeeper, evmkeeper, denom))
-	}
-
-	return methods
 }
