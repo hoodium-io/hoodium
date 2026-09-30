@@ -374,6 +374,11 @@ func NewHoodium(
 		authtypes.FeeCollectorName,
 		authority.String(),
 	)
+	// Wire distribution's reward-tracking hooks into staking. This handles
+	// validator-creation/delegation reward accounting. NOTE: reward allocation
+	// (proposer/block rewards) is NOT wired here — that is handled by the custom
+	// x/runerewards module later (Stage 4).
+	app.StakingKeeper.SetHooks(stakingtypes.NewMultiStakingHooks(app.DistributionKeeper.Hooks()))
 	app.CrisisKeeper = crisiskeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[crisistypes.StoreKey]),
