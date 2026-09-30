@@ -73,9 +73,13 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	crisiskeeper "github.com/cosmos/cosmos-sdk/x/crisis/keeper"
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
+	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	oracleclient "github.com/skip-mev/connect/v2/service/clients/oracle"
 	servicemetrics "github.com/skip-mev/connect/v2/service/metrics"
@@ -166,9 +170,12 @@ var (
 
 	// module account permissions
 	maccPerms = map[string][]string{
-		authtypes.FeeCollectorName: nil,
-		poatypes.ModuleName:        nil,
-		evmtypes.ModuleName:        {authtypes.Minter, authtypes.Burner},
+		authtypes.FeeCollectorName:       nil,
+		poatypes.ModuleName:              nil,
+		evmtypes.ModuleName:              {authtypes.Minter, authtypes.Burner},
+		stakingtypes.BondedPoolName:      {authtypes.Burner, authtypes.Staking},
+		stakingtypes.NotBondedPoolName:   {authtypes.Burner, authtypes.Staking},
+		distrtypes.ModuleName:            nil,
 	}
 
 	// module accounts that are allowed to receive tokens
@@ -199,6 +206,8 @@ type Hoodium struct {
 	AccountKeeper         authkeeper.AccountKeeper
 	BankKeeper            bankkeeper.Keeper
 	PoaKeeper             poakeeper.Keeper
+	StakingKeeper         *stakingkeeper.Keeper
+	DistributionKeeper    distrkeeper.Keeper
 	CrisisKeeper          *crisiskeeper.Keeper
 	UpgradeKeeper         *upgradekeeper.Keeper
 	ParamsKeeper          paramskeeper.Keeper
@@ -267,6 +276,8 @@ func NewHoodium(
 		feemarkettypes.StoreKey,
 		marketmaptypes.StoreKey,
 		oracletypes.StoreKey,
+		stakingtypes.StoreKey,
+		distrtypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -340,6 +351,24 @@ func NewHoodium(
 	app.PoaKeeper = poakeeper.NewKeeper(
 		keys[poatypes.StoreKey],
 		appCodec,
+	)
+	app.StakingKeeper = stakingkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[stakingtypes.StoreKey]),
+		app.AccountKeeper,
+		app.BankKeeper,
+		authority.String(),
+		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ValidatorAddrPrefix()),
+		authcodec.NewBech32Codec(sdk.GetConfig().GetBech32ConsensusAddrPrefix()),
+	)
+	app.DistributionKeeper = distrkeeper.NewKeeper(
+		appCodec,
+		runtime.NewKVStoreService(keys[distrtypes.StoreKey]),
+		app.AccountKeeper,
+		app.BankKeeper,
+		app.StakingKeeper,
+		authtypes.FeeCollectorName,
+		authority.String(),
 	)
 	app.CrisisKeeper = crisiskeeper.NewKeeper(
 		appCodec,
