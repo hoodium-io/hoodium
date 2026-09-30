@@ -75,9 +75,11 @@ import (
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	distr "github.com/cosmos/cosmos-sdk/x/distribution"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
+	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
@@ -166,6 +168,8 @@ var (
 		feemarket.AppModuleBasic{},
 		marketmap.AppModuleBasic{},
 		oracle.AppModuleBasic{},
+		staking.AppModuleBasic{},
+		distr.AppModuleBasic{},
 	)
 
 	// module account permissions
@@ -472,6 +476,8 @@ func NewHoodium(
 		feemarket.NewAppModule(app.FeeMarketKeeper, app.GetSubspace(feemarkettypes.ModuleName)),
 		marketmap.NewAppModule(appCodec, &app.MarketMapKeeper),
 		oracle.NewAppModule(appCodec, app.OracleKeeper),
+		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(stakingtypes.ModuleName)),
+		distr.NewAppModule(appCodec, app.DistributionKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(distrtypes.ModuleName)),
 	)
 
 	// NOTE: upgrade module must go first to handle software upgrades.
@@ -483,6 +489,8 @@ func NewHoodium(
 		feemarkettypes.ModuleName,
 		evmtypes.ModuleName,
 		poatypes.ModuleName,
+		stakingtypes.ModuleName,
+		distrtypes.ModuleName,
 		oracletypes.ModuleName,
 		// no-op modules
 		authtypes.ModuleName,
@@ -498,6 +506,8 @@ func NewHoodium(
 	app.mm.SetOrderEndBlockers(
 		crisistypes.ModuleName,
 		poatypes.ModuleName,
+		stakingtypes.ModuleName,
+		distrtypes.ModuleName,
 		evmtypes.ModuleName,
 		authtypes.ModuleName,
 		banktypes.ModuleName,
@@ -515,6 +525,8 @@ func NewHoodium(
 		authtypes.ModuleName,
 		banktypes.ModuleName,
 		poatypes.ModuleName,
+		stakingtypes.ModuleName,
+		distrtypes.ModuleName,
 		evmtypes.ModuleName,
 		feemarkettypes.ModuleName,
 		authz.ModuleName,
