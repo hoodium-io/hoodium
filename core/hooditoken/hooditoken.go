@@ -9,7 +9,6 @@ import (
 	"github.com/hoodium-io/hoodium/utils"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	authzkeeper "github.com/cosmos/cosmos-sdk/x/authz/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/ethereum/go-ethereum/common"
