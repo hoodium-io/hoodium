@@ -435,7 +435,7 @@ func NewHoodium(
 		authority,
 		app.AccountKeeper,
 		app.BankKeeper,
-		app.PoaKeeper,
+		newStakingKeeperAdapter(app.StakingKeeper),
 		app.FeeMarketKeeper,
 		&app.ConsensusParamsKeeper,
 		tracer,
