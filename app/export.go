@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmttypes "github.com/cometbft/cometbft/types"
 
 	"cosmossdk.io/simapp"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
@@ -57,10 +58,10 @@ func (app *Hoodium) ExportAppStateAndValidators(
 		return servertypes.ExportedApp{}, err
 	}
 
-	validators, err := app.PoaKeeper.ExportGenesisValidators(ctx)
-	if err != nil {
-		return servertypes.ExportedApp{}, err
-	}
+	// TODO(Stage-2): export the staking validator set (stakingKeeper.GetAllValidators
+	// → []cmttypes.GenesisValidator). Correctly mapping staking validators to the
+	// CometBFT GenesisValidator format is deferred with the staking migration.
+	validators := []cmttypes.GenesisValidator{}
 
 	return servertypes.ExportedApp{
 		AppState:        appState,

@@ -98,12 +98,9 @@ import (
 	"github.com/hoodium-io/hoodium/evm/eip712"
 	"github.com/hoodium-io/hoodium/core"
 	"github.com/hoodium-io/hoodium/core/runetoken"
-	"github.com/hoodium-io/hoodium/core/maintenance"
 	"github.com/hoodium-io/hoodium/core/hooditoken"
 	"github.com/hoodium-io/hoodium/core/priceoracle"
 	"github.com/hoodium-io/hoodium/core/testbed"
-	upgradelocal "github.com/hoodium-io/hoodium/core/upgrade"
-	"github.com/hoodium-io/hoodium/core/validatorpool"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
 	runetypes "github.com/hoodium-io/hoodium/types"
 
@@ -115,8 +112,6 @@ import (
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 
 	"github.com/hoodium-io/hoodium/app/ante"
-	poakeeper "github.com/hoodium-io/hoodium/x/poa/keeper"
-	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 
 	// Force-load the tracer engines to trigger registration due to Go-Ethereum v1.10.15 changes
 
@@ -206,7 +201,6 @@ type Hoodium struct {
 	ConsensusParamsKeeper consensusparamskeeper.Keeper
 	AccountKeeper         authkeeper.AccountKeeper
 	BankKeeper            bankkeeper.Keeper
-	PoaKeeper             poakeeper.Keeper
 	StakingKeeper         *stakingkeeper.Keeper
 	DistributionKeeper    distrkeeper.Keeper
 	CrisisKeeper          *crisiskeeper.Keeper
@@ -268,7 +262,6 @@ func NewHoodium(
 		consensusparamstypes.StoreKey,
 		authtypes.StoreKey,
 		banktypes.StoreKey,
-		poatypes.StoreKey,
 		crisistypes.StoreKey,
 		paramstypes.StoreKey,
 		authzkeeper.StoreKey,
@@ -348,10 +341,6 @@ func NewHoodium(
 		app.BlockedAddrs(),
 		authority.String(),
 		logger,
-	)
-	app.PoaKeeper = poakeeper.NewKeeper(
-		keys[poatypes.StoreKey],
-		appCodec,
 	)
 	app.StakingKeeper = stakingkeeper.NewKeeper(
 		appCodec,
@@ -446,7 +435,6 @@ func NewHoodium(
 		logger,
 		app.BankKeeper,
 		app.AuthzKeeper,
-		app.PoaKeeper,
 		*app.EvmKeeper,
 		*app.UpgradeKeeper,
 		oraclekeeper.NewQueryServer(app.OracleKeeper),
@@ -597,7 +585,6 @@ func (app *Hoodium) setAnteHandler(txConfig client.TxConfig, maxGasWanted uint64
 		BankKeeper:             app.BankKeeper,
 		ExtensionOptionChecker: runetypes.HasDynamicFeeExtensionOption,
 		EvmKeeper:              app.EvmKeeper,
-		PoaKeeper:              app.PoaKeeper,
 		FeeMarketKeeper:        app.FeeMarketKeeper,
 		SignModeHandler:        txConfig.SignModeHandler(),
 		SigGasConsumer:         ante.SigVerificationGasConsumer,
@@ -684,7 +671,6 @@ func (app *Hoodium) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*a
 }
 
 // setABCIExtensions sets the ABCI++ extensions on the application.
-// This function assumes the PoaKeeper is already set in the app.
 func (app *Hoodium) setABCIExtensions() {
 	// Create the Connect ABCI handlers.
 	connectVEHandler, connectProposalHandler, connectPreBlocker := app.connectABCIHandlers()
@@ -871,7 +857,6 @@ func customEvmPrecompiles(
 	logger log.Logger,
 	bankKeeper bankkeeper.Keeper,
 	authzKeeper authzkeeper.Keeper,
-	poaKeeper poakeeper.Keeper,
 	evmKeeper evmkeeper.Keeper,
 	upgradeKeeper upgradekeeper.Keeper,
 	oracleQueryServer oracletypes.QueryServer,
@@ -893,12 +878,12 @@ func customEvmPrecompiles(
 		)
 	}
 
-	// HOODI token precompile.
+	// HOODI token precompile. Detached from any Mainchain module; base ERC-20
+	// only (no minter/mint). Reserved for the POX Yieldchain.
 	hoodiTokenVersionMap, err := hooditoken.NewPrecompileVersionMap(
 		bankKeeper,
 		authzKeeper,
 		evmKeeper,
-		poaKeeper,
 		chainID,
 	)
 	if err != nil {
@@ -908,28 +893,14 @@ func customEvmPrecompiles(
 		)
 	}
 
-	// Validator pool precompile.
-	validatorPoolVersionMap, err := validatorpool.NewPrecompileVersionMap(poaKeeper)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create validatorpool precompile: [%w]", err)
-	}
-
-	// Maintenance precompile.
-	maintenanceVersionMap, err := maintenance.NewPrecompileVersionMap(
-		poaKeeper,
-		&evmKeeper,
-		feemarketKeeper,
-		upgradeKeeper,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create maintenance precompile: [%w]", err)
-	}
-
-	// Upgrade precompile.
-	upgradeVersionMap, err := upgradelocal.NewPrecompileVersionMap(upgradeKeeper, poaKeeper)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create upgrade precompile: [%w]", err)
-	}
+	// TODO(Stage-2): rewire these precompiles onto staking-based authority once
+	// the validator/delegator staking migration is complete. The validatorpool,
+	// maintenance, and upgrade precompiles were gated by PoA's CheckOwner /
+	// emergency-team model, which no longer exists.
+	//
+	// validatorpool.NewPrecompileVersionMap(...)
+	// maintenance.NewPrecompileVersionMap(...)
+	// upgradelocal.NewPrecompileVersionMap(upgradeKeeper, ...)
 
 	// Price Oracle precompile.
 	priceOracleVersionMap, err := priceoracle.NewPrecompileVersionMap(oracleQueryServer)
@@ -940,9 +911,6 @@ func customEvmPrecompiles(
 	pvmap := []*core.VersionMap{
 		runeTokenVersionMap,
 		hoodiTokenVersionMap,
-		validatorPoolVersionMap,
-		maintenanceVersionMap,
-		upgradeVersionMap,
 		priceOracleVersionMap,
 	}
 
