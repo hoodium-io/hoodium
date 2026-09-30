@@ -45,8 +45,8 @@ var (
 	// on Hoodium. It will receive the fees from 'fee_collector' account collected from Hoodium
 	// transactions.
 	DefaultChainFeeSplitterAddress = ""
-	// DefaultRuneMinterAddress defines the address of the HOODI minter.
-	DefaultRuneMinterAddress = ""
+	// DefaultHoodiMinterAddress defines the address of the HOODI minter.
+	DefaultHoodiMinterAddress = ""
 )
 
 // AvailableExtraEIPs lists standard EIPs supported through ExtraEIPs. Values
@@ -91,7 +91,7 @@ func DefaultParams() Params {
 		PrecompilesVersions:             DefaultPrecompilesVersions,
 		MaxPrecompilesCallsPerExecution: uint32(DefaultMaxPrecompilesCallsPerExecution), //nolint:gosec
 		ChainFeeSplitterAddress:         DefaultChainFeeSplitterAddress,
-		RuneMinterAddress:               DefaultRuneMinterAddress,
+		HoodiMinterAddress:               DefaultHoodiMinterAddress,
 	}
 }
 

@@ -62,7 +62,7 @@ func (s *PrecompileTestSuite) TestSetMinterByOwner() {
 
 	// Verify minter was set by checking params
 	params := s.app.EvmKeeper.GetParams(s.ctx)
-	s.Require().Equal(s.minter.Hex(), params.RuneMinterAddress)
+	s.Require().Equal(s.minter.Hex(), params.HoodiMinterAddress)
 }
 
 func (s *PrecompileTestSuite) TestSetMinterByNonOwner() {
@@ -320,7 +320,7 @@ func (s *PrecompileTestSuite) TestSetMinterToZeroAddress() {
 	// Verify minter was set to zero address
 	params := s.app.EvmKeeper.GetParams(s.ctx)
 	zeroAddr := common.Address{}
-	s.Require().Equal(zeroAddr.Hex(), params.RuneMinterAddress)
+	s.Require().Equal(zeroAddr.Hex(), params.HoodiMinterAddress)
 
 	// Now verify getMinter returns zero address
 	getMethod := s.runePrecompile.Abi.Methods["getMinter"]

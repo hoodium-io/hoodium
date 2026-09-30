@@ -75,7 +75,7 @@ func (m *SetMinterMethod) Run(
 
 	// Update params with the new minter
 	params := m.evmKeeper.GetParams(context.SdkCtx())
-	params.RuneMinterAddress = minter.Hex()
+	params.HoodiMinterAddress = minter.Hex()
 	err = m.evmKeeper.SetParams(context.SdkCtx(), params)
 	if err != nil {
 		return nil, nil, err
@@ -167,7 +167,7 @@ func (m *GetMinterMethod) Run(
 
 	// Get params and return the minter address
 	params := m.evmKeeper.GetParams(context.SdkCtx())
-	minterAddress := common.HexToAddress(params.RuneMinterAddress)
+	minterAddress := common.HexToAddress(params.HoodiMinterAddress)
 
 	return core.MethodOutputs{minterAddress}, nil, nil
 }
@@ -249,7 +249,7 @@ func (m *MintMethod) Run(
 	// Check if sender is the minter
 	sender := context.MsgSender()
 	params := m.evmKeeper.GetParams(context.SdkCtx())
-	minterAddress := common.HexToAddress(params.RuneMinterAddress)
+	minterAddress := common.HexToAddress(params.HoodiMinterAddress)
 
 	if minterAddress == (common.Address{}) {
 		return nil, nil, fmt.Errorf("minter not set")

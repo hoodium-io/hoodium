@@ -38,9 +38,9 @@ message Params {
   // chain_fee_splitter_address defines the hex-encoded EVM address of the chain
   // fee splitter contract.
   string chain_fee_splitter_address = 10;
-  // rune_minter_address defines the hex-encoded EVM address of the RUNE
+  // hoodi_minter_address defines the hex-encoded EVM address of the HOODI
   // minter.
-  string rune_minter_address = 11;
+  string hoodi_minter_address = 11;
   // tx_lockdown_enabled indicates whether the transaction lockdown is active.
   // While active, only transactions that pass the lockdown rule are accepted.
   bool tx_lockdown_enabled = 12;
