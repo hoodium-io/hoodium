@@ -127,7 +127,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 
 	a := appCreator{encodingConfig}
 	rootCmd.AddCommand(
-		genesis.NewCmd(),
+		genesis.NewCmd(app.ModuleBasics),
 		toml.NewCmd(),
 		NewInitCmd(app.ModuleBasics),
 		tmcli.NewCompletionCmd(rootCmd, true),

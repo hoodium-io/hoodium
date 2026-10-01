@@ -1,13 +1,19 @@
 package genesis
 
 import (
-	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
-	"github.com/hoodium-io/hoodium/app"
-	poacli "github.com/hoodium-io/hoodium/x/poa/client/cli"
 	"github.com/spf13/cobra"
+
+	"github.com/cosmos/cosmos-sdk/types/module"
+	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 )
 
-func NewCmd() *cobra.Command {
+// NewCmd builds the genesis utilities command (add-account, migrate, validate).
+//
+// TODO(Stage-3): wire the standard Cosmos SDK staking gentx/collect-gentxs flow
+// here. This requires registering the genutil module in app.ModuleBasics (not
+// currently present — the chain previously used PoA's own genval/collect-genvals
+// path, which is now removed). The PoA genval/collect-genvals commands are gone.
+func NewCmd(mbm module.BasicManager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "genesis",
 		Short: "Utilities for chain bootstrapping",
@@ -16,9 +22,7 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(
 		NewAddAccountCmd(),
 		NewMigrateCmd(),
-		poacli.NewGenValCmd(),
-		poacli.NewCollectGenValsCmd(),
-		genutilcli.ValidateGenesisCmd(app.ModuleBasics),
+		genutilcli.ValidateGenesisCmd(mbm),
 	)
 
 	return cmd
