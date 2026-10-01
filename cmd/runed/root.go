@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/hoodium-io/hoodium/cmd/runed/genesis"
-	"github.com/hoodium-io/hoodium/cmd/runed/poa"
 	"github.com/hoodium-io/hoodium/cmd/runed/toml"
 
 	storetypes "cosmossdk.io/store/types"
@@ -135,7 +134,6 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		NewTestnetCmd(app.ModuleBasics),
 		confixcmd.ConfigCommand(),
 		pruning.Cmd(a.newApp, app.DefaultNodeHome),
-		poa.NewCmd(),
 	)
 
 	runeserver.AddCommands(
