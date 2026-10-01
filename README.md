@@ -4,7 +4,7 @@ The Unified Dual-Layer Blockchain Network built on top of Bitcoin - In developme
 A Combination of L1 (Mainchain EVM) + L2 (Sidechain POX)
 
 ## Featuring:
-*Dual-Engine (POA - POX)* <br>
+*Dual-Engine (POS/PONA - POX)* <br>
 *Dual-Consensus* <br>
 *Dual-Validator* <br>
 *Dual-Delegator* <br>
