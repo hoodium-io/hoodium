@@ -76,6 +76,8 @@ import (
 	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	distr "github.com/cosmos/cosmos-sdk/x/distribution"
+	"github.com/cosmos/cosmos-sdk/x/genutil"
+	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
@@ -163,6 +165,7 @@ var (
 		oracle.AppModuleBasic{},
 		staking.AppModuleBasic{},
 		distr.AppModuleBasic{},
+		genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
 	)
 
 	// module account permissions
@@ -467,6 +470,7 @@ func NewHoodium(
 		oracle.NewAppModule(appCodec, app.OracleKeeper),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(stakingtypes.ModuleName)),
 		distr.NewAppModule(appCodec, app.DistributionKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(distrtypes.ModuleName)),
+		genutil.NewAppModule(app.AccountKeeper, app.StakingKeeper, app.BaseApp, encodingConfig.TxConfig),
 	)
 
 	// NOTE: upgrade module must go first to handle software upgrades.
@@ -488,6 +492,7 @@ func NewHoodium(
 		paramstypes.ModuleName,
 		consensusparamstypes.ModuleName,
 		marketmaptypes.ModuleName,
+		genutiltypes.ModuleName,
 	)
 
 	// NOTE: fee market module must go last in order to retrieve the block gas used.
@@ -505,12 +510,14 @@ func NewHoodium(
 		marketmaptypes.ModuleName,
 		oracletypes.ModuleName,
 		feemarkettypes.ModuleName,
+		genutiltypes.ModuleName,
 	)
 
 	// NOTE: crisis module must go at the end to check for invariants on each module
 	app.mm.SetOrderInitGenesis(
 		authtypes.ModuleName,
 		banktypes.ModuleName,
+		genutiltypes.ModuleName,
 		stakingtypes.ModuleName,
 		distrtypes.ModuleName,
 		evmtypes.ModuleName,
