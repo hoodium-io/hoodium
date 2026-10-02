@@ -99,51 +99,49 @@ func (suite *KeeperTestSuite) TestBaseFee() {
 
 func (suite *KeeperTestSuite) TestGetAccountStorage() {
 	testCases := []struct {
-		name     string
-		malleate func()
-		expRes   []int
+		name       string
+		malleate   func() common.Address // returns the contract address (or zero if none)
+		expStorage []int                 // expected storage length for suite.address (wallet) then contract
 	}{
 		{
 			"Only one account that's not a contract (no storage)",
-			func() {},
+			func() common.Address { return common.Address{} },
 			[]int{0},
 		},
 		{
 			"Two accounts - one contract (with storage), one wallet",
-			func() {
+			func() common.Address {
 				supply := big.NewInt(100)
-				suite.DeployTestContract(suite.T(), suite.address, supply)
+				return suite.DeployTestContract(suite.T(), suite.address, supply)
 			},
-			[]int{2, 0},
+			[]int{0, 2},
 		},
 	}
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
 			suite.SetupTest()
-			tc.malleate()
-			i := 0
-			// IterateAccounts also iterates through custom precompile accounts
-			// as they get added at genesis, so we need to append the expected
-			// storage length of each precompile to expRes to avoid an out of
-			// index error during the test
-			precompileGenesisAccounts := suite.app.EvmKeeper.CustomPrecompileGenesisAccounts()
-			for _, pga := range precompileGenesisAccounts {
-				tc.expRes = append(tc.expRes, len(pga.Storage))
-			}
+			contract := tc.malleate()
 
+			// Collect storage lengths keyed by EVM address (order-independent).
+			storageByAddress := make(map[common.Address]int)
 			suite.app.AccountKeeper.IterateAccounts(suite.ctx, func(account sdk.AccountI) bool {
 				ethAccount, ok := account.(runetypes.EthAccountI)
 				if !ok {
-					// ignore non EthAccounts
 					return false
 				}
 				addr := ethAccount.EthAddress()
-				storage := suite.app.EvmKeeper.GetAccountStorage(suite.ctx, addr)
-				suite.Require().Equal(tc.expRes[i], len(storage))
-				i++
+				storageByAddress[addr] = len(suite.app.EvmKeeper.GetAccountStorage(suite.ctx, addr))
 				return false
 			})
+
+			// Wallet (suite.address) must have the first expected storage length.
+			suite.Require().Equal(tc.expStorage[0], storageByAddress[suite.address])
+
+			// If a contract was deployed, verify its storage length.
+			if contract != (common.Address{}) {
+				suite.Require().Equal(tc.expStorage[1], storageByAddress[contract])
+			}
 		})
 	}
 }
