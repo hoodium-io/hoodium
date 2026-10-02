@@ -207,7 +207,9 @@ func (m *getDelegationMethod) RequiredGas(_ []byte) (uint64, bool) {
 }
 func (m *getDelegationMethod) Payable() bool { return false }
 
-// Run implements getDelegation(address delegator, address validator) → (uint256 shares).
+// Run implements getDelegation(address delegator, address validator) → (uint256 amount).
+// Returns the token-equivalent (RUNE amount in base denomination) of the
+// delegator's shares, truncated to an integer.
 func (m *getDelegationMethod) Run(
 	runCtx *core.RunContext,
 	inputs core.MethodInputs,
@@ -234,6 +236,13 @@ func (m *getDelegationMethod) Run(
 		return nil, nil, fmt.Errorf("failed to get delegation: %w", err)
 	}
 
-	shares := delegation.Shares.BigInt()
-	return core.MethodOutputs{shares}, nil, nil
+	validator, err := m.sk.GetValidator(runCtx.SdkCtx(), valAddr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get validator: %w", err)
+	}
+
+	// Convert shares → tokens using the validator's share exchange rate, then
+	// truncate to an integer RUNE amount (base denomination).
+	tokens := validator.TokensFromShares(delegation.Shares)
+	return core.MethodOutputs{tokens.TruncateInt().BigInt()}, nil, nil
 }
