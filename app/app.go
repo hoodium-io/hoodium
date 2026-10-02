@@ -900,15 +900,9 @@ func customEvmPrecompiles(
 		)
 	}
 
-	// TODO(Stage-2): rewire these precompiles onto staking-based authority once
-	// the validator/delegator staking migration is complete. The maintenance and
-	// upgrade precompiles are gated by PoA's CheckOwner/emergency-team model
-	// (removed); the validatorpool precompile (which exposed PoA validator ops to
-	// the EVM, incl. delegation) was deleted and must be RECREATED on staking.
-	//
-	// maintenance.NewPrecompileVersionMap(...)
-	// upgradelocal.NewPrecompileVersionMap(upgradeKeeper, ...)
-	// (Stage-2: reinstate a staking-backed validatorpool precompile for EVM delegation)
+	// TODO(Stage-2): reinstate a staking-backed validatorpool precompile for EVM
+	// delegation. (maintenance + upgrade precompiles were DELETED — PoA-gated;
+	// their setTxLockdown/setMaxPrecompilesCallsPerExecution move to Blockshield.)
 
 	// Price Oracle precompile.
 	priceOracleVersionMap, err := priceoracle.NewPrecompileVersionMap(oracleQueryServer)
