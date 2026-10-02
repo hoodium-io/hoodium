@@ -6,32 +6,17 @@ const (
 )
 
 const (
-	HOODITokenPrecompileAddress       = "0x19bE000000000000000000000000000000000001"
-	HOODITokenPrecompileLatestVersion = 2
+	HOODITokenPrecompileAddress       = "0x19be000000000000000000000000000000000001"
+	HOODITokenPrecompileLatestVersion = 1
 )
 
 const (
-	ValidatorPoolPrecompileAddress       = "0x19bE000000000000000000000000000000000011"
-	ValidatorPoolPrecompileLatestVersion = 1
-)
-
-const (
-	MaintenancePrecompileAddress       = "0x19Be000000000000000000000000000000000013"
-	MaintenancePrecompileLatestVersion = 6
-)
-
-const (
-	UpgradePrecompileAddress       = "0x19be000000000000000000000000000000000014"
-	UpgradePrecompileLatestVersion = 1
-)
-
-const (
-	PriceOraclePrecompileAddress       = "0x19be000000000000000000000000000000000015"
+	PriceOraclePrecompileAddress       = "0x19be000000000000000000000000000000000002"
 	PriceOraclePrecompileLatestVersion = 1
 )
 
 const (
-	StakingPrecompileAddress       = "0x19be000000000000000000000000000000000016"
+	StakingPrecompileAddress       = "0x19be000000000000000000000000000000000003"
 	StakingPrecompileLatestVersion = 1
 )
 
@@ -48,9 +33,7 @@ const (
 var DefaultPrecompilesVersions = []*PrecompileVersionInfo{
 	{RUNETokenPrecompileAddress, RUNETokenPrecompileLatestVersion},
 	{HOODITokenPrecompileAddress, HOODITokenPrecompileLatestVersion},
-	{ValidatorPoolPrecompileAddress, ValidatorPoolPrecompileLatestVersion},
-	{MaintenancePrecompileAddress, MaintenancePrecompileLatestVersion},
-	{UpgradePrecompileAddress, UpgradePrecompileLatestVersion},
 	{PriceOraclePrecompileAddress, PriceOraclePrecompileLatestVersion},
+	{StakingPrecompileAddress, StakingPrecompileLatestVersion},
 	{TestBedPrecompileAddress, TestBedPrecompileLatestVersion},
 }

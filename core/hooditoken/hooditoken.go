@@ -60,7 +60,6 @@ func NewPrecompileVersionMap(
 
 	return core.NewVersionMap(
 		map[int]*core.Contract{
-			1: contractV1,
 			evmtypes.HOODITokenPrecompileLatestVersion: contractV1,
 		},
 	), nil

@@ -186,17 +186,19 @@ func (suite *KeeperTestSuite) TestGetAccountOrEmpty() {
 
 func (suite *KeeperTestSuite) TestCustomPrecompileGenesisAccounts() {
 	accounts := suite.app.EvmKeeper.CustomPrecompileGenesisAccounts()
-	suite.Require().Equal(len(accounts), 3)
+	suite.Require().Equal(len(accounts), 4)
 
 	// Expected addresses are the precompile address constants, checksummed via
 	// go-ethereum's EIP-55 (same as the keeper emits). Sorted case-insensitively
 	// to match CustomPrecompileGenesisAccounts.
-	// NOTE: only RUNE, HOODI and PriceOracle precompiles are registered — the
-	// validatorpool/maintenance/upgrade precompiles were removed with PoA.
+	// NOTE: live precompiles are RUNE, HOODI, PriceOracle and Staking (sequential
+	// 0x19be...0000-0003). The validatorpool/maintenance/upgrade precompiles were
+	// removed with PoA.
 	expected := []string{
 		common.HexToAddress(evmtypes.RUNETokenPrecompileAddress).String(),
 		common.HexToAddress(evmtypes.HOODITokenPrecompileAddress).String(),
 		common.HexToAddress(evmtypes.PriceOraclePrecompileAddress).String(),
+		common.HexToAddress(evmtypes.StakingPrecompileAddress).String(),
 	}
 
 	for i, exp := range expected {
