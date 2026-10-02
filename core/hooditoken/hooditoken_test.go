@@ -3,18 +3,13 @@ package hooditoken_test
 import (
 	"math/big"
 	"testing"
-	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hoodium-io/hoodium/app"
-	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	"github.com/hoodium-io/hoodium/core"
 	"github.com/hoodium-io/hoodium/core/go-erc20"
 	erc20testsuite "github.com/hoodium-io/hoodium/core/go-erc20/testsuite"
 	"github.com/hoodium-io/hoodium/core/hooditoken"
-	"github.com/hoodium-io/hoodium/testutil"
-	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -43,33 +38,16 @@ func buildDomainSeparator() []byte {
 	return sep
 }
 
-type PrecompileTestSuite struct {
-	suite.Suite
-
-	app                 *app.Hoodium
-	ctx                 sdk.Context
-	runePrecompile      *core.Contract
-	poaOwner            common.Address
-	poaOwnerSDK         sdk.AccAddress
-	minter              common.Address
-	minterSDK           sdk.AccAddress
-	recipient           common.Address
-	recipientSDK        sdk.AccAddress
-	unauthorizedAddr    common.Address
-	unauthorizedAddrSDK sdk.AccAddress
-}
-
-func TestMEZOPrecompile(t *testing.T) {
+// TestHOODIPrecompile runs the common ERC-20 test suite against the HOODI
+// precompile. HOODI is a base ERC-20 token (no minter/mint) — the mint path
+// was removed and is reserved for the POX Yieldchain (one-time full mint).
+func TestHOODIPrecompile(t *testing.T) {
 	precompileFactoryFn := func(app *app.Hoodium) (*core.Contract, error) {
 		return hooditoken.NewPrecompile(
 			app.BankKeeper,
 			app.AuthzKeeper,
 			*app.EvmKeeper,
-			app.PoaKeeper,
 			"rune_6590-1",
-			&hooditoken.Settings{
-				Minting: false,
-			},
 		)
 	}
 
@@ -83,55 +61,5 @@ func TestMEZOPrecompile(t *testing.T) {
 		false,
 	)
 
-	// Run the test suite for the common ERC20 functionality
 	suite.Run(t, erc20TestSuite)
-	// Run the test suite for custom HOODI functionality
-	suite.Run(t, new(PrecompileTestSuite))
-}
-
-func (s *PrecompileTestSuite) SetupTest() {
-	// Consensus key
-	privCons, err := ethsecp256k1.GenerateKey()
-	s.Require().NoError(err)
-	consAddress := sdk.ConsAddress(privCons.PubKey().Address())
-
-	// Init app
-	s.app = app.Setup(false, nil)
-
-	header := testutil.NewHeader(
-		1, time.Now().UTC(), "rune_6590-1", consAddress, nil, nil,
-	)
-	s.ctx = s.app.BaseApp.NewContextLegacy(false, header)
-
-	// Get POA owner from genesis (set by app.Setup)
-	s.poaOwnerSDK = s.app.PoaKeeper.GetOwner(s.ctx)
-	s.poaOwner = common.BytesToAddress(s.poaOwnerSDK.Bytes())
-
-	// Create minter account
-	minterAddr, _ := utiltx.NewAddrKey()
-	s.minter = minterAddr
-	s.minterSDK = sdk.AccAddress(minterAddr.Bytes())
-
-	// Create recipient account
-	recipientAddr, _ := utiltx.NewAddrKey()
-	s.recipient = recipientAddr
-	s.recipientSDK = sdk.AccAddress(recipientAddr.Bytes())
-
-	// Create unauthorized account
-	unauthorizedAddr, _ := utiltx.NewAddrKey()
-	s.unauthorizedAddr = unauthorizedAddr
-	s.unauthorizedAddrSDK = sdk.AccAddress(unauthorizedAddr.Bytes())
-
-	// Create precompile
-	s.runePrecompile, err = hooditoken.NewPrecompile(
-		s.app.BankKeeper,
-		s.app.AuthzKeeper,
-		*s.app.EvmKeeper,
-		s.app.PoaKeeper,
-		"rune_6590-1",
-		&hooditoken.Settings{
-			Minting: true,
-		},
-	)
-	s.Require().NoError(err)
 }
