@@ -30,6 +30,11 @@ const (
 	PriceOraclePrecompileLatestVersion = 1
 )
 
+const (
+	StakingPrecompileAddress       = "0x19be000000000000000000000000000000000016"
+	StakingPrecompileLatestVersion = 1
+)
+
 // Start the TestBed precompile address with the prefix 0x19be1 in order
 // to not conflict with any production precompile.
 const (
