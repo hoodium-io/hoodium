@@ -28,6 +28,7 @@ import (
 	"cosmossdk.io/simapp"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/testutil/mock"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
@@ -119,6 +120,46 @@ func NewTestGenesisState(codec codec.Codec) simapp.GenesisState {
 		[]authtypes.GenesisAccount{acc},
 		balance,
 	)
+}
+
+// StakingGenesisWithValidator returns a complete staking genesis (bonded
+// validator + self-delegation) plus the corresponding bonded_tokens_pool bank
+// balance, so the staking InvGenesis invariant (bonded pool == bonded coins)
+// holds. It is used by test patchGenesis functions that need to register a
+// specific validator.
+func (app *Hoodium) StakingGenesisWithValidator(
+	operator sdk.ValAddress,
+	pubKey cryptotypes.PubKey,
+) (stakingtypes.GenesisState, banktypes.Balance) {
+	validator, err := stakingtypes.NewValidator(
+		operator.String(),
+		pubKey,
+		stakingtypes.Description{},
+	)
+	if err != nil {
+		panic(err)
+	}
+	validator.Status = stakingtypes.Bonded
+	validator.Tokens = sdk.DefaultPowerReduction
+	validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
+
+	genesis := stakingtypes.DefaultGenesisState()
+	genesis.Validators = []stakingtypes.Validator{validator}
+	genesis.Delegations = []stakingtypes.Delegation{
+		{
+			DelegatorAddress: sdk.AccAddress(operator).String(),
+			ValidatorAddress: operator.String(),
+			Shares:           sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction),
+		},
+	}
+	genesis.LastTotalPower = sdkmath.OneInt()
+
+	balance := banktypes.Balance{
+		Address: authtypes.NewModuleAddress(stakingtypes.BondedPoolName).String(),
+		Coins:   sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, sdk.DefaultPowerReduction)),
+	}
+
+	return *genesis, balance
 }
 
 func genesisStateWithValSet(

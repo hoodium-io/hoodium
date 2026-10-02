@@ -128,19 +128,23 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 			genesis[evmtypes.ModuleName] = app.AppCodec().MustMarshalJSON(evmGenesis)
 		}
 
-		validator, err := stakingtypes.NewValidator(
-			sdk.ValAddress(suite.address.Bytes()).String(),
+		stakingGenesis, bondedBalance := app.StakingGenesisWithValidator(
+			sdk.ValAddress(suite.address.Bytes()),
 			priv.PubKey(),
-			stakingtypes.Description{},
 		)
-		suite.Require().NoError(err)
+		genesis[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(&stakingGenesis)
 
-		stakingGenesis := stakingtypes.DefaultGenesisState()
-		stakingGenesis.Validators = append(
-			stakingGenesis.Validators,
-			validator,
-		)
-		genesis[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGenesis)
+		// Replace the bonded-tokens-pool balance in the bank genesis so it matches
+		// the staking genesis's bonded validator (the default genesisStateWithValSet
+		// already funded it; keep it consistent).
+		var bankGenesis banktypes.GenesisState
+		app.AppCodec().MustUnmarshalJSON(genesis[banktypes.ModuleName], &bankGenesis)
+		for i := range bankGenesis.Balances {
+			if bankGenesis.Balances[i].Address == bondedBalance.Address {
+				bankGenesis.Balances[i] = bondedBalance
+			}
+		}
+		genesis[banktypes.ModuleName] = app.AppCodec().MustMarshalJSON(&bankGenesis)
 
 		return genesis
 	})

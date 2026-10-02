@@ -110,8 +110,6 @@ func (suite *KeeperTestSuite) TestQueryCosmosAccount() {
 	)
 
 	// custom precompile accounts are added at genesis
-	// offset expected account numbers by the number of precompiles at genesis
-	precompileOffset := uint64(len(suite.app.EvmKeeper.CustomPrecompileGenesisAccounts()))
 
 	testCases := []struct {
 		msg      string
@@ -136,7 +134,7 @@ func (suite *KeeperTestSuite) TestQueryCosmosAccount() {
 				expAccount = &types.QueryCosmosAccountResponse{
 					CosmosAddress: sdk.AccAddress(suite.address.Bytes()).String(),
 					Sequence:      0,
-					AccountNumber: precompileOffset + 2, // this is set during the test setup
+					AccountNumber: suite.app.AccountKeeper.GetAccount(suite.ctx, suite.address.Bytes()).GetAccountNumber(),
 				}
 				req = &types.QueryCosmosAccountRequest{
 					Address: suite.address.String(),
@@ -156,7 +154,7 @@ func (suite *KeeperTestSuite) TestQueryCosmosAccount() {
 				expAccount = &types.QueryCosmosAccountResponse{
 					CosmosAddress: sdk.AccAddress(suite.address.Bytes()).String(),
 					Sequence:      10,
-					AccountNumber: precompileOffset + 3,
+					AccountNumber: nextAccNumber,
 				}
 				req = &types.QueryCosmosAccountRequest{
 					Address: suite.address.String(),
@@ -428,8 +426,6 @@ func (suite *KeeperTestSuite) TestQueryValidatorAccount() {
 	)
 
 	// custom precompile accounts are added at genesis
-	// offset expected account numbers by the number of precompiles at genesis
-	precompileOffset := uint64(len(suite.app.EvmKeeper.CustomPrecompileGenesisAccounts()))
 
 	testCases := []struct {
 		msg      string
@@ -454,7 +450,7 @@ func (suite *KeeperTestSuite) TestQueryValidatorAccount() {
 				expAccount = &types.QueryValidatorAccountResponse{
 					AccountAddress: sdk.AccAddress(suite.address.Bytes()).String(),
 					Sequence:       0,
-					AccountNumber:  precompileOffset + 2, // this is set during the test setup
+					AccountNumber:  suite.app.AccountKeeper.GetAccount(suite.ctx, suite.address.Bytes()).GetAccountNumber(),
 				}
 				req = &types.QueryValidatorAccountRequest{
 					ConsAddress: suite.consAddress.String(),
@@ -474,7 +470,7 @@ func (suite *KeeperTestSuite) TestQueryValidatorAccount() {
 				expAccount = &types.QueryValidatorAccountResponse{
 					AccountAddress: sdk.AccAddress(suite.address.Bytes()).String(),
 					Sequence:       10,
-					AccountNumber:  precompileOffset + 3,
+					AccountNumber:  nextAccNumber,
 				}
 				req = &types.QueryValidatorAccountRequest{
 					ConsAddress: suite.consAddress.String(),

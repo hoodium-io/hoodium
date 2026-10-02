@@ -96,19 +96,21 @@ func (suite *EvmTestSuite) DoSetupTest(t require.TestingT) {
 	bankGenesis.Supply = bankGenesis.Supply.Add(coins...).Add(coins...)
 	genesisState[banktypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(&bankGenesis)
 
-	validator, err := stakingtypes.NewValidator(
-		sdk.ValAddress(address.Bytes()).String(),
+	stakingGenesis, bondedBalance := suite.app.StakingGenesisWithValidator(
+		sdk.ValAddress(address.Bytes()),
 		priv.PubKey(),
-		stakingtypes.Description{},
 	)
-	suite.Require().NoError(err)
+	genesisState[stakingtypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(&stakingGenesis)
 
-	stakingGenesis := stakingtypes.DefaultGenesisState()
-	stakingGenesis.Validators = append(
-		stakingGenesis.Validators,
-		validator,
-	)
-	genesisState[stakingtypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(stakingGenesis)
+	// Replace the bonded-tokens-pool balance to match the bonded validator.
+	var stakingBankGenesis banktypes.GenesisState
+	suite.app.AppCodec().MustUnmarshalJSON(genesisState[banktypes.ModuleName], &stakingBankGenesis)
+	for i := range stakingBankGenesis.Balances {
+		if stakingBankGenesis.Balances[i].Address == bondedBalance.Address {
+			stakingBankGenesis.Balances[i] = bondedBalance
+		}
+	}
+	genesisState[banktypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(&stakingBankGenesis)
 
 	stateBytes, err := tmjson.MarshalIndent(genesisState, "", " ")
 	require.NoError(t, err)
