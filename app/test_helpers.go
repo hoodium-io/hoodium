@@ -171,27 +171,51 @@ func GenesisStateWithValSet(
 	genesisState[authtypes.ModuleName] = app.AppCodec().MustMarshalJSON(authGenesis)
 
 	validators := make([]stakingtypes.Validator, 0, len(valSet.Validators))
+	delegations := make([]stakingtypes.Delegation, 0, len(valSet.Validators))
 
 	for _, val := range valSet.Validators {
 		pk, _ := cryptocodec.FromCmtPubKeyInterface(val.PubKey)
+		operator := sdk.ValAddress(val.Address).String()
+
 		validator, err := stakingtypes.NewValidator(
-			sdk.ValAddress(val.Address).String(),
+			operator,
 			pk,
 			stakingtypes.Description{},
 		)
 		if err != nil {
 			panic(err)
 		}
-		// Bond the validator with a minimum self-delegation.
+
+		// Bond the validator with a self-delegation of exactly one unit of
+		// consensus power (Tokens == DefaultPowerReduction).
 		validator.Status = stakingtypes.Bonded
 		validator.Tokens = sdk.DefaultPowerReduction
 		validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
+
 		validators = append(validators, validator)
+		delegations = append(delegations, stakingtypes.Delegation{
+			DelegatorAddress: sdk.AccAddress(val.Address).String(),
+			ValidatorAddress: operator,
+			Shares:           sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction),
+		})
 	}
-	// set validators and delegations
+
 	stakingGenesis := stakingtypes.DefaultGenesisState()
 	stakingGenesis.Validators = validators
+	stakingGenesis.Delegations = delegations
+	stakingGenesis.LastTotalPower = sdkmath.NewInt(int64(len(validators)))
 	genesisState[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGenesis)
+
+	// Fund the bonded tokens pool so the staking InitGenesis invariant
+	// (bonded pool balance == bonded coins) holds.
+	bonded := sdk.NewCoin(
+		sdk.DefaultBondDenom,
+		sdk.DefaultPowerReduction.MulRaw(int64(len(validators))),
+	)
+	balances = append(balances, banktypes.Balance{
+		Address: authtypes.NewModuleAddress(stakingtypes.BondedPoolName).String(),
+		Coins:   sdk.NewCoins(bonded),
+	})
 
 	totalSupply := sdk.NewCoins()
 	for _, b := range balances {

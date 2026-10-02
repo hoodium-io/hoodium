@@ -102,9 +102,6 @@ func (suite *EvmTestSuite) DoSetupTest(t require.TestingT) {
 		stakingtypes.Description{},
 	)
 	suite.Require().NoError(err)
-	validator.Status = stakingtypes.Bonded
-	validator.Tokens = sdk.DefaultPowerReduction
-	validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
 
 	stakingGenesis := stakingtypes.DefaultGenesisState()
 	stakingGenesis.Validators = append(

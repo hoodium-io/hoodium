@@ -81,9 +81,6 @@ func (suite *KeeperTestSuite) SetupApp(checkTx bool, chainID string) {
 		stakingtypes.Description{},
 	)
 	suite.Require().NoError(err)
-	validator.Status = stakingtypes.Bonded
-	validator.Tokens = sdk.DefaultPowerReduction
-	validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
 
 	err = suite.app.StakingKeeper.SetValidator(suite.ctx, validator)
 	require.NoError(t, err)

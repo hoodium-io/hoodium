@@ -150,9 +150,6 @@ func (suite *KeeperTestSuite) TestGetCoinbaseAddress() {
 					stakingtypes.Description{},
 				)
 				suite.Require().NoError(err)
-				validator.Status = stakingtypes.Bonded
-				validator.Tokens = sdk.DefaultPowerReduction
-				validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
 
 				valConsAddr := sdk.ConsAddress(privKey.PubKey().Address())
 
