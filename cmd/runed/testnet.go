@@ -52,6 +52,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/hoodium-io/hoodium/crypto/hd"
 	"github.com/hoodium-io/hoodium/server/config"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
@@ -63,8 +64,6 @@ import (
 	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 	runekr "github.com/hoodium-io/hoodium/crypto/keyring"
 	"github.com/hoodium-io/hoodium/testutil/network"
-
-	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
 )
 
 var (
@@ -243,7 +242,7 @@ func initTestnetFiles(
 	genFiles := make([]string, args.numValidators)
 	nodeIDs := make([]string, args.numValidators)
 	valPubKeys := make([]cryptotypes.PubKey, args.numValidators)
-	validators := make([]poatypes.Validator, args.numValidators)
+	validators := make([]stakingtypes.Validator, args.numValidators)
 	memos := make([]string, args.numValidators)
 	nodeDirNames := make([]string, args.numValidators)
 	nodeDirs := make([]string, args.numValidators)
@@ -343,10 +342,10 @@ func initTestnetFiles(
 			},
 		)
 
-		validator, err := poatypes.NewValidator(
-			sdk.ValAddress(address),
+		validator, err := stakingtypes.NewValidator(
+			sdk.ValAddress(address).String(),
 			valPubKeys[i],
-			poatypes.Description{
+			stakingtypes.Description{
 				Moniker: nodeDirName,
 			},
 		)
@@ -415,7 +414,7 @@ func initGenesisFiles(
 	genAccounts []authtypes.GenesisAccount,
 	genBalances []banktypes.Balance,
 	genFiles []string,
-	validators []poatypes.Validator,
+	validators []stakingtypes.Validator,
 ) error {
 	appGenState := mbm.DefaultGenesis(clientCtx.Codec)
 	// set the accounts in the genesis state
@@ -445,18 +444,49 @@ func initGenesisFiles(
 	evmGenState.Params.EvmDenom = coinDenom
 	appGenState[evmtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&evmGenState)
 
-	var poaGenState poatypes.GenesisState
-	clientCtx.Codec.MustUnmarshalJSON(appGenState[poatypes.ModuleName], &poaGenState)
-	// Set the first validator as the initial owner.
-	poaGenState.Owner = sdk.AccAddress(validators[0].GetOperator()).String()
-	poaGenState.Validators = validators
-	poaGenState.PrivilegeAssignments = []poatypes.ValidatorPrivilegeAssignment{
-		{
-			OperatorBech32: validators[0].GetOperator().String(),
-			Privilege:      "validator",
-		},
+	// Build the staking genesis: bond each validator with a self-delegation.
+	stakingGenState := stakingtypes.DefaultGenesisState()
+	stakingGenState.Params.BondDenom = coinDenom
+
+	var (
+		genDelegations []stakingtypes.Delegation
+		lastPowers     []stakingtypes.LastValidatorPower
+		lastTotalPower int64
+	)
+	for i := range validators {
+		// Give each validator a self-delegation of 1 RUNE (10^18 arune) so it has
+		// exactly 1 unit of consensus power in the local testnet.
+		tokens := runetypes.PowerReduction
+		val := validators[i]
+		val.Status = stakingtypes.Bonded
+		val.Tokens = tokens
+		val.DelegatorShares = sdkmath.LegacyNewDecFromInt(tokens)
+
+		validators[i] = val
+
+		// Operator is the bech32 validator address; self-delegation means the
+		// delegator and validator are the same operator.
+		operator := val.OperatorAddress
+
+		genDelegations = append(genDelegations, stakingtypes.Delegation{
+			DelegatorAddress: operator,
+			ValidatorAddress: operator,
+			Shares:           sdkmath.LegacyNewDecFromInt(tokens),
+		})
+
+		power := val.GetConsensusPower(runetypes.PowerReduction)
+		lastPowers = append(lastPowers, stakingtypes.LastValidatorPower{
+			Address: operator,
+			Power:   power,
+		})
+		lastTotalPower += power
 	}
-	appGenState[poatypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&poaGenState)
+
+	stakingGenState.Validators = validators
+	stakingGenState.Delegations = genDelegations
+	stakingGenState.LastValidatorPowers = lastPowers
+	stakingGenState.LastTotalPower = sdkmath.NewInt(lastTotalPower)
+	appGenState[stakingtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(stakingGenState)
 
 	if err := mbm.ValidateGenesis(clientCtx.Codec, clientCtx.TxConfig, appGenState); err != nil {
 		return fmt.Errorf("failed to validate genesis file: %w", err)
