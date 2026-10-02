@@ -69,7 +69,6 @@ require (
 
 require (
 	github.com/cespare/cp v1.1.1 // indirect
-	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
 	github.com/rs/zerolog v1.33.0 // indirect
 )
 
