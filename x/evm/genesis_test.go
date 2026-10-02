@@ -23,7 +23,8 @@ import (
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	"github.com/hoodium-io/hoodium/utils"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
-	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
+	sdkmath "cosmossdk.io/math"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
@@ -96,20 +97,22 @@ func (suite *EvmTestSuite) DoSetupTest(t require.TestingT) {
 	bankGenesis.Supply = bankGenesis.Supply.Add(coins...).Add(coins...)
 	genesisState[banktypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(&bankGenesis)
 
-	validator, err := poatypes.NewValidator(
-		address.Bytes(),
+	validator, err := stakingtypes.NewValidator(
+		sdk.ValAddress(address.Bytes()).String(),
 		priv.PubKey(),
-		poatypes.Description{},
+		stakingtypes.Description{},
 	)
 	suite.Require().NoError(err)
+	validator.Status = stakingtypes.Bonded
+	validator.Tokens = sdk.DefaultPowerReduction
+	validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
 
-	poaGenesis := poatypes.DefaultGenesisState()
-	poaGenesis.Owner = sdk.AccAddress(address.Bytes()).String()
-	poaGenesis.Validators = append(
-		poaGenesis.Validators,
+	stakingGenesis := stakingtypes.DefaultGenesisState()
+	stakingGenesis.Validators = append(
+		stakingGenesis.Validators,
 		validator,
 	)
-	genesisState[poatypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(poaGenesis)
+	genesisState[stakingtypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(stakingGenesis)
 
 	stateBytes, err := tmjson.MarshalIndent(genesisState, "", " ")
 	require.NoError(t, err)

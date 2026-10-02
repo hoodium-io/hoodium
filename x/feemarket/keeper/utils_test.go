@@ -10,7 +10,7 @@ import (
 	"github.com/hoodium-io/hoodium/utils"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/baseapp"
@@ -75,19 +75,19 @@ func (suite *KeeperTestSuite) SetupApp(checkTx bool, chainID string) {
 	suite.app.AccountKeeper.SetAccount(suite.ctx, acc)
 
 	valAddr := sdk.ValAddress(suite.address.Bytes())
-	validator, err := poatypes.NewValidator(valAddr, priv.PubKey(), poatypes.Description{})
-	suite.Require().NoError(err)
-
-	err = suite.app.PoaKeeper.SubmitApplication(
-		suite.ctx,
-		sdk.AccAddress(validator.GetOperator()),
-		validator,
+	validator, err := stakingtypes.NewValidator(
+		valAddr.String(),
+		priv.PubKey(),
+		stakingtypes.Description{},
 	)
+	suite.Require().NoError(err)
+	validator.Status = stakingtypes.Bonded
+	validator.Tokens = sdk.DefaultPowerReduction
+	validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
+
+	err = suite.app.StakingKeeper.SetValidator(suite.ctx, validator)
 	require.NoError(t, err)
-
-	owner := suite.app.PoaKeeper.GetOwner(suite.ctx)
-
-	err = suite.app.PoaKeeper.ApproveApplication(suite.ctx, owner, validator.GetOperator())
+	err = suite.app.StakingKeeper.SetValidatorByConsAddr(suite.ctx, validator)
 	require.NoError(t, err)
 
 	encodingConfig := encoding.MakeConfig(app.ModuleBasics)

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -128,20 +128,22 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 			genesis[evmtypes.ModuleName] = app.AppCodec().MustMarshalJSON(evmGenesis)
 		}
 
-		validator, err := poatypes.NewValidator(
-			suite.address.Bytes(),
+		validator, err := stakingtypes.NewValidator(
+			sdk.ValAddress(suite.address.Bytes()).String(),
 			priv.PubKey(),
-			poatypes.Description{},
+			stakingtypes.Description{},
 		)
 		suite.Require().NoError(err)
+		validator.Status = stakingtypes.Bonded
+		validator.Tokens = sdk.DefaultPowerReduction
+		validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
 
-		poaGenesis := poatypes.DefaultGenesisState()
-		poaGenesis.Owner = sdk.AccAddress(suite.address.Bytes()).String()
-		poaGenesis.Validators = append(
-			poaGenesis.Validators,
+		stakingGenesis := stakingtypes.DefaultGenesisState()
+		stakingGenesis.Validators = append(
+			stakingGenesis.Validators,
 			validator,
 		)
-		genesis[poatypes.ModuleName] = app.AppCodec().MustMarshalJSON(poaGenesis)
+		genesis[stakingtypes.ModuleName] = app.AppCodec().MustMarshalJSON(stakingGenesis)
 
 		return genesis
 	})

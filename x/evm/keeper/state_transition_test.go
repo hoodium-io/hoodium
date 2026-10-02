@@ -11,7 +11,8 @@ import (
 	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/cometbft/cometbft/crypto/tmhash"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
@@ -83,7 +84,7 @@ func (suite *KeeperTestSuite) TestGetHashFn() {
 			"case 2.2: height lower than current one, invalid hist info header",
 			1,
 			func() {
-				suite.app.PoaKeeper.SetHistoricalInfo(suite.ctx, 1, &poatypes.HistoricalInfo{})
+				suite.app.StakingKeeper.SetHistoricalInfo(suite.ctx, 1, &stakingtypes.HistoricalInfo{})
 				suite.ctx = suite.ctx.WithBlockHeight(10)
 			},
 			common.Hash{},
@@ -92,10 +93,10 @@ func (suite *KeeperTestSuite) TestGetHashFn() {
 			"case 2.3: height lower than current one, calculated from hist info header",
 			1,
 			func() {
-				histInfo := &poatypes.HistoricalInfo{
+				histInfo := &stakingtypes.HistoricalInfo{
 					Header: header,
 				}
-				suite.app.PoaKeeper.SetHistoricalInfo(suite.ctx, 1, histInfo)
+				suite.app.StakingKeeper.SetHistoricalInfo(suite.ctx, 1, histInfo)
 				suite.ctx = suite.ctx.WithBlockHeight(10)
 			},
 			common.BytesToHash(hash),
@@ -143,36 +144,28 @@ func (suite *KeeperTestSuite) TestGetCoinbaseAddress() {
 				// consensus key (must use pure secp256k1 curve due to Tendermint requirements)
 				privKey := secp256k1.GenPrivKey()
 
-				validator, err := poatypes.NewValidator(
-					valOpAddr.Bytes(),
+				validator, err := stakingtypes.NewValidator(
+					sdk.ValAddress(valOpAddr.Bytes()).String(),
 					privKey.PubKey(),
-					poatypes.Description{},
+					stakingtypes.Description{},
 				)
 				suite.Require().NoError(err)
+				validator.Status = stakingtypes.Bonded
+				validator.Tokens = sdk.DefaultPowerReduction
+				validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
 
-				valConsAddr := validator.GetConsAddress()
+				valConsAddr := sdk.ConsAddress(privKey.PubKey().Address())
 
-				err = suite.app.PoaKeeper.SubmitApplication(
-					suite.ctx,
-					sdk.AccAddress(validator.GetOperator()),
-					validator,
-				)
+				err = suite.app.StakingKeeper.SetValidator(suite.ctx, validator)
 				suite.Require().NoError(err)
-
-				owner := suite.app.PoaKeeper.GetOwner(suite.ctx)
-
-				err = suite.app.PoaKeeper.ApproveApplication(
-					suite.ctx,
-					owner,
-					validator.GetOperator(),
-				)
+				err = suite.app.StakingKeeper.SetValidatorByConsAddr(suite.ctx, validator)
 				suite.Require().NoError(err)
 
 				header := suite.ctx.BlockHeader()
 				header.ProposerAddress = valConsAddr.Bytes()
 				suite.ctx = suite.ctx.WithBlockHeader(header)
 
-				_, found := suite.app.PoaKeeper.GetValidatorByConsAddr(suite.ctx, valConsAddr.Bytes())
+				_, found := suite.app.StakingKeeper.GetValidatorByConsAddr(suite.ctx, valConsAddr.Bytes())
 				suite.Require().True(found)
 
 				suite.Require().NotEmpty(suite.ctx.BlockHeader().ProposerAddress)
@@ -1292,11 +1285,11 @@ var recipientGuardForwarderRuntime = []byte{
 	0x00,
 }
 
-// poa is a stable module account in BlockedAddrs with no minter/burner perms
-// and no fee-routing involvement, so it stays at zero balance across the test.
+// distribution is a stable module account in BlockedAddrs with no minter/burner
+// perms and no fee-routing involvement, so it stays at zero balance across the test.
 func recipientGuardBlockedAddr() common.Address {
 	return common.BytesToAddress(
-		authtypes.NewModuleAddress(poatypes.ModuleName).Bytes(),
+		authtypes.NewModuleAddress(distrtypes.ModuleName).Bytes(),
 	)
 }
 
