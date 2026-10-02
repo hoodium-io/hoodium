@@ -23,9 +23,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/hoodium-io/hoodium/utils"
 
-	//nolint:staticcheck
-	"github.com/cosmos/cosmos-sdk/types/bech32/legacybech32"
-	poatypes "github.com/hoodium-io/hoodium/x/poa/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"cosmossdk.io/simapp"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -135,31 +133,31 @@ func genesisStateWithValSet(
 	authGenesis := authtypes.NewGenesisState(authtypes.DefaultParams(), genAccs)
 	genesisState[authtypes.ModuleName] = codec.MustMarshalJSON(authGenesis)
 
-	validators := make([]poatypes.Validator, 0, len(valSet.Validators))
+	validators := make([]stakingtypes.Validator, 0, len(valSet.Validators))
 
 	for _, val := range valSet.Validators {
 		pk, err := cryptocodec.FromCmtPubKeyInterface(val.PubKey)
 		if err != nil {
 			panic(err)
 		}
-		validator := poatypes.Validator{
-			OperatorBech32: sdk.ValAddress(val.Address).String(),
-			//nolint:staticcheck
-			ConsPubKeyBech32: legacybech32.MustMarshalPubKey(
-				legacybech32.ConsPK,
-				pk,
-			),
-			Description: poatypes.Description{},
+		validator, err := stakingtypes.NewValidator(
+			sdk.ValAddress(val.Address).String(),
+			pk,
+			stakingtypes.Description{},
+		)
+		if err != nil {
+			panic(err)
 		}
+		// Bond the validator with a minimum self-delegation.
+		validator.Status = stakingtypes.Bonded
+		validator.Tokens = sdk.DefaultPowerReduction
+		validator.DelegatorShares = sdkmath.LegacyNewDecFromInt(sdk.DefaultPowerReduction)
 		validators = append(validators, validator)
 	}
 	// set validators and delegations
-	stakingGenesis := poatypes.NewGenesisState(
-		poatypes.DefaultParams(),
-		owner,
-		validators,
-	)
-	genesisState[poatypes.ModuleName] = codec.MustMarshalJSON(&stakingGenesis)
+	stakingGenesis := stakingtypes.DefaultGenesisState()
+	stakingGenesis.Validators = validators
+	genesisState[stakingtypes.ModuleName] = codec.MustMarshalJSON(stakingGenesis)
 
 	totalSupply := sdk.NewCoins()
 	for _, b := range balances {
