@@ -8,6 +8,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hoodium-io/hoodium/core"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
@@ -30,6 +31,15 @@ type StakingKeeper interface {
 		validator stakingtypes.Validator,
 		subtractAccount bool,
 	) (newShares sdkmath.LegacyDec, err error)
+	// Undelegate unbonds sharesAmount from the validator on behalf of delAddr.
+	Undelegate(
+		ctx sdk.Context,
+		delAddr sdk.AccAddress,
+		valAddr sdk.ValAddress,
+		sharesAmount sdkmath.LegacyDec,
+	) (completionTime time.Time, amount sdkmath.Int, err error)
+	// GetDelegation returns the delegation between delAddr and valAddr.
+	GetDelegation(ctx sdk.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) (stakingtypes.Delegation, error)
 }
 
 func NewPrecompileVersionMap(sk StakingKeeper) (*core.VersionMap, error) {
@@ -50,7 +60,7 @@ func NewPrecompileVersionMap(sk StakingKeeper) (*core.VersionMap, error) {
 func NewPrecompile(sk StakingKeeper) (*core.Contract, error) {
 	evmAddress := common.HexToAddress(EvmAddress)
 	contract := core.NewContract(
-		nil,
+		abi.ABI{},
 		evmAddress,
 		"",
 		"staking",
