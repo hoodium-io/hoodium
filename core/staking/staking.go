@@ -1,8 +1,10 @@
 package staking
 
 import (
+	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -21,25 +23,26 @@ const EvmAddress = evmtypes.StakingPrecompileAddress
 
 // StakingKeeper is the subset of the x/staking keeper used by this precompile.
 type StakingKeeper interface {
-	// Validator returns the validator for the given consensus address.
-	Validator(ctx sdk.Context, addr sdk.ValAddress) (stakingtypes.Validator, error)
+	// GetValidator returns the concrete validator for the given operator address.
+	GetValidator(ctx context.Context, addr sdk.ValAddress) (stakingtypes.Validator, error)
 	// Delegate bonds the given amount to the validator on behalf of delAddr.
 	Delegate(
-		ctx sdk.Context,
+		ctx context.Context,
 		delAddr sdk.AccAddress,
 		bondAmt sdkmath.Int,
+		tokenSrc stakingtypes.BondStatus,
 		validator stakingtypes.Validator,
 		subtractAccount bool,
 	) (newShares sdkmath.LegacyDec, err error)
 	// Undelegate unbonds sharesAmount from the validator on behalf of delAddr.
 	Undelegate(
-		ctx sdk.Context,
+		ctx context.Context,
 		delAddr sdk.AccAddress,
 		valAddr sdk.ValAddress,
 		sharesAmount sdkmath.LegacyDec,
 	) (completionTime time.Time, amount sdkmath.Int, err error)
 	// GetDelegation returns the delegation between delAddr and valAddr.
-	GetDelegation(ctx sdk.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) (stakingtypes.Delegation, error)
+	GetDelegation(ctx context.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) (stakingtypes.Delegation, error)
 }
 
 func NewPrecompileVersionMap(sk StakingKeeper) (*core.VersionMap, error) {
@@ -67,6 +70,8 @@ func NewPrecompile(sk StakingKeeper) (*core.Contract, error) {
 	)
 	contract.RegisterMethods(
 		newDelegateMethod(sk),
+		newUndelegateMethod(sk),
+		newGetDelegationMethod(sk),
 	)
 	return contract, nil
 }
@@ -92,7 +97,7 @@ func (m *delegateMethod) Payable() bool { return false }
 // The validator input is the EVM address of the validator operator; the amount
 // is in the RUNE base denomination (arune).
 func (m *delegateMethod) Run(
-	context *core.RunContext,
+	runCtx *core.RunContext,
 	inputs core.MethodInputs,
 ) (core.MethodOutputs, []statedb.StateChange, error) {
 	if err := core.ValidateMethodInputsCount(inputs, 2); err != nil {
@@ -110,17 +115,18 @@ func (m *delegateMethod) Run(
 	}
 
 	// The msg sender is the delegating EVM account.
-	delegator := core.TypesConverter.Address.ToSDK(context.MsgSender())
+	delegator := core.TypesConverter.Address.ToSDK(runCtx.MsgSender())
 
-	validator, err := m.sk.Validator(context.SdkCtx(), sdk.ValAddress(validatorAddr.Bytes()))
+	validator, err := m.sk.GetValidator(runCtx.SdkCtx(), sdk.ValAddress(validatorAddr.Bytes()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get validator: %w", err)
 	}
 
 	_, err = m.sk.Delegate(
-		context.SdkCtx(),
+		runCtx.SdkCtx(),
 		delegator,
 		sdkmath.NewIntFromBigInt(amount),
+		stakingtypes.Unbonded,
 		validator,
 		false, // let the keeper subtract from the account
 	)
@@ -129,4 +135,105 @@ func (m *delegateMethod) Run(
 	}
 
 	return core.MethodOutputs{true}, nil, nil
+}
+
+const UndelegateMethodName = "undelegate"
+
+type undelegateMethod struct {
+	sk StakingKeeper
+}
+
+func newUndelegateMethod(sk StakingKeeper) *undelegateMethod {
+	return &undelegateMethod{sk: sk}
+}
+
+func (m *undelegateMethod) MethodName() string          { return UndelegateMethodName }
+func (m *undelegateMethod) MethodType() core.MethodType { return core.Write }
+func (m *undelegateMethod) RequiredGas(_ []byte) (uint64, bool) {
+	return 0, false
+}
+func (m *undelegateMethod) Payable() bool { return false }
+
+// Run implements undelegate(address validator, uint256 amount) → bool.
+// The amount is the number of shares (in RUNE base denomination) to unbond.
+func (m *undelegateMethod) Run(
+	runCtx *core.RunContext,
+	inputs core.MethodInputs,
+) (core.MethodOutputs, []statedb.StateChange, error) {
+	if err := core.ValidateMethodInputsCount(inputs, 2); err != nil {
+		return nil, nil, err
+	}
+
+	validatorAddr, ok := inputs[0].(common.Address)
+	if !ok {
+		return nil, nil, fmt.Errorf("validator argument must be common.Address")
+	}
+
+	amount, ok := inputs[1].(*big.Int)
+	if !ok {
+		return nil, nil, fmt.Errorf("amount argument must be *big.Int")
+	}
+
+	delegator := core.TypesConverter.Address.ToSDK(runCtx.MsgSender())
+	valAddr := sdk.ValAddress(validatorAddr.Bytes())
+
+	_, _, err := m.sk.Undelegate(
+		runCtx.SdkCtx(),
+		delegator,
+		valAddr,
+		sdkmath.LegacyNewDecFromInt(sdkmath.NewIntFromBigInt(amount)),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to undelegate: %w", err)
+	}
+
+	return core.MethodOutputs{true}, nil, nil
+}
+
+const GetDelegationMethodName = "getDelegation"
+
+type getDelegationMethod struct {
+	sk StakingKeeper
+}
+
+func newGetDelegationMethod(sk StakingKeeper) *getDelegationMethod {
+	return &getDelegationMethod{sk: sk}
+}
+
+func (m *getDelegationMethod) MethodName() string          { return GetDelegationMethodName }
+func (m *getDelegationMethod) MethodType() core.MethodType { return core.Read }
+func (m *getDelegationMethod) RequiredGas(_ []byte) (uint64, bool) {
+	return 0, false
+}
+func (m *getDelegationMethod) Payable() bool { return false }
+
+// Run implements getDelegation(address delegator, address validator) → (uint256 shares).
+func (m *getDelegationMethod) Run(
+	runCtx *core.RunContext,
+	inputs core.MethodInputs,
+) (core.MethodOutputs, []statedb.StateChange, error) {
+	if err := core.ValidateMethodInputsCount(inputs, 2); err != nil {
+		return nil, nil, err
+	}
+
+	delegatorAddr, ok := inputs[0].(common.Address)
+	if !ok {
+		return nil, nil, fmt.Errorf("delegator argument must be common.Address")
+	}
+
+	validatorAddr, ok := inputs[1].(common.Address)
+	if !ok {
+		return nil, nil, fmt.Errorf("validator argument must be common.Address")
+	}
+
+	delAddr := sdk.AccAddress(delegatorAddr.Bytes())
+	valAddr := sdk.ValAddress(validatorAddr.Bytes())
+
+	delegation, err := m.sk.GetDelegation(runCtx.SdkCtx(), delAddr, valAddr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get delegation: %w", err)
+	}
+
+	shares := delegation.Shares.BigInt()
+	return core.MethodOutputs{shares}, nil, nil
 }

@@ -102,6 +102,7 @@ import (
 	"github.com/hoodium-io/hoodium/core/runetoken"
 	"github.com/hoodium-io/hoodium/core/hooditoken"
 	"github.com/hoodium-io/hoodium/core/priceoracle"
+	stakingprecompile "github.com/hoodium-io/hoodium/core/staking"
 	"github.com/hoodium-io/hoodium/core/testbed"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
 	runetypes "github.com/hoodium-io/hoodium/types"
@@ -440,6 +441,7 @@ func NewHoodium(
 		app.AuthzKeeper,
 		*app.EvmKeeper,
 		*app.UpgradeKeeper,
+		app.StakingKeeper,
 		oraclekeeper.NewQueryServer(app.OracleKeeper),
 		app.FeeMarketKeeper,
 		bApp.ChainID(),
@@ -866,6 +868,7 @@ func customEvmPrecompiles(
 	authzKeeper authzkeeper.Keeper,
 	evmKeeper evmkeeper.Keeper,
 	upgradeKeeper upgradekeeper.Keeper,
+	stakingKeeper *stakingkeeper.Keeper,
 	oracleQueryServer oracletypes.QueryServer,
 	feemarketKeeper feemarketkeeper.Keeper,
 	chainID string,
@@ -900,9 +903,11 @@ func customEvmPrecompiles(
 		)
 	}
 
-	// TODO(Stage-2): reinstate a staking-backed validatorpool precompile for EVM
-	// delegation. (maintenance + upgrade precompiles were DELETED — PoA-gated;
-	// their setTxLockdown/setMaxPrecompilesCallsPerExecution move to Blockshield.)
+	// Staking precompile — lets EVM wallets delegate RUNE to validators.
+	stakingVersionMap, err := stakingprecompile.NewPrecompileVersionMap(stakingKeeper)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create staking precompile: [%w]", err)
+	}
 
 	// Price Oracle precompile.
 	priceOracleVersionMap, err := priceoracle.NewPrecompileVersionMap(oracleQueryServer)
@@ -913,6 +918,7 @@ func customEvmPrecompiles(
 	pvmap := []*core.VersionMap{
 		runeTokenVersionMap,
 		hoodiTokenVersionMap,
+		stakingVersionMap,
 		priceOracleVersionMap,
 	}
 
