@@ -58,8 +58,8 @@ type BankKeeper interface {
 }
 
 // StakingKeeper returns the historical headers kept in store and the operator
-// address for a validator's consensus address. It is decoupled from x/poa so
-// that standard x/staking can satisfy it once PoA is removed.
+// address for a validator's consensus address. It is satisfied by standard
+// x/staking (PoA was removed).
 type StakingKeeper interface {
 	GetHistoricalHeader(ctx sdk.Context, height int64) (tmproto.Header, bool)
 	GetValidatorOperator(ctx sdk.Context, consAddr sdk.ConsAddress) (sdk.ValAddress, bool)
