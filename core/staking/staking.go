@@ -2,6 +2,7 @@ package staking
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"math/big"
 	"time"
@@ -10,12 +11,14 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hoodium-io/hoodium/core"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
+
+//go:embed abi.json
+var filesystem embed.FS
 
 // EvmAddress is the EVM address of the Staking precompile. It lets EVM wallets
 // delegate RUNE to a validator without switching to a Cosmos wallet.
@@ -51,21 +54,27 @@ func NewPrecompileVersionMap(sk StakingKeeper) (*core.VersionMap, error) {
 		return nil, err
 	}
 	return core.NewVersionMap(map[int]*core.Contract{
-		0: contractV1,
+		0:                                       contractV1,
 		evmtypes.StakingPrecompileLatestVersion: contractV1,
 	}), nil
 }
 
-// NewPrecompile creates the Staking precompile. The ABI/bytecode are wired once
-// the Hardhat ABI pass generates them; for now the method is registered
-// directly against a minimal empty-name contract (consistent with how
-// max_supply was staged).
+// NewPrecompile creates the Staking precompile. The ABI and bytecode are
+// embedded from the generated `abi.json` and `byte_code.go` (produced from the
+// StakingCaller contract via `make precompile-gen`). Registering the ABI is what
+// makes the precompile register a genesis account so eth_getCode returns its
+// bytecode.
 func NewPrecompile(sk StakingKeeper) (*core.Contract, error) {
+	contractAbi, err := core.LoadAbiFile(filesystem, "abi.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load abi file: [%w]", err)
+	}
+
 	evmAddress := common.HexToAddress(EvmAddress)
 	contract := core.NewContract(
-		abi.ABI{},
+		contractAbi,
 		evmAddress,
-		"",
+		EvmByteCode,
 		"staking",
 	)
 	contract.RegisterMethods(

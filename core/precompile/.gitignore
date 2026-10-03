@@ -6,6 +6,9 @@ node_modules
 /artifacts
 #/interfaces
 
+# Local bytecode/ABI generation helper (not committed)
+scripts/generate-bytecode.sh
+
 # TypeChain files
 /typechain
 /typechain-types

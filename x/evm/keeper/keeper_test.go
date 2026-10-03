@@ -192,8 +192,9 @@ func (suite *KeeperTestSuite) TestCustomPrecompileGenesisAccounts() {
 	// go-ethereum's EIP-55 (same as the keeper emits). Sorted case-insensitively
 	// to match CustomPrecompileGenesisAccounts.
 	// NOTE: only RUNE, HOODI and PriceOracle register genesis accounts. The
-	// Staking precompile has no ABI yet (empty abi.ABI{}) so it does not emit a
-	// genesis account entry here.
+	// Staking precompile has an empty bytecode constant (EvmByteCode == "") until
+	// StakingCaller.sol is compiled, so it does not emit a genesis account entry
+	// here.
 	expected := []string{
 		common.HexToAddress(evmtypes.RUNETokenPrecompileAddress).String(),
 		common.HexToAddress(evmtypes.HOODITokenPrecompileAddress).String(),

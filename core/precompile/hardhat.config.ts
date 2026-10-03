@@ -7,6 +7,7 @@ import './tasks/runetoken'
 import './tasks/hooditoken'
 import './tasks/util'
 import './tasks/priceoracle'
+import './tasks/staking'
 import fs from 'fs'
 import path from 'path'
 
