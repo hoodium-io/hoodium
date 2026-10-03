@@ -1,1 +1,0 @@
-op://Mezo DevOps/SSL_key_rpc-ws.test.mezo.org/notes

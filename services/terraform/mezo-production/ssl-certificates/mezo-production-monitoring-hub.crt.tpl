@@ -1,1 +1,0 @@
-op://Mezo DevOps/SSL_crt_monitoring-hub.mezo.org/notes
