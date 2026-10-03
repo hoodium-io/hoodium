@@ -1,0 +1,33 @@
+helmDefaults:
+  kubeContext: gke_rune-production_us-central1_rune-production-gke-cluster
+
+repositories:
+  - name: hoodium-io
+    url: https://hoodium-io.github.io/validator-kit
+  - name: blockscout
+    url: https://blockscout.github.io/helm-charts
+
+releases:
+  - name: postgresql
+    installed: true
+    namespace: default
+    chart: oci://registry-1.docker.io/bitnamicharts/postgresql
+    version: 15.2.10
+    values:
+      - ./values/postgresql.yaml
+
+  - name: blockscout-stack
+    installed: true
+    namespace: default
+    chart: blockscout/blockscout-stack
+    version: 1.5.0
+    values:
+      - ./values/blockscout-stack.yaml
+
+  - name: rune-rpc-node
+    installed: true
+    namespace: default
+    chart: hoodium-io/runed
+    version: 13.0.0
+    values:
+      - ./values/rune-rpc-node.yaml

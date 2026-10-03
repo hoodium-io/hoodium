@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pyth-pusher-rune
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pyth-pusher-rune
+  template:
+    metadata:
+      labels:
+        app: pyth-pusher-rune
+    spec:
+      containers:
+        - name: pyth-pusher-rune
+          image: public.ecr.aws/pyth-network/xc-price-pusher:v10.5.0
+          imagePullPolicy: Always
+          command:
+            - "npm"
+            - "run"
+            - "start"
+            - "--"
+            - "evm"
+            - "--endpoint"
+            - "$(RUNE_RPC_ENDPOINT)"
+            - "--mnemonic-file"
+            - "$(MNEMONIC_FILE)"
+            - "--pyth-contract-address"
+            - "$(PYTH_CONTRACT_ADDRESS)"
+            - "--price-service-endpoint"
+            - "$(PRICE_SERVICE_ENDPOINT)"
+            - "--price-config-file"
+            - "/etc/pyth-pusher-rune/config/price-config.yaml"
+            - "--hermes-access-token"
+            - "$(HERMES_ACCESS_TOKEN)"
+          env:
+            - name: RUNE_RPC_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: pyth-pusher-rune-config
+                  key: endpoint
+            - name: MNEMONIC_FILE
+              value: /etc/pyth-pusher-rune/secrets/mnemonic
+            - name: PYTH_CONTRACT_ADDRESS
+              valueFrom:
+                secretKeyRef:
+                  name: pyth-pusher-rune-config
+                  key: pyth-contract-address
+            - name: PRICE_SERVICE_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: pyth-pusher-rune-config
+                  key: price-service-endpoint
+            - name: HERMES_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: pyth-pusher-rune-config
+                  key: hermes-access-token
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: pyth-pusher-rune-config
+              mountPath: /etc/pyth-pusher-rune/secrets
+            - name: price-config
+              mountPath: /etc/pyth-pusher-rune/config
+      volumes:
+        - name: pyth-pusher-rune-config
+          secret:
+            secretName: pyth-pusher-rune-config
+            items:
+              - key: mnemonic
+                path: mnemonic
+        - name: price-config
+          configMap:
+            name: pyth-pusher-rune-price-config
+            items:
+              - key: price-config.yaml
+                path: price-config.yaml

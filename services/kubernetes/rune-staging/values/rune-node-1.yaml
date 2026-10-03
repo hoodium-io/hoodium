@@ -1,0 +1,42 @@
+image: us-central1-docker.pkg.dev/rune-test-420708/rune-staging-docker-public/runed
+tag: v13.0.0-rc0
+
+env:
+  NETWORK: testnet
+  RUNED_CHAIN_ID: rune_6591-1
+  PUBLIC_IP: "104.198.64.215" # rune-staging-node-1-external-ip
+  RUNED_MONIKER: "rune-node-1"
+
+customConfigs:
+  enabled: true
+  appTomlTxt: |
+    json-rpc.logs-filter-addr-cap=100
+  clientTomlTxt: ""
+  configTomlTxt: |
+    statesync.enable=true
+    statesync.rpc_servers=rune-node-3.test.rune.org:26657,rune-node-3.test.rune.org:26657
+    statesync.trust_height=5554501
+    statesync.trust_hash=1A5227D45C4EF9F0B39C2815DD40D85032403EA81ABF112FAEC757BAC29F36E8    
+
+secrets:
+  credentials: "rune-node-1" # created manually
+
+storage:
+  className: "premium-rwo"
+  size: "100Gi"
+  useDataSource:
+    enabled: true
+    apiGroup: ""
+    kind: PersistentVolumeClaim
+    name: "rune-node-data-rune-node-1-0"
+
+service:
+  public:
+    loadBalancerIP: "104.198.64.215" # same as PUBLIC_IP
+
+labels:
+  app: rune
+  type: node
+  id: "1"
+
+maintenanceMode: false

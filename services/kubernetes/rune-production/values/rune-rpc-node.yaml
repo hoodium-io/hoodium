@@ -1,0 +1,37 @@
+labels:
+  app: rune
+  type: rpc-node
+
+service:
+  public:
+    enabled: false
+  private:
+    enabled: false
+
+env:
+  PUBLIC_IP: "34.42.199.9" # rune-production-rpc-node-external-ip defined in the rune-production terraform module
+  RUNED_MONIKER: "rune-rpc-node"
+  RUNED_JSON_RPC_ENABLE_INDEXER: true
+
+customConfigs:
+  enabled: true
+  appTomlTxt: |
+    pruning=nothing
+  clientTomlTxt: ""
+  configTomlTxt: ""  
+
+secrets:
+  credentials: "rune-rpc-node" # created manually
+
+storage:
+  className: "premium-rwo"
+  size: "500Gi"
+  useDataSource:
+    enabled: false      
+
+resources:
+  requests:
+    cpu: "2000m"
+    memory: "8096Mi"      
+
+maintenanceMode: false
