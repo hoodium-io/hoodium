@@ -1,100 +1,100 @@
 import { task, vars } from 'hardhat/config'
 import '@nomicfoundation/hardhat-toolbox'
 
-import abi from '../../btctoken/abi.json'
-const precompileAddress = '0x7b7c000000000000000000000000000000000000'
+import abi from '../../runetoken/abi.json'
+const precompileAddress = '0x19be000000000000000000000000000000000000'
 
-task('btcToken:name', 'Returns the name of the token', async (taskArguments, hre) => {
-  const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const name = await btctoken.name()
+task('runeToken:name', 'Returns the name of the token', async (taskArguments, hre) => {
+  const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const name = await runetoken.name()
   console.log(name)
 })
 
-task('btcToken:symbol', 'Returns the symbol of the token', async (taskArguments, hre) => {
-  const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const symbol = await btctoken.symbol()
+task('runeToken:symbol', 'Returns the symbol of the token', async (taskArguments, hre) => {
+  const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const symbol = await runetoken.symbol()
   console.log(symbol)
 })
 
-task('btcToken:decimals', 'Returns the decimal places of the token', async (taskArguments, hre) => {
-  const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const decimals = await btctoken.decimals()
+task('runeToken:decimals', 'Returns the decimal places of the token', async (taskArguments, hre) => {
+  const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const decimals = await runetoken.decimals()
   console.log(decimals)
 })
 
-task('btcToken:totalSupply', 'Returns the total number of tokens in existence', async (taskArguments, hre) => {
-  const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const totalSupply = await btctoken.totalSupply()
+task('runeToken:totalSupply', 'Returns the total number of tokens in existence', async (taskArguments, hre) => {
+  const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const totalSupply = await runetoken.totalSupply()
   console.log(totalSupply)
 })
 
-task('btcToken:balanceOf', 'Returns the number of tokens owned by `account`')
+task('runeToken:balanceOf', 'Returns the number of tokens owned by `account`')
   .addParam('account', 'Account to get balance of')
   .setAction(async (taskArguments, hre) => {
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const balance = await btctoken.balanceOf(taskArguments.account)
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const balance = await runetoken.balanceOf(taskArguments.account)
     console.log(balance)
   })
 
-task('btcToken:allowance', 'Returns the remaining number of tokens that `spender` will be allowed to spend on behalf of `owner` through {transferFrom}')
+task('runeToken:allowance', 'Returns the remaining number of tokens that `spender` will be allowed to spend on behalf of `owner` through {transferFrom}')
   .addParam('owner', 'Account owning the funds')
   .addParam('spender', 'Account allowed to spend funds on behalf of the owner')
   .setAction(async (taskArguments, hre) => {
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const allowance = await btctoken.allowance(taskArguments.owner, taskArguments.spender)
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const allowance = await runetoken.allowance(taskArguments.owner, taskArguments.spender)
     console.log(allowance)
   })
 
-task('btcToken:transfer', 'Moves a `value` amount of tokens from the caller\'s account to `to`')
+task('runeToken:transfer', 'Moves a `value` amount of tokens from the caller\'s account to `to`')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('to', 'Recipient account')
-  .addParam('value', 'Value to send (abtc)')
+  .addParam('value', 'Value to send (arune)')
   .setAction(async (taskArguments, hre) => {
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await btctoken.transfer(taskArguments.to, taskArguments.value)
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await runetoken.transfer(taskArguments.to, taskArguments.value)
     const confirmed = await pending.wait()
     console.log(confirmed.hash)
   })
 
-task('btcToken:approve', 'Sets a `value` amount of tokens as the allowance of `spender` over the caller\'s tokens')
+task('runeToken:approve', 'Sets a `value` amount of tokens as the allowance of `spender` over the caller\'s tokens')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('spender', 'The account to approve')
-  .addParam('value', 'Allowance value (abtc)')
+  .addParam('value', 'Allowance value (arune)')
   .setAction(async (taskArguments, hre) => {
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await btctoken.approve(taskArguments.spender, taskArguments.value)
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await runetoken.approve(taskArguments.spender, taskArguments.value)
     const confirmed = await pending.wait()
     console.log(confirmed.hash)
   })
 
-task('btcToken:transferFrom', 'Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism')
+task('runeToken:transferFrom', 'Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('from', 'Origin account')
   .addParam('to', 'Recipient account')
-  .addParam('value', 'Value to send (abtc)')
+  .addParam('value', 'Value to send (arune)')
   .setAction(async (taskArguments, hre) => {
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await btctoken.transferFrom(taskArguments.from, taskArguments.to, taskArguments.value)
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await runetoken.transferFrom(taskArguments.from, taskArguments.to, taskArguments.value)
     const confirmed = await pending.wait()
     console.log(confirmed.hash)
   })
 
-task('btcToken:permit', 'Sets an allowance of BTC tokens for a spender with an owner\'s signature')
+task('runeToken:permit', 'Sets an allowance of BTC tokens for a spender with an owner\'s signature')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('owner', 'Account owning the funds')
   .addParam('spender', 'Account allowed to spend funds on behalf of the owner')
-  .addParam('amount', 'Allowance value (abtc)')
+  .addParam('amount', 'Allowance value (arune)')
   .addParam('deadline', 'Expiry time for the permit (in Unix format)')
   .addParam('v', 'v-component of the signature')
   .addParam('r', 'r-component of the signature')
   .addParam('s', 's-component of the signature')
   .setAction(async (taskArguments, hre) => {
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await btctoken.permit(
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await runetoken.permit(
       taskArguments.owner,
       taskArguments.spender,
       taskArguments.amount,
@@ -108,43 +108,43 @@ task('btcToken:permit', 'Sets an allowance of BTC tokens for a spender with an o
   })
 
 task(
-  'btcToken:DOMAIN_SEPARATOR',
+  'runeToken:DOMAIN_SEPARATOR',
   'Returns hash of EIP712 Domain struct with the token name as a signing domain and token contract as a verifying contract',
   async (taskArguments, hre) => {
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const domainSeparator = await btctoken.DOMAIN_SEPARATOR()
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const domainSeparator = await runetoken.DOMAIN_SEPARATOR()
     console.log(domainSeparator)
   })
 
 // Deprecated as it is not compatible with EIP-2612.
 // Should be removed in the future.
-task('btcToken:nonce', 'Returns the current nonce for EIP2612 permission for the provided token owner')
+task('runeToken:nonce', 'Returns the current nonce for EIP2612 permission for the provided token owner')
   .addParam('owner', 'Recipient account')
   .setAction(async (taskArguments, hre) => {
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const nonce = await btctoken.nonce(taskArguments.owner)
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const nonce = await runetoken.nonce(taskArguments.owner)
     console.log(nonce)
   })
 
-task('btcToken:nonces', 'Returns the current nonce for EIP2612 permission for the provided token owner')
+task('runeToken:nonces', 'Returns the current nonce for EIP2612 permission for the provided token owner')
   .addParam('owner', 'Recipient account')
   .setAction(async (taskArguments, hre) => {
-    const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const nonce = await btctoken.nonces(taskArguments.owner)
+    const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const nonce = await runetoken.nonces(taskArguments.owner)
     console.log(nonce)
   })
 
-task('btcToken:PERMIT_TYPEHASH', 'Returns the EIP2612 Permit message hash', async (taskArguments, hre) => {
-  const btctoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const permitTypehash = await btctoken.PERMIT_TYPEHASH()
+task('runeToken:PERMIT_TYPEHASH', 'Returns the EIP2612 Permit message hash', async (taskArguments, hre) => {
+  const runetoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const permitTypehash = await runetoken.PERMIT_TYPEHASH()
   console.log(permitTypehash)
 })
 
-task('btcToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `permit`')
+task('runeToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `permit`')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('owner', 'Account owning the funds')
   .addParam('spender', 'Account allowed to spend funds on behalf of the owner')
-  .addParam('amount', 'Allowance value (abtc)')
+  .addParam('amount', 'Allowance value (arune)')
   .addParam('deadline', 'Expiry time for the permit (in Unix format)')
   .setAction(async (taskArguments, hre) => {
     // We use ethers.SigningKey for a Wallet instead of
@@ -154,7 +154,7 @@ task('btcToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `pe
     // EIP2612 permit signed message and '\x19Ethereum Signed Message:\n'
     // should not be used there.
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const privkeys: string[] = vars.get('MEZO_ACCOUNTS', '').split(',')
+    const privkeys: string[] = vars.get('RUNE_ACCOUNTS', '').split(',')
     const prefix: string = '0x1901'
     // Loop through available keys, create SigningKey based wallet
     // to compare addresses with the given signer address
@@ -164,10 +164,10 @@ task('btcToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `pe
       if (wallet.address === signer.address) {
         // This is the correct key/wallet. Get info from contract/precompile
         // to produce data to sign
-        const btctoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-        const domainSeparator = await btctoken.DOMAIN_SEPARATOR()
-        const typehash = await btctoken.PERMIT_TYPEHASH()
-        const nonce = await btctoken.nonces(signer.address)
+        const runetoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+        const domainSeparator = await runetoken.DOMAIN_SEPARATOR()
+        const typehash = await runetoken.PERMIT_TYPEHASH()
+        const nonce = await runetoken.nonces(signer.address)
         // Encode data
         const abiCoder = new hre.ethers.AbiCoder()
         const message = abiCoder.encode(

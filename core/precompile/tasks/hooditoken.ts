@@ -1,100 +1,100 @@
 import { task, vars } from 'hardhat/config'
 import '@nomicfoundation/hardhat-toolbox'
 
-import abi from '../../mezotoken/abi.json'
-const precompileAddress = '0x7b7c000000000000000000000000000000000001'
+import abi from '../../hooditoken/abi.json'
+const precompileAddress = '0x19be000000000000000000000000000000000001'
 
-task('mezoToken:name', 'Returns the name of the token', async (taskArguments, hre) => {
-  const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const name = await mezotoken.name()
+task('hoodiToken:name', 'Returns the name of the token', async (taskArguments, hre) => {
+  const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const name = await hooditoken.name()
   console.log(name)
 })
 
-task('mezoToken:symbol', 'Returns the symbol of the token', async (taskArguments, hre) => {
-  const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const symbol = await mezotoken.symbol()
+task('hoodiToken:symbol', 'Returns the symbol of the token', async (taskArguments, hre) => {
+  const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const symbol = await hooditoken.symbol()
   console.log(symbol)
 })
 
-task('mezoToken:decimals', 'Returns the decimal places of the token', async (taskArguments, hre) => {
-  const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const decimals = await mezotoken.decimals()
+task('hoodiToken:decimals', 'Returns the decimal places of the token', async (taskArguments, hre) => {
+  const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const decimals = await hooditoken.decimals()
   console.log(decimals)
 })
 
-task('mezoToken:totalSupply', 'Returns the total number of tokens in existence', async (taskArguments, hre) => {
-  const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const totalSupply = await mezotoken.totalSupply()
+task('hoodiToken:totalSupply', 'Returns the total number of tokens in existence', async (taskArguments, hre) => {
+  const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const totalSupply = await hooditoken.totalSupply()
   console.log(totalSupply)
 })
 
-task('mezoToken:balanceOf', 'Returns the number of tokens owned by `account`')
+task('hoodiToken:balanceOf', 'Returns the number of tokens owned by `account`')
   .addParam('account', 'Account to get balance of')
   .setAction(async (taskArguments, hre) => {
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const balance = await mezotoken.balanceOf(taskArguments.account)
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const balance = await hooditoken.balanceOf(taskArguments.account)
     console.log(balance)
   })
 
-task('mezoToken:allowance', 'Returns the remaining number of tokens that `spender` will be allowed to spend on behalf of `owner` through {transferFrom}')
+task('hoodiToken:allowance', 'Returns the remaining number of tokens that `spender` will be allowed to spend on behalf of `owner` through {transferFrom}')
   .addParam('owner', 'Account owning the funds')
   .addParam('spender', 'Account allowed to spend funds on behalf of the owner')
   .setAction(async (taskArguments, hre) => {
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const allowance = await mezotoken.allowance(taskArguments.owner, taskArguments.spender)
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const allowance = await hooditoken.allowance(taskArguments.owner, taskArguments.spender)
     console.log(allowance)
   })
 
-task('mezoToken:transfer', 'Moves a `value` amount of tokens from the caller\'s account to `to`')
+task('hoodiToken:transfer', 'Moves a `value` amount of tokens from the caller\'s account to `to`')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('to', 'Recipient account')
-  .addParam('value', 'Value to send (amezo)')
+  .addParam('value', 'Value to send (ahoodi)')
   .setAction(async (taskArguments, hre) => {
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await mezotoken.transfer(taskArguments.to, taskArguments.value)
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await hooditoken.transfer(taskArguments.to, taskArguments.value)
     const confirmed = await pending.wait()
     console.log(confirmed.hash)
   })
 
-task('mezoToken:approve', 'Sets a `value` amount of tokens as the allowance of `spender` over the caller\'s tokens')
+task('hoodiToken:approve', 'Sets a `value` amount of tokens as the allowance of `spender` over the caller\'s tokens')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('spender', 'The account to approve')
-  .addParam('value', 'Allowance value (amezo)')
+  .addParam('value', 'Allowance value (ahoodi)')
   .setAction(async (taskArguments, hre) => {
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await mezotoken.approve(taskArguments.spender, taskArguments.value)
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await hooditoken.approve(taskArguments.spender, taskArguments.value)
     const confirmed = await pending.wait()
     console.log(confirmed.hash)
   })
 
-task('mezoToken:transferFrom', 'Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism')
+task('hoodiToken:transferFrom', 'Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('from', 'Origin account')
   .addParam('to', 'Recipient account')
-  .addParam('value', 'Value to send (amezo)')
+  .addParam('value', 'Value to send (ahoodi)')
   .setAction(async (taskArguments, hre) => {
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await mezotoken.transferFrom(taskArguments.from, taskArguments.to, taskArguments.value)
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await hooditoken.transferFrom(taskArguments.from, taskArguments.to, taskArguments.value)
     const confirmed = await pending.wait()
     console.log(confirmed.hash)
   })
 
-task('mezoToken:permit', 'Sets an allowance of MEZO tokens for a spender with an owner\'s signature')
+task('hoodiToken:permit', 'Sets an allowance of HOODI tokens for a spender with an owner\'s signature')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('owner', 'Account owning the funds')
   .addParam('spender', 'Account allowed to spend funds on behalf of the owner')
-  .addParam('amount', 'Allowance value (amezo)')
+  .addParam('amount', 'Allowance value (ahoodi)')
   .addParam('deadline', 'Expiry time for the permit (in Unix format)')
   .addParam('v', 'v-component of the signature')
   .addParam('r', 'r-component of the signature')
   .addParam('s', 's-component of the signature')
   .setAction(async (taskArguments, hre) => {
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await mezotoken.permit(
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+    const pending = await hooditoken.permit(
       taskArguments.owner,
       taskArguments.spender,
       taskArguments.amount,
@@ -108,43 +108,43 @@ task('mezoToken:permit', 'Sets an allowance of MEZO tokens for a spender with an
   })
 
 task(
-  'mezoToken:DOMAIN_SEPARATOR',
+  'hoodiToken:DOMAIN_SEPARATOR',
   'Returns hash of EIP712 Domain struct with the token name as a signing domain and token contract as a verifying contract',
   async (taskArguments, hre) => {
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const domainSeparator = await mezotoken.DOMAIN_SEPARATOR()
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const domainSeparator = await hooditoken.DOMAIN_SEPARATOR()
     console.log(domainSeparator)
   })
 
 // Deprecated as it is not compatible with EIP-2612.
 // Should be removed in the future.
-task('mezoToken:nonce', 'Returns the current nonce for EIP2612 permission for the provided token owner')
+task('hoodiToken:nonce', 'Returns the current nonce for EIP2612 permission for the provided token owner')
   .addParam('owner', 'Recipient account')
   .setAction(async (taskArguments, hre) => {
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const nonce = await mezotoken.nonce(taskArguments.owner)
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const nonce = await hooditoken.nonce(taskArguments.owner)
     console.log(nonce)
   })
 
-task('mezoToken:nonces', 'Returns the current nonce for EIP2612 permission for the provided token owner')
+task('hoodiToken:nonces', 'Returns the current nonce for EIP2612 permission for the provided token owner')
   .addParam('owner', 'Recipient account')
   .setAction(async (taskArguments, hre) => {
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-    const nonce = await mezotoken.nonces(taskArguments.owner)
+    const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+    const nonce = await hooditoken.nonces(taskArguments.owner)
     console.log(nonce)
   })
 
-task('mezoToken:PERMIT_TYPEHASH', 'Returns the EIP2612 Permit message hash', async (taskArguments, hre) => {
-  const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const permitTypehash = await mezotoken.PERMIT_TYPEHASH()
+task('hoodiToken:PERMIT_TYPEHASH', 'Returns the EIP2612 Permit message hash', async (taskArguments, hre) => {
+  const hooditoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
+  const permitTypehash = await hooditoken.PERMIT_TYPEHASH()
   console.log(permitTypehash)
 })
 
-task('mezoToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `permit`')
+task('hoodiToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `permit`')
   .addParam('signer', 'The signer address (msg.sender)')
   .addParam('owner', 'Account owning the funds')
   .addParam('spender', 'Account allowed to spend funds on behalf of the owner')
-  .addParam('amount', 'Allowance value (amezo)')
+  .addParam('amount', 'Allowance value (ahoodi)')
   .addParam('deadline', 'Expiry time for the permit (in Unix format)')
   .setAction(async (taskArguments, hre) => {
     // We use ethers.SigningKey for a Wallet instead of
@@ -154,7 +154,7 @@ task('mezoToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `p
     // EIP2612 permit signed message and '\x19Ethereum Signed Message:\n'
     // should not be used there.
     const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const privkeys: string[] = vars.get('MEZO_ACCOUNTS', '').split(',')
+    const privkeys: string[] = vars.get('RUNE_ACCOUNTS', '').split(',')
     const prefix: string = '0x1901'
     // Loop through available keys, create SigningKey based wallet
     // to compare addresses with the given signer address
@@ -164,10 +164,10 @@ task('mezoToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `p
       if (wallet.address === signer.address) {
         // This is the correct key/wallet. Get info from contract/precompile
         // to produce data to sign
-        const mezotoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-        const domainSeparator = await mezotoken.DOMAIN_SEPARATOR()
-        const typehash = await mezotoken.PERMIT_TYPEHASH()
-        const nonce = await mezotoken.nonces(signer.address)
+        const hooditoken = new hre.ethers.Contract(precompileAddress, abi, signer)
+        const domainSeparator = await hooditoken.DOMAIN_SEPARATOR()
+        const typehash = await hooditoken.PERMIT_TYPEHASH()
+        const nonce = await hooditoken.nonces(signer.address)
         // Encode data
         const abiCoder = new hre.ethers.AbiCoder()
         const message = abiCoder.encode(
@@ -190,32 +190,3 @@ task('mezoToken:PERMIT_SIGNATURE', 'Returns a signature that can be used with `p
     }
   })
 
-task('mezoToken:getMinter', 'Returns the current minter address', async (taskArguments, hre) => {
-  const mezotoken = new hre.ethers.Contract(precompileAddress, abi, hre.ethers.provider)
-  const minter = await mezotoken.getMinter()
-  console.log(minter)
-})
-
-task('mezoToken:setMinter', 'Sets the minter address (only callable by POA owner)')
-  .addParam('signer', 'The signer address (msg.sender, must be POA owner)')
-  .addParam('minter', 'The address of the new minter')
-  .setAction(async (taskArguments, hre) => {
-    const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await mezotoken.setMinter(taskArguments.minter)
-    const confirmed = await pending.wait()
-    console.log(confirmed.hash)
-  })
-
-task('mezoToken:mint', 'Mints tokens to a recipient (only callable by minter)')
-  .addParam('signer', 'The signer address (msg.sender, must be minter)')
-  .addParam('to', 'The address to mint tokens to')
-  .addParam('amount', 'The amount of tokens to mint (amezo)')
-  .setAction(async (taskArguments, hre) => {
-    const signer = await hre.ethers.getSigner(taskArguments.signer)
-    const mezotoken = new hre.ethers.Contract(precompileAddress, abi, signer)
-    const pending = await mezotoken.mint(taskArguments.to, taskArguments.amount)
-    const confirmed = await pending.wait()
-    console.log(confirmed.hash)
-  }) 
-  

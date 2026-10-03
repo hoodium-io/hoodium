@@ -3,14 +3,10 @@ import { ethers } from 'ethers'
 import '@nomicfoundation/hardhat-toolbox'
 import * as dotenv from "dotenv";
 // import precompile tasks
-import './tasks/validatorpool'
-import './tasks/btctoken'
-import './tasks/mezotoken'
+import './tasks/runetoken'
+import './tasks/hooditoken'
 import './tasks/util'
-import './tasks/maintenance'
-import './tasks/upgrade'
 import './tasks/priceoracle'
-import './tasks/assetsbridge'
 import fs from 'fs'
 import path from 'path'
 
@@ -18,10 +14,10 @@ const BUILD_DIR = '../../.localnet/'
 const COUNT = 4
 
 function getPrivKeys (): string[] {
-  const strings: string[] = vars.get('MEZO_ACCOUNTS', '').split(',')
+  const strings: string[] = vars.get('RUNE_ACCOUNTS', '').split(',')
   const keys: string[] = []
   if (strings[0] !== '') {
-    // Mezo accounts have been set already
+    // RUNE accounts have been set already
     for (const str of strings) {
       if (str !== '') {
         keys.push(str)
@@ -29,7 +25,7 @@ function getPrivKeys (): string[] {
     }
   } else {
     for (let i = 0; i < COUNT; i++) {
-      const filePath = path.resolve(`${BUILD_DIR}node${i}/mezod/key_seed.json`)
+      const filePath = path.resolve(`${BUILD_DIR}node${i}/runed/key_seed.json`)
       const seed = JSON.parse(fs.readFileSync(filePath, 'utf8'))
       const pk: string = ethers.Wallet.fromPhrase(seed.secret).privateKey
       keys.push(pk)
@@ -57,17 +53,17 @@ const config: HardhatUserConfig = {
   networks: {
     localhost: {
       url: 'http://localhost:8545',
-      chainId: 31611,
+      chainId: 6591,
       accounts: getPrivKeys(),
       gas: 'auto'
     },
     testnet: {
-      chainId: 31611,
+      chainId: 6591,
       url: process.env.TESTNET_RPC_URL || "",
       accounts: process.env.TESTNET_PRIVATE_KEY ? [process.env.TESTNET_PRIVATE_KEY] : [],
     },
     mainnet: {
-      chainId: 31612,
+      chainId: 6590,
       url: process.env.MAINNET_RPC_URL || "",
       accounts: process.env.MAINNET_PRIVATE_KEY ? [process.env.MAINNET_PRIVATE_KEY] : [],
     }

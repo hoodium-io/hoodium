@@ -15,11 +15,11 @@ npm install
 Hardhat is configured with two supported networks:
 
 * `localhost` for connecting to local dev net (localnet-docker, localnet-bin).
-* `mezo_testnet` for connecting to the public testnet.
+* `testnet` for connecting to the public testnet.
 
 All tasks and scripts support hardhat's global options which includes the `--network` flag. `localhost` is
-used by default if no network is set. If running a task or script against `mezo_testnet` ensure you include
-`--network mezo_testnet` as a hardhat argument.
+used by default if no network is set. If running a task or script against `testnet` ensure you include
+`--network testnet` as a hardhat argument.
 
 ## Accounts
 
@@ -42,13 +42,13 @@ npx hardhat vars setup
 The vars can be set to either a) a single private key, or b) a comma separated list (no whitespace) of private keys.
 
 ```
-npx hardhat vars set MEZO_ACCOUNTS
+npx hardhat vars set RUNE_ACCOUNTS
 ```
 
 And can be removed with:
 
 ```
-npx hardhat vars delete MEZO_ACCOUNTS
+npx hardhat vars delete RUNE_ACCOUNTS
 ```
 
 ## Scripts
@@ -73,10 +73,10 @@ keys.
 npx hardhat run scripts/localhost-keys.ts
 ```
 
-This output can be used to easily set `MEZO_ACCOUNTS` for `localhost` use.
+This output can be used to easily set `RUNE_ACCOUNTS` for `localhost` use.
 
 ```
-npx hardhat run scripts/localhost-keys.ts | npx hardhat vars set MEZO_ACCOUNTS
+npx hardhat run scripts/localhost-keys.ts | npx hardhat vars set RUNE_ACCOUNTS
 ```
 
 ## Tasks
@@ -101,23 +101,23 @@ npx hardhat help <TASK>
 e.g:
 
 ```
-npx hardhat help validatorPool:validator
+npx hardhat help priceOracle:latestRoundData
 ```
 
 ```
-Usage: hardhat [GLOBAL OPTIONS] validatorPool:validator --operator <STRING>
+Usage: hardhat [GLOBAL OPTIONS] priceOracle:latestRoundData
 
 OPTIONS:
 
-  --operator	The validator's operator address
+  (none)
 
-validatorPool:validator: Returns a validator's consensus public key & description
+priceOracle:latestRoundData: Returns the price from the last update tick (round) of the oracle
 ```
 
-Here we can see the validatorPool:validator task has an operator argument - correct usage would be:
+Here we can see the priceOracle:latestRoundData task takes no arguments - correct usage would be:
 
 ```
-npx hardhat --network mezo_testnet validatorPool:validator --operator 0xc2f7Ae302a68CF215bb3dA243dadAB3290308015
+npx hardhat --network testnet priceOracle:latestRoundData
 ```
 
 ### Running Tasks
@@ -126,13 +126,13 @@ Tasks get run as if they are built in hardhat commands. Read tasks are executed 
 (no account), e.g:
 
 ```
-npx hardhat --network mezo_testnet validatorPool:validators
+npx hardhat --network testnet priceOracle:decimals
 ```
 
 Write tasks all require at minimum a signer argument, e.g:
 
 ```
-npx hardhat --network mezo_testnet validatorPool:leave --signer 0xc2f7Ae302a68CF215bb3dA243dadAB3290308015
+npx hardhat --network testnet runeToken:transfer --signer 0xc2f7Ae302a68CF215bb3dA243dadAB3290308015 --to 0x0 --value 1
 ```
 
 ## Localnet
@@ -151,10 +151,10 @@ The Hardhat configuration will automatically read and assign the localnet accoun
 If you wish to override these accounts, you can run:
 
 ```
-npx hardhat vars set MEZO_ACCOUNTS
+npx hardhat vars set RUNE_ACCOUNTS
 ```
 
-where `MEZO_ACCOUNTS` are private keys separated by `,`.
+where `RUNE_ACCOUNTS` are private keys separated by `,`.
 
 # Custom precompile contract verification (blockscout)
 
@@ -172,6 +172,6 @@ minimal implementations of the interfaces, and is semantically close to what's h
 
 Flatten into a single solidity file to make verification easier, e.g:
 
-`npx hardhat flatten contracts/ValidatorPoolCaller.sol > ~/Desktop/ValidatorPoolCaller.sol`
+`npx hardhat flatten contracts/RUNECaller.sol > ~/Desktop/RUNECaller.sol`
 
 Use this file when verifying.

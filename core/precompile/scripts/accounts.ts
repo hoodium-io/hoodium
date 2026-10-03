@@ -4,7 +4,7 @@
 //
 // networks:
 // * localhost
-// * mezo_testnet
+// * testnet
 import hre from 'hardhat'
 
 async function main (): Promise<void> {
