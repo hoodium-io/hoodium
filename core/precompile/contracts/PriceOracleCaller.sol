@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IPriceOracle } from "../interfaces/IPriceOracle.sol";
+import { IPriceOracle } from "../../priceoracle/IPriceOracle.sol";
 
 contract PriceOracleCaller is IPriceOracle {
-    address private constant precompile  = 0x7b7c000000000000000000000000000000000015;
+    address private constant precompile  = 0x19be000000000000000000000000000000000002;
 
     function decimals() external view returns (uint8) {
         return IPriceOracle(precompile).decimals();
