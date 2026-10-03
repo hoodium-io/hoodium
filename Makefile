@@ -255,6 +255,25 @@ proto-lint:
 .PHONY: proto-all proto-gen proto-format proto-lint
 
 ###############################################################################
+###                        Precompile ABI / bytecode                        ###
+###############################################################################
+
+# Regenerates the embedded `abi.json` + `byte_code.go` constants for the custom
+# precompiles from the Hardhat "Caller" contract artifacts.
+#
+# Prerequisite: the Hardhat artifacts must exist. Run `npx hardhat compile` in
+# `core/precompile` first (npm deps must be installed there).
+#
+# NOTE: `byte_code.go` is generated code - do not hand-edit it. This target exists
+# to keep the `const EvmByteCode = "<hex>"` quoting correct (a hand-edit once
+# dropped the quotes and broke compilation).
+precompile-gen:
+	@echo "Generating precompile ABI + bytecode"
+	cd core/precompile && ./scripts/generate-bytecode.sh
+
+.PHONY: precompile-gen
+
+###############################################################################
 ###                         Localnet binary-based                           ###
 ###############################################################################
 
