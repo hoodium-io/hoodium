@@ -134,7 +134,7 @@ func NewSimIntrinsicGas(provided, required uint64) *SimError {
 }
 
 // NewSimForkSpanUnsupported reports a simulated chain span that crosses a
-// fork activation boundary, which mezod does not yet support. Reuses
+// fork activation boundary, which the chain does not yet support. Reuses
 // SimErrCodeClientLimitExceeded (-38026) — the spec does not reserve a
 // fork-boundary code, and "client-imposed limit on fork-uniformity" is a
 // defensible fit. Distinguishable from NewSimClientLimitExceeded by
@@ -196,16 +196,16 @@ func NewSimDestAlreadyOverridden(dest common.Address) *SimError {
 	))
 }
 
-// NewSimMoveMezoCustom reports an attempt to relocate one of the mezo
+// NewSimMoveCustomPrecompile reports an attempt to relocate one of the Hoodium
 // custom precompiles (0x19be…), forbidden by chain policy (-32602).
-func NewSimMoveMezoCustom(addr common.Address) *SimError {
+func NewSimMoveCustomPrecompile(addr common.Address) *SimError {
 	return NewSimInvalidParams(fmt.Sprintf(
-		"cannot move mezo custom precompile: %s", addr.Hex(),
+		"cannot move custom precompile: %s", addr.Hex(),
 	))
 }
 
 // NewSimNotAPrecompile reports a MovePrecompileTo source address that is
-// neither a stdlib precompile for the active fork nor a denylisted mezo
+// neither a stdlib precompile for the active fork nor a denylisted Hoodium
 // custom precompile (-32602).
 func NewSimNotAPrecompile(addr common.Address) *SimError {
 	return NewSimInvalidParams(fmt.Sprintf(

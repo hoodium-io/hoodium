@@ -23,7 +23,7 @@ const MaxSimulateCalls = 1000
 
 // SimTimestampIncrement is the default gap, in seconds, between
 // sequential simulated blocks when the caller omits Time overrides.
-// Matches mezo's ~3s average CometBFT block time so callers who let
+// Matches Hoodium's ~3s average CometBFT block time so callers who let
 // the sim fabricate timestamps land in a realistic ballpark.
 const SimTimestampIncrement = 3
 
@@ -58,7 +58,7 @@ type SimBlock struct {
 
 // SimBlockOverrides overrides header fields for a simulated block. All
 // fields are optional; unset fields inherit from the parent simulated (or
-// base) header. Fields for EIPs the mezo chain model does not support
+// base) header. Fields for EIPs the Hoodium chain model does not support
 // (EIP-4788 beacon root, EIP-4895 withdrawals, blob-gas fields) are parsed
 // so the driver can explicitly reject them rather than silently ignore
 // them.
@@ -203,7 +203,7 @@ func marshalSimBlock(
 }
 
 // UnmarshalSimOpts decodes a SimulateV1Request.opts payload and rejects
-// overrides for EIPs that mezo does not support. All rejections are
+// overrides for EIPs that Hoodium does not support. All rejections are
 // returned as *SimError carrying -32602 (invalid params) so the gRPC
 // handler surfaces the spec-reserved code without translation.
 func UnmarshalSimOpts(data []byte) (*SimOpts, error) {
@@ -217,17 +217,17 @@ func UnmarshalSimOpts(data []byte) (*SimOpts, error) {
 		}
 		if block.BlockOverrides.BeaconRoot != nil {
 			return nil, NewSimInvalidParams(fmt.Sprintf(
-				"block %d: BlockOverrides.BeaconRoot is not supported on mezo (no beacon chain)", bi,
+				"block %d: BlockOverrides.BeaconRoot is not supported on Hoodium (no beacon chain)", bi,
 			))
 		}
 		if block.BlockOverrides.Withdrawals != nil {
 			return nil, NewSimInvalidParams(fmt.Sprintf(
-				"block %d: BlockOverrides.Withdrawals is not supported on mezo (no EL-CL withdrawal queue)", bi,
+				"block %d: BlockOverrides.Withdrawals is not supported on Hoodium (no EL-CL withdrawal queue)", bi,
 			))
 		}
 		if block.BlockOverrides.BlobBaseFee != nil {
 			return nil, NewSimInvalidParams(fmt.Sprintf(
-				"block %d: BlockOverrides.BlobBaseFee is not supported on mezo (blob transactions rejected)", bi,
+				"block %d: BlockOverrides.BlobBaseFee is not supported on Hoodium (blob transactions rejected)", bi,
 			))
 		}
 	}

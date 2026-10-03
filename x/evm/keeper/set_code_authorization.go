@@ -1,7 +1,7 @@
 // Reimplementation of geth's unexported validateAuthorization /
 // applyAuthorization on *statedb.StateDB. Re-implemented locally because
 // rebuilding a geth stateTransition to reach the upstream methods would mean
-// abandoning mezod's MinGasMultiplier / precompile / simulate paths. Re-audit
+// abandoning Hoodium's MinGasMultiplier / precompile / simulate paths. Re-audit
 // on every geth bump; pins are by function name against
 // mezo-org/go-ethereum@v1.16.9-mezo0
 // (commit 859c41bdcb7141276fc9c7a7c3486190025f9ec1).

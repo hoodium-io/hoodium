@@ -58,7 +58,7 @@ func postMergeConfig() *params.ChainConfig {
 }
 
 // Gap-fill shape mirrors the go-ethereum TestSimulateSanitizeBlockOrder
-// fixture (simulate_test.go:46-51 upstream) retimed to mezo's ~3s block
+// fixture (simulate_test.go:46-51 upstream) retimed to Hoodium's ~3s block
 // cadence: base at 10/50, caller skips to block 13 with Time=80.
 // Expected fill: 11 @ 53, 12 @ 56, 13 @ 80.
 func TestSanitizeSimChain_GapFill(t *testing.T) {

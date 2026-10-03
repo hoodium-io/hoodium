@@ -74,9 +74,9 @@ func (t *simTracer) onEnter(_ int, typ byte, from common.Address, to common.Addr
 	if op == vm.DELEGATECALL || op == vm.STATICCALL {
 		return
 	}
-	// Skip mezo custom precompiles: each emits its own ERC-20 Transfer
+	// Skip Hoodium custom precompiles: each emits its own ERC-20 Transfer
 	// event, so a synthetic log here would double-count.
-	if _, deny := mezoCustomPrecompileAddrs[to]; deny {
+	if _, deny := customPrecompileAddrs[to]; deny {
 		return
 	}
 	t.captureTransfer(from, to, value)

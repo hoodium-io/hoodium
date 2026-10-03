@@ -49,7 +49,7 @@ import (
 // Each override is applied on top of the default value the non-override
 // path would have produced. PrecompileMoves, when non-empty, relocates
 // the listed stdlib precompiles src→dst on the live EVM registry after
-// the default registry (geth defaults + mezo customs) is installed.
+// the default registry (geth defaults + Hoodium customs) is installed.
 //
 // OnEVMConstructed, when non-nil, is invoked synchronously with the
 // freshly constructed *vm.EVM after vm.NewEVM and before precompile
@@ -182,7 +182,7 @@ func (k *Keeper) NewEVMWithOverrides(
 	}
 
 	// Default path: geth seeds the EVM with the fork-default precompile set;
-	// WithCustomPrecompiles overlays the chain's mezo-custom entries on top.
+	// WithCustomPrecompiles overlays the chain's Hoodium-custom entries on top.
 	evm.WithCustomPrecompiles(k.resolveCustomPrecompiles(ctx))
 
 	// Simulate-only path: relocate selected stdlib precompiles on the live
@@ -197,7 +197,7 @@ func (k *Keeper) NewEVMWithOverrides(
 
 // resolveCustomPrecompiles flattens the keeper's versioned custom-precompile
 // registry into an address→contract map by resolving each entry to the
-// version recorded in chain params. The returned map carries only mezo
+// version recorded in chain params. The returned map carries only Hoodium
 // custom precompiles; stdlib defaults come from geth via WithCustomPrecompiles.
 func (k *Keeper) resolveCustomPrecompiles(ctx sdk.Context) map[common.Address]vm.PrecompiledContract {
 	precompilesVersions := make(map[common.Address]uint32)

@@ -202,7 +202,7 @@ func TestSimTracer_SelfdestructWithBalanceEmitsSynthetic(t *testing.T) {
 // synthetic log on value flowing TO any of them would double-count.
 func TestSimTracer_DenyListSuppressesSyntheticForAllPrecompiles(t *testing.T) {
 	require.NotEmpty(t, evmtypes.DefaultPrecompilesVersions,
-		"fixture relies on at least one canonical mezo precompile being registered")
+		"fixture relies on at least one canonical Hoodium precompile being registered")
 
 	for _, pv := range evmtypes.DefaultPrecompilesVersions {
 		precompile := common.HexToAddress(pv.PrecompileAddress)

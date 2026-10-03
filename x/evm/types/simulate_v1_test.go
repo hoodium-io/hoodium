@@ -613,7 +613,7 @@ func TestSimBlockResult_MarshalJSON_FullTx_HashMissingFromSenders(t *testing.T) 
 }
 
 // TestSimBlockResult_MarshalJSON_StateRootIsZero: pinned divergence —
-// mezod has no MPT root, so the marshaled envelope reports stateRoot
+// Hoodium has no MPT root, so the marshaled envelope reports stateRoot
 // as the zero hash. Documented in `assembleSimBlock`.
 func TestSimBlockResult_MarshalJSON_StateRootIsZero(t *testing.T) {
 	from := common.HexToAddress("0x1111111111111111111111111111111111111111")
@@ -628,7 +628,7 @@ func TestSimBlockResult_MarshalJSON_StateRootIsZero(t *testing.T) {
 	var decoded map[string]interface{}
 	require.NoError(t, json.Unmarshal(data, &decoded))
 	require.Equal(t, common.Hash{}.Hex(), decoded["stateRoot"].(string),
-		"stateRoot must be the zero hash (mezo divergence; pinned)")
+		"stateRoot must be the zero hash (Hoodium divergence; pinned)")
 }
 
 // TestSimBlockResult_MarshalJSON_SizeNonZero: the envelope's `size`

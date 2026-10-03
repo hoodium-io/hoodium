@@ -13,10 +13,10 @@ import (
 	"github.com/hoodium-io/hoodium/x/evm/types"
 )
 
-// mezoCustomPrecompileAddrs is the set of mezo custom precompile addresses,
+// customPrecompileAddrs is the set of Hoodium custom precompile addresses,
 // derived from types.DefaultPrecompilesVersions so consumers cannot drift
 // out of sync with the chain's registered custom precompiles.
-var mezoCustomPrecompileAddrs = func() map[common.Address]struct{} {
+var customPrecompileAddrs = func() map[common.Address]struct{} {
 	set := make(map[common.Address]struct{}, len(types.DefaultPrecompilesVersions))
 	for _, pv := range types.DefaultPrecompilesVersions {
 		set[common.HexToAddress(pv.PrecompileAddress)] = struct{}{}
@@ -31,7 +31,7 @@ var mezoCustomPrecompileAddrs = func() map[common.Address]struct{} {
 // executes; the map is nil when no MovePrecompileTo entries are present.
 //
 // Source-address eligibility is checked against vm.ActivePrecompiledContracts(rules)
-// (stdlib precompiles only) with mezoCustomPrecompileAddrs rejecting the
+// (stdlib precompiles only) with customPrecompileAddrs rejecting the
 // chain's own custom precompiles.
 //
 // On the first invariant violation returns a *types.SimError carrying the
@@ -68,11 +68,11 @@ func applyStateOverrides(
 				return nil, types.NewSimDestAlreadyOverridden(dest)
 			}
 
-			// Denylist check before the stdlib lookup so mezo custom
+			// Denylist check before the stdlib lookup so Hoodium custom
 			// addresses surface the specific error rather than
 			// "is not a precompile" (they aren't stdlib entries).
-			if _, isCustom := mezoCustomPrecompileAddrs[addr]; isCustom {
-				return nil, types.NewSimMoveMezoCustom(addr)
+			if _, isCustom := customPrecompileAddrs[addr]; isCustom {
+				return nil, types.NewSimMoveCustomPrecompile(addr)
 			}
 
 			if _, isStdlib := vm.ActivePrecompiledContracts(rules)[addr]; !isStdlib {

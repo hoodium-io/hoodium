@@ -186,7 +186,7 @@ func makeSimHeader(
 		Time:        parent.Time + types.SimTimestampIncrement,
 	}
 
-	// Post-merge: Difficulty is zero. MixDigest carries PREVRANDAO; mezo
+	// Post-merge: Difficulty is zero. MixDigest carries PREVRANDAO; Hoodium
 	// does not support PREVRANDAO randomness, so we leave MixDigest at
 	// its zero-value default — common.Hash is a value type ([32]byte),
 	// so the field is already populated and does not need an explicit
@@ -240,7 +240,7 @@ func makeSimHeader(
 // invoking so block.Hash() (referenced by NewSimBlockResult's marshal
 // path) is stable.
 //
-// stateRoot stays at the header's zero Root: mezod's StateDB wraps a
+// stateRoot stays at the header's zero Root: Hoodium's StateDB wraps a
 // Cosmos cached multistore and has no MPT to call IntermediateRoot on,
 // so any non-zero value would be misleading. Documented as a known
 // Hoodium divergence from the geth simulate envelope.
@@ -258,7 +258,7 @@ func assembleSimBlock(
 //
 // State-propagation invariant: ONE *statedb.StateDB is shared across
 // every call and every block in the request. Both the EVM journal and
-// mezo's StateDB-scoped cached-ctx (where custom precompile Cosmos-side
+// Hoodium's StateDB-scoped cached-ctx (where custom precompile Cosmos-side
 // writes live) ride on that single StateDB, so call/block continuity
 // covers both layers uniformly. commit=false keeps the whole thing
 // ephemeral. A fresh StateDB per block would silently drop
@@ -659,7 +659,7 @@ func (k *Keeper) processSimBlock(
 
 		// Build the synthetic receipt for this call. Fields mirror
 		// core/state_processor.go's receipt assembly; PostState stays
-		// nil because mezod's StateDB has no MPT root, BlockHash is
+		// nil because Hoodium's StateDB has no MPT root, BlockHash is
 		// back-stamped after header.Hash() stabilizes below.
 		status := ethtypes.ReceiptStatusSuccessful
 		if res.Failed() {
@@ -809,7 +809,7 @@ func resolveSimCallGas(
 // field: sim[] only holds simulated blocks whose Number > base.Number
 // (enforced by sanitizeSimChain). This diverges from go-ethereum's
 // simulate.go (which uses base.Hash() for the height==base case)
-// because mezod surfaces CometBFT header hashes as canonical block
+// because Hoodium surfaces CometBFT header hashes as canonical block
 // hashes, not ethtypes.Header.Hash() values.
 //
 // The function takes a canonical vm.GetHashFunc (rather than a Keeper +

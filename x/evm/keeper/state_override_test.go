@@ -328,7 +328,7 @@ func TestApplyStateOverrides_MovePrecompileTo_DuplicateDestination(t *testing.T)
 	require.Contains(t, err.Error(), dest.Hex())
 }
 
-func TestApplyStateOverrides_MovePrecompileTo_MezoCustomBlocked(t *testing.T) {
+func TestApplyStateOverrides_MovePrecompileTo_CustomBlocked(t *testing.T) {
 	dest := common.BigToAddress(big.NewInt(0xabc))
 
 	for _, pv := range evmtypes.DefaultPrecompilesVersions {
@@ -347,7 +347,7 @@ func TestApplyStateOverrides_MovePrecompileTo_MezoCustomBlocked(t *testing.T) {
 			require.Error(t, err)
 			requireSimErrorCode(t, err, evmtypes.SimErrCodeInvalidParams)
 			require.Contains(t, err.Error(), customAddr.Hex())
-			require.Contains(t, err.Error(), "mezo custom precompile")
+			require.Contains(t, err.Error(), "custom precompile")
 		})
 	}
 }

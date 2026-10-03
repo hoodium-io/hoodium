@@ -96,7 +96,7 @@ func TestInvalidParamsFamilyUsesMinus32602(t *testing.T) {
 		NewSimStateAndStateDiff(addr),
 		NewSimAccountTainted(addr),
 		NewSimDestAlreadyOverridden(addr),
-		NewSimMoveMezoCustom(addr),
+		NewSimMoveCustomPrecompile(addr),
 		NewSimNotAPrecompile(addr),
 	} {
 		require.Equal(t, SimErrCodeInvalidParams, err.ErrorCode())

@@ -19,7 +19,7 @@ type StateOverride map[common.Address]OverrideAccount
 // destination address for the duration of the call. The source address loses
 // its precompile binding; its regular account fields (Nonce, Code, Balance,
 // State, StateDiff) may then be overridden in the same request. Only standard
-// Ethereum precompiles (0x01-0x0A) can be moved — mezo's custom precompiles
+// Ethereum precompiles (0x01-0x0A) can be moved — Hoodium's custom precompiles
 // at 0x19be... are rejected.
 type OverrideAccount struct {
 	Nonce            *hexutil.Uint64             `json:"nonce"`

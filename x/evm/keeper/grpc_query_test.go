@@ -4428,7 +4428,7 @@ func (suite *KeeperTestSuite) TestSimulateV1_StateRootZero_KeeperLayer() {
 // MinGasMultiplier * gasLimit (default 0.5) on top of the EVM's raw
 // gasUsed. A 21k pure-transfer carrying gas=100000 must report
 // gasUsed=50000 (`0xc350`), not 21000. The floor is implemented in
-// state_transition.go and is the single mezo-specific deviation in
+// state_transition.go and is the single Hoodium-specific deviation in
 // gas accounting; pinning it at the keeper layer guards against the
 // floor being silently disabled in the simulate path.
 func (suite *KeeperTestSuite) TestSimulateV1_GasUsedHonorsMinGasMultiplier() {
@@ -4465,7 +4465,7 @@ func (suite *KeeperTestSuite) TestSimulateV1_GasUsedHonorsMinGasMultiplier() {
 	// floor = 100_000 * 0.5 = 50_000 (0xc350); raw = 21_000.
 	// Reported gasUsed = max(floor, raw) = 50_000.
 	suite.Require().Equal("0xc350", calls[0].(map[string]interface{})["gasUsed"],
-		"per-call gasUsed must honor MinGasMultiplier floor (mezo divergence)")
+		"per-call gasUsed must honor MinGasMultiplier floor (Hoodium divergence)")
 }
 
 // TestSimulateV1_BlockEnvelope_EmptyBlockUsesEmptyRoots — a gap-fill

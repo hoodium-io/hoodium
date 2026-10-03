@@ -157,7 +157,7 @@ func FuzzSimulateV1Opts(f *testing.F) {
 	// Hand-picked corner cases that exercise unmarshal-path edges the
 	// upstream fixtures do not (empty bodies, oversized arrays, deeply
 	// nested block override fields, EIP surfaces explicitly rejected
-	// by mezo).
+	// by Hoodium).
 	for _, s := range []string{
 		``,
 		`{}`,
