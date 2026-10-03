@@ -15,8 +15,14 @@ const MaxSupplyMethodName = "maxSupply"
 // the hard cap on the total supply of the ERC20 token.
 //
 // Unlike totalSupply, maxSupply is a fixed constant configured at construction
-// time (it does not depend on chain state). The token cannot be minted past
-// this amount.
+// time (it does not depend on chain state).
+//
+// ENFORCEMENT: this method only *reports* the cap. The cap is actually enforced
+// at the bank-keeper level via a minting restriction installed in app.go
+// (see app/mint_cap.go), which rejects any mint that would push the denom's
+// total supply above the value returned here. The two use the same constant
+// (runetoken.MaxSupply / hooditoken.MaxSupply) so the reported cap and the
+// enforced cap cannot diverge.
 type MaxSupplyMethod struct {
 	maxSupply sdkmath.Int
 }

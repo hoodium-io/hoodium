@@ -32,6 +32,7 @@ import (
 	"github.com/spf13/cast"
 
 	"cosmossdk.io/log"
+	sdkmath "cosmossdk.io/math"
 	abci "github.com/cometbft/cometbft/abci/types"
 	tmos "github.com/cometbft/cometbft/libs/os"
 	dbm "github.com/cosmos/cosmos-db"
@@ -345,6 +346,15 @@ func NewHoodium(
 		app.BlockedAddrs(),
 		authority.String(),
 		logger,
+	).WithMintCoinsRestriction(
+		// Enforce the hard supply cap for the RUNE (arune) and HOODI (ahoodi)
+		// tokens. The SDK runs this before any state change, so an over-cap mint
+		// is rejected atomically. Supply is read lazily from the keeper to avoid
+		// a construction-order cycle (it is only invoked during a mint, which is
+		// always after app construction).
+		NewMintCapRestriction(func(ctx context.Context, denom string) sdkmath.Int {
+			return app.BankKeeper.GetSupply(ctx, denom).Amount
+		}),
 	)
 	app.StakingKeeper = stakingkeeper.NewKeeper(
 		appCodec,
