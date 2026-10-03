@@ -19,12 +19,12 @@ pragma solidity 0.8.29;
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
-// @title RUNE
-// @notice Cross-chain representation of the RUNE token.
-// @dev RUNE token is a native precompile of the chain.
-//      This contract serves as a representation of the RUNE
+// @title HOODI
+// @notice Cross-chain representation of the HOODI token.
+// @dev HOODI token is a native precompile of the chain.
+//      This contract serves as a representation of the HOODI
 //      token on foreign EVM chains for bridging purposes.
-contract BTC is ERC20Permit, Ownable2Step {
+contract HOODI is ERC20Permit, Ownable2Step {
     /// @notice Addresses authorized to mint tokens.
     mapping(address => bool) public minters;
     /// @notice Addresses authorized to burn tokens.
@@ -38,7 +38,7 @@ contract BTC is ERC20Permit, Ownable2Step {
     error NotMinter();
     error NotBurner();
 
-    constructor() ERC20("RUNE", "RUNE") ERC20Permit("RUNE") Ownable(_msgSender()) {}
+    constructor() ERC20("HOODI", "HOODI") ERC20Permit("HOODI") Ownable(_msgSender()) {}
 
     /// @notice Mints `amount` tokens to `account`.
     /// @param account The address to mint tokens to.

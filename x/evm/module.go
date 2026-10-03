@@ -56,7 +56,7 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
 
 // ConsensusVersion returns the consensus state-breaking version for the module.
 func (AppModuleBasic) ConsensusVersion() uint64 {
-	return 5
+	return 1
 }
 
 // DefaultGenesis returns default genesis state as raw bytes for the evm
@@ -107,8 +107,11 @@ func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) 
 type AppModule struct {
 	AppModuleBasic
 	keeper *keeper.Keeper
-	ak     types.AccountKeeper
-	// legacySubspace is used solely for migration of x/params managed parameters
+	// ak is the account keeper used to resolve account information.
+	ak types.AccountKeeper
+	// legacySubspace is the x/params subspace for the module. It is retained for
+	// potential future in-place store migrations of x/params-managed parameters;
+	// a fresh chain registers no migrations.
 	legacySubspace types.Subspace
 }
 
@@ -138,15 +141,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), am.keeper)
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
 
-	m := keeper.NewMigrator(*am.keeper, am.legacySubspace)
-	err := cfg.RegisterMigration(types.ModuleName, 3, m.Migrate3to4)
-	if err != nil {
-		panic(err)
-	}
-
-	if err := cfg.RegisterMigration(types.ModuleName, 4, m.Migrate4to5); err != nil {
-		panic(err)
-	}
+	// No in-place store migrations are registered: Hoodium is a fresh chain
+	// (ConsensusVersion 1) with no prior state to migrate. Register a migration
+	// here when the module's ConsensusVersion is bumped.
 }
 
 // BeginBlock returns the begin block for the evm module.

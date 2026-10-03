@@ -56,7 +56,7 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
 
 // ConsensusVersion returns the consensus state-breaking version for the module.
 func (AppModuleBasic) ConsensusVersion() uint64 {
-	return 4
+	return 1
 }
 
 // DefaultGenesis returns default genesis state as raw bytes for the fee market
@@ -107,7 +107,9 @@ func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) 
 type AppModule struct {
 	AppModuleBasic
 	keeper keeper.Keeper
-	// legacySubspace is used solely for migration of x/params managed parameters
+	// legacySubspace is the x/params subspace for the module. It is retained for
+	// potential future in-place store migrations of x/params-managed parameters;
+	// a fresh chain registers no migrations.
 	legacySubspace types.Subspace
 }
 
@@ -129,16 +131,14 @@ func (AppModule) Name() string {
 // as the fee market module doesn't expose invariants.
 func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
-// RegisterServices registers the GRPC query service and migrator service to respond to the
-// module-specific GRPC queries and handle the upgrade store migration for the module.
+// RegisterServices registers the GRPC query service and message service for the module.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
 	types.RegisterMsgServer(cfg.MsgServer(), &am.keeper)
 
-	m := keeper.NewMigrator(am.keeper, am.legacySubspace)
-	if err := cfg.RegisterMigration(types.ModuleName, 3, m.Migrate3to4); err != nil {
-		panic(err)
-	}
+	// No in-place store migrations are registered: Hoodium is a fresh chain
+	// (ConsensusVersion 1) with no prior state to migrate. Register a migration
+	// here when the module's ConsensusVersion is bumped.
 }
 
 // BeginBlock returns the begin block for the fee market module.
