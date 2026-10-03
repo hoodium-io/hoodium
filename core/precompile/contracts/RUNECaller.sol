@@ -1,45 +1,49 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IBTC } from "../interfaces/IBTC.sol";
+import { IRUNE } from "../../runetoken/IRUNE.sol";
 
-contract BTCCaller is IBTC {
-    address private constant precompile = 0x7b7C000000000000000000000000000000000000;
+contract RUNECaller is IRUNE {
+    address private constant precompile = 0x19be000000000000000000000000000000000000;
 
     function name() external view returns (string memory) {
-        return IBTC(precompile).name();
+        return IRUNE(precompile).name();
     }
 
     function symbol() external view returns (string memory) {
-        return IBTC(precompile).symbol();
+        return IRUNE(precompile).symbol();
     }
 
     function decimals() external view returns (uint8) {
-        return IBTC(precompile).decimals();
+        return IRUNE(precompile).decimals();
     }
 
     function totalSupply() external view returns (uint256) {
-        return IBTC(precompile).totalSupply();
+        return IRUNE(precompile).totalSupply();
+    }
+
+    function maxSupply() external view returns (uint256) {
+        return IRUNE(precompile).maxSupply();
     }
 
     function balanceOf(address account) external view returns (uint256) {
-        return IBTC(precompile).balanceOf(account);
+        return IRUNE(precompile).balanceOf(account);
     }
 
     function transfer(address to, uint256 value) external returns (bool) {
-        return IBTC(precompile).transfer(to, value);
+        return IRUNE(precompile).transfer(to, value);
     }
 
     function allowance(address owner, address spender) external view returns (uint256) {
-        return IBTC(precompile).allowance(owner, spender);
+        return IRUNE(precompile).allowance(owner, spender);
     }
 
     function approve(address spender, uint256 value) external returns (bool) {
-        return IBTC(precompile).approve(spender, value);
+        return IRUNE(precompile).approve(spender, value);
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        return IBTC(precompile).transferFrom(from, to, value);
+        return IRUNE(precompile).transferFrom(from, to, value);
     }
 
     function permit(
@@ -51,24 +55,24 @@ contract BTCCaller is IBTC {
         bytes32 r,
         bytes32 s
     ) external returns (bool) {
-        return IBTC(precompile).permit(owner, spender, amount, deadline, v, r, s);
+        return IRUNE(precompile).permit(owner, spender, amount, deadline, v, r, s);
     }
 
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
-        return IBTC(precompile).DOMAIN_SEPARATOR();
+        return IRUNE(precompile).DOMAIN_SEPARATOR();
     }
 
     // Deprecated as it is not compatible with EIP-2612.
     // Should be removed in the future.
     function nonce(address owner) external view returns (uint256) {
-        return IBTC(precompile).nonce(owner);
+        return IRUNE(precompile).nonce(owner);
     }
 
     function nonces(address owner) external view returns (uint256) {
-        return IBTC(precompile).nonces(owner);
+        return IRUNE(precompile).nonces(owner);
     }
 
     function PERMIT_TYPEHASH() external pure returns (bytes32) {
-        return IBTC(precompile).PERMIT_TYPEHASH();
+        return IRUNE(precompile).PERMIT_TYPEHASH();
     }
 }
