@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { IStaking } from "../interfaces/IStaking.sol";
 
 contract StakingCaller is IStaking {
-    address private constant precompile = 0x19bE000000000000000000000000000000000003;
+    address private constant precompile = 0x19be000000000000000000000000000000000003;
 
     function delegate(address validator, uint256 amount) external returns (bool) {
         return IStaking(precompile).delegate(validator, amount);

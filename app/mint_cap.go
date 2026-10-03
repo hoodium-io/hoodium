@@ -70,7 +70,7 @@ func NewMintCapRestriction(getSupply func(ctx context.Context, denom string) sdk
 			amount := coin.Amount
 			if amount.IsNil() || !amount.IsPositive() {
 				return fmt.Errorf(
-					"invalid mint amount for denom %s: %s (must be positive)",
+					"mint rejected: invalid mint amount for denom %s (got %s, but the amount must be a positive integer)",
 					coin.Denom, amount,
 				)
 			}
@@ -91,7 +91,7 @@ func NewMintCapRestriction(getSupply func(ctx context.Context, denom string) sdk
 			projected := currentSupply.Add(amount)
 			if projected.GT(cap) {
 				return fmt.Errorf(
-					"mint would exceed max supply of denom %s: current supply %s + minted %s = %s > max supply %s",
+					"mint rejected: projected supply of denom %s would exceed max supply (calculation: current supply %s + minted %s = projected %s, which is greater than max supply %s)",
 					denom, currentSupply, amount, projected, cap,
 				)
 			}

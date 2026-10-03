@@ -186,19 +186,19 @@ func (suite *KeeperTestSuite) TestGetAccountOrEmpty() {
 
 func (suite *KeeperTestSuite) TestCustomPrecompileGenesisAccounts() {
 	accounts := suite.app.EvmKeeper.CustomPrecompileGenesisAccounts()
-	suite.Require().Equal(len(accounts), 3)
+	suite.Require().Equal(len(accounts), 4)
 
 	// Expected addresses are the precompile address constants, checksummed via
 	// go-ethereum's EIP-55 (same as the keeper emits). Sorted case-insensitively
 	// to match CustomPrecompileGenesisAccounts.
-	// NOTE: only RUNE, HOODI and PriceOracle register genesis accounts. The
-	// Staking precompile has an empty bytecode constant (EvmByteCode == "") until
-	// StakingCaller.sol is compiled, so it does not emit a genesis account entry
-	// here.
+	// NOTE: RUNE, HOODI, PriceOracle and Staking all register genesis accounts.
+	// A precompile emits a genesis account only once its EvmByteCode constant is
+	// non-empty (see CustomPrecompileGenesisAccounts).
 	expected := []string{
 		common.HexToAddress(evmtypes.RUNETokenPrecompileAddress).String(),
 		common.HexToAddress(evmtypes.HOODITokenPrecompileAddress).String(),
 		common.HexToAddress(evmtypes.PriceOraclePrecompileAddress).String(),
+		common.HexToAddress(evmtypes.StakingPrecompileAddress).String(),
 	}
 
 	for i, exp := range expected {
