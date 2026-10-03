@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IHOODI } from "../../hooditoken/IHOODI.sol";
+import { IHOODI } from "../interfaces/IHOODI.sol";
 
 contract HOODICaller is IHOODI {
-    address private constant precompile = 0x19be000000000000000000000000000000000001;
+    address private constant precompile = 0x19Be000000000000000000000000000000000001;
 
     function name() external view returns (string memory) {
         return IHOODI(precompile).name();

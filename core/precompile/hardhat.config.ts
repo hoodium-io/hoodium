@@ -24,8 +24,14 @@ function getPrivKeys (): string[] {
       }
     }
   } else {
+    // Fall back to reading localnet key_seed.json files. Skip missing files so
+    // `hardhat compile` (which needs no accounts) does not fail before a localnet
+    // has been bootstrapped.
     for (let i = 0; i < COUNT; i++) {
       const filePath = path.resolve(`${BUILD_DIR}node${i}/runed/key_seed.json`)
+      if (!fs.existsSync(filePath)) {
+        continue
+      }
       const seed = JSON.parse(fs.readFileSync(filePath, 'utf8'))
       const pk: string = ethers.Wallet.fromPhrase(seed.secret).privateKey
       keys.push(pk)

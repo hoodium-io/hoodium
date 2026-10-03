@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IRUNE } from "../../runetoken/IRUNE.sol";
+import { IRUNE } from "../interfaces/IRUNE.sol";
 
 contract RUNECaller is IRUNE {
-    address private constant precompile = 0x19be000000000000000000000000000000000000;
+    address private constant precompile = 0x19bE000000000000000000000000000000000000;
 
     function name() external view returns (string memory) {
         return IRUNE(precompile).name();
