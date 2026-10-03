@@ -120,6 +120,51 @@ Here we can see the priceOracle:latestRoundData task takes no arguments - correc
 npx hardhat --network testnet priceOracle:latestRoundData
 ```
 
+## Generating precompile ABI + EvmByteCode
+
+Custom precompiles are Go-native, but external services detect them as smart contracts by calling
+`eth_getCode`. To satisfy that, each precompile embeds:
+
+* `abi.json` — the contract ABI, embedded via `//go:embed abi.json`
+* `const EvmByteCode = "<hex>"` in `byte_code.go` — the deployed code returned by `eth_getCode`
+
+Both are derived from a minimal Solidity **Caller** contract that implements the same interface the
+precompile serves (e.g. `RUNECaller.sol` → `core/runetoken`). The Caller is a trick: any contract
+that satisfies the precompile interface and matches its ABI works, and the callers are the minimal
+such implementations.
+
+`byte_code.go` is **generated code — do not hand-edit it.** Generate both files with:
+
+```
+# 1. compile the callers (requires npm deps installed in this directory)
+npx hardhat compile
+
+# 2. extract abi + deployedBytecode into the Go packages
+./scripts/generate-bytecode.sh
+```
+
+Or, from the repository root:
+
+```
+make precompile-gen
+```
+
+The script strips the `0x` prefix (the Go constant must not contain it), validates that the value is
+even-length hex, and writes the constant **wrapped in double quotes**:
+
+```go
+const EvmByteCode = "608060405234801561000f575f80fd5b..."   // correct
+```
+
+> ⚠️ **Why the script exists.** The manual process ("copy `deployedBytecode` from the artifact json
+> and remove the `0x` prefix") is easy to get wrong. A hand-edit once dropped the surrounding quotes,
+> producing `const EvmByteCode = 6080604052...`, which the Go compiler reads as bare tokens and
+> rejects with `unexpected name ... after top level declaration`. Generating the file makes that
+> impossible.
+
+To add a new precompile, add its Caller contract to `core/precompile/contracts/`, then add a
+`"<CallerName>:<gopackagedir>"` entry to the `MAPPINGS` array in `scripts/generate-bytecode.sh`.
+
 ### Running Tasks
 
 Tasks get run as if they are built in hardhat commands. Read tasks are executed using a basic ethers provider
