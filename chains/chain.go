@@ -33,6 +33,11 @@ func (c Config) Exists() bool {
 
 // LoadConfig loads the predefined config for the given chain ID.
 // It returns true if the config was found, false otherwise.
+//
+// NOTE: only Hoodium mainnet and testnet have predefined configs. Devnet is a
+// temporary network and deliberately has NO entry here - it must be initialized
+// with --ignore-predefined. Devnet will be removed once testnet and mainnet are
+// live, so it is never aliased onto mainnet.
 func LoadConfig(chainID string) (Config, error) {
 	var baseDir string
 
@@ -50,6 +55,8 @@ func LoadConfig(chainID string) (Config, error) {
 	_, err := fs.ReadDir(chainDir)
 	if err != nil {
 		// If there is an error here, it means the chain directory does not exist.
+		// This is expected until the real Hoodium mainnet/testnet genesis is
+		// generated; callers treat a missing config as "no predefined config".
 		return Config{}, nil
 	}
 

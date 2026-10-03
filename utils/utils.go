@@ -34,9 +34,11 @@ const (
 	MainnetChainID = "rune_6590"
 	// TestnetChainID = rune_6591, defines the Hoodium EIP155 chain ID for testnet
 	TestnetChainID = "rune_6591"
-	// DevnetChainID = rune_6592, defines a temporary development network that maps to Mainnet.
-	// It intentionally mirrors MainnetChainID until Testnet/Mainnet are enabled for real.
-	DevnetChainID = MainnetChainID
+	// DevnetChainID = rune_6592, defines the temporary development network used to
+	// validate the current build before promoting it to testnet and then mainnet.
+	// It carries a distinct chain ID so devnet, testnet and mainnet never share an
+	// identity, while running the same production configuration as mainnet.
+	DevnetChainID = "rune_6592"
 	// BaseDenom defines the base token denomination. The equation is 1 RUNE = 10^18 arune.
 	// This is the base and gas token of the chain.
 	BaseDenom = "arune"
@@ -55,7 +57,6 @@ func IsTestnet(chainID string) bool {
 }
 
 // IsDevnet returns true if the chain-id has the Devnet EIP155 chain prefix.
-// Devnet is a temporary network that currently resolves to Mainnet.
 func IsDevnet(chainID string) bool {
 	return strings.HasPrefix(chainID, DevnetChainID)
 }

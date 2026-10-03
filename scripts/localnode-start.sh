@@ -64,19 +64,7 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 	# Set moniker and chain-id for Runed (Moniker can be anything, chain-id must be an integer)
 	runed init $MONIKER -o --chain-id $CHAINID --home "$HOMEDIR" --ignore-predefined
 
-	# Set the PoA owner.
-	OWNER=$(runed keys show "${KEYS[0]}" --address --bech acc --keyring-backend $KEYRING --home "$HOMEDIR")
-	jq '.app_state["poa"]["owner"]="'"$OWNER"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-
-	# Set the required x/bridge parameters.
-	# A single node cannot bridge anyway (both bridge and non-bridge validators
-	# are required). We set the source_btc_token to 0x0 just to bypass the check
-	# in the bridge module genesis validation. Moreover, we set the initial
-	# BTC balance to satisfy the supply invariant.
-	jq '.app_state["bridge"]["source_btc_token"]="'"0x0000000000000000000000000000000000000000"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-	jq '.app_state["bridge"]["initial_btc_supply"]="'"300000000000000000000000000"'"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
-
-	# Change parameter token denominations to abtc
+	# Change parameter token denominations to arune
 	jq '.app_state["crisis"]["constant_fee"]["denom"]="arune"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 	jq '.app_state["evm"]["params"]["evm_denom"]="arune"' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
@@ -130,11 +118,23 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 	max_gas=10000000 # 10m
 	jq -r --arg max_gas "$max_gas" '.consensus["params"]["block"]["max_gas"]=$max_gas' "$GENESIS" >"$TMP_GENESIS" && mv "$TMP_GENESIS" "$GENESIS"
 
-	# Generate the validator.
-	runed genesis genval "${KEYS[0]}" --keyring-backend $KEYRING --chain-id $CHAINID --home "$HOMEDIR"
+	# Create the validator using the standard Cosmos staking flow
+	# (replaces the removed PoA `genesis genval`/`collect-genvals` commands).
+	KEYRING_PASSWORD=${KEYRING_PASSWORD:-""}
+	VAL_KEY="${KEYS[0]}"
+	VAL_PUBKEY=$(runed tendermint show-validator --home "$HOMEDIR")
 
-	# Collect generated validators.
-	runed genesis collect-genvals --home "$HOMEDIR"
+	# Self-delegate a bond so the validator has consensus power. Uses the
+	# arune amount allocated to this account via genesis add-account above.
+	yes "$KEYRING_PASSWORD" | runed genesis gentx "$VAL_KEY" \
+		1000000000000000000000arune \
+		--pubkey "$VAL_PUBKEY" \
+		--chain-id "$CHAINID" \
+		--keyring-backend "$KEYRING" \
+		--home "$HOMEDIR"
+
+	# Aggregate all gentx files into the genesis file.
+	runed genesis collect-gentxs --home "$HOMEDIR"
 
 	# Run this to ensure everything worked and that the genesis file is setup correctly
 	runed genesis validate --home "$HOMEDIR"

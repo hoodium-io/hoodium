@@ -119,22 +119,24 @@ customize_configuration() {
   echo "Configuration customized!"
 }
 
-init_genval() {
-  test -f "${RUNED_HOME}"/config/genval/genval-*.json && {
-    echo "Genval already exists!"
+init_gentx() {
+  test -d "${RUNED_HOME}/config/gentx" && {
+    echo "Gentx already exists!"
     return
   }
 
-  echo "Prepare genval..."
+  echo "Prepare gentx..."
+  validator_pubkey="$(runed tendermint show-validator --home="${RUNED_HOME}")"
   echo "${KEYRING_PASSWORD}" \
-    | runed genesis genval \
+    | runed genesis gentx \
       "${KEYRING_NAME}" \
+      "${RUNED_GENTX_AMOUNT}" \
+      --pubkey="${validator_pubkey}" \
       --keyring-backend="file" \
       --chain-id="${RUNED_CHAIN_ID}" \
-      --home="${RUNED_HOME}" \
-      --ip="${PUBLIC_IP}"
+      --home="${RUNED_HOME}"
 
-  echo "Genval prepared!"
+  echo "Gentx prepared!"
 }
 
 get_validator_info() {
@@ -142,10 +144,10 @@ get_validator_info() {
   validator_addr="$(runed --home="${RUNED_HOME}" keys parse "${validator_addr_bech}" | grep bytes | awk '{print "0x"$2}')"
   echo "Validator address: ${validator_addr}"
 
-  validator_id="$(cat "${RUNED_HOME}"/config/genval/genval-*.json | jq -r '.memo' | awk -F'@' '{print $1}')"
+  validator_id="$(runed --home="${RUNED_HOME}" tendermint show-node-id)"
   echo "Validator ID: ${validator_id}"
 
-  validator_consensus_pubkey_bech="$(cat "${RUNED_HOME}"/config/genval/genval-*.json | jq -r '.validator.cons_pub_key_bech32')"
+  validator_consensus_pubkey_bech="$(runed tendermint show-validator --home="${RUNED_HOME}")"
   validator_consensus_pubkey="$(runed --home="${RUNED_HOME}" keys parse "${validator_consensus_pubkey_bech}" | grep bytes | awk '{printf "%s", $2}' | tail -c 64 | awk '{print "0x"$1}')"
   echo "Validator consensus pubkey: ${validator_consensus_pubkey}"
 
@@ -168,8 +170,8 @@ case "$1" in
     init_keyring
     exit 0
     ;;
-  genval)
-    init_genval
+  gentx)
+    init_gentx
     exit 0
     ;;
   info)
@@ -185,7 +187,7 @@ case "$1" in
     init_keyring
     init_configuration
     customize_configuration
-    init_genval
+    init_gentx
     get_validator_info
     # Run the runed node
     exec "$@"
