@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: safety-buffer-keeper
-          image: rune/safety-buffer-keeper:latest
+          image: hoodium-io/safety-buffer-keeper:latest
           imagePullPolicy: Always
           env:
             - name: SAFETY_BUFFER_KEEPER_PRIVATE_KEY

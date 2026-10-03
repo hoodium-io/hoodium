@@ -1,5 +1,5 @@
 helmDefaults:
-  kubeContext: gke_rune-test-420708_us-central1_rune-staging-gke-cluster
+  kubeContext: gke_hoodium-test-420708_us-central1_hoodium-staging-gke-cluster
 
 repositories:
   - name: hoodium-io

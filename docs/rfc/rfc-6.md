@@ -296,4 +296,4 @@ operations to check the state of reserves before processing bridge-out requests
 and delay processing if there is not enough BTC locked in the bridge contract to
 cover them. This mechanism will have to be aligned with other research projects,
 like layered lending minting tokens through standard ERC20 operations on the
-Rune chain.
+Hoodium chain.

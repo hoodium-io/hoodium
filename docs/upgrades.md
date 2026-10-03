@@ -1,11 +1,11 @@
 # Upgrades
 
 This document describes the process for breaking chain upgrades.
-Moreover, it describes all historical upgrades performed on the Rune chain.
+Moreover, it describes all historical upgrades performed on the Hoodium chain.
 
 ## The process
 
-Rune chain client defines two basic primitives for breaking upgrades. They are  
+Hoodium chain client defines two basic primitives for breaking upgrades. They are  
 both part of the `app/upgrades` module:
 
 - `Fork`: This component represents a hard fork upgrade that executes a one-time
@@ -22,7 +22,7 @@ both part of the `app/upgrades` module:
 
 Those two primitives can be combined to perform different upgrade procedures
 depending on the requirements of the upgrade. Each procedure assumes
-all Rune chain clients run on version `v1.0.0` initially.
+all Hoodium chain clients run on version `v1.0.0` initially.
 
 ### Hard fork upgrade without chain halt
 
@@ -35,7 +35,7 @@ The procedure is as follows:
 2. Define a new `v2.Fork` in the `app/upgrades/v2/constants.go` file and the
    fork logic in the `app/upgrades/v2/forks.go` file.
 3. Register the `v2.Fork` in the `app.Forks` list, in the `app/upgrades.go` file.
-4. Release version `v2.0.0` of the Rune chain client and ask validators to upgrade.
+4. Release version `v2.0.0` of the Hoodium chain client and ask validators to upgrade.
 5. Once validators reach the fork block, the fork code will be executed.
 
 After the upgrade, the `v2.0.0` clients are still able to validate past blocks produced
@@ -59,8 +59,8 @@ The procedure is as follows:
    should perform all necessary store migrations.
 4. Register the `v2.Fork` in the `app.Forks` list, in the `app/upgrades.go` file.
 5. Register the `v2.Upgrade` in the `app.Upgrades` list, in the `app/upgrades.go` file.
-6. Release version `v2.0.0` of the Rune chain client.
-7. Backport the `v2.Fork` to `v1.0.0` and release version `v1.0.1` of the Rune
+6. Release version `v2.0.0` of the Hoodium chain client.
+7. Backport the `v2.Fork` to `v1.0.0` and release version `v1.0.1` of the Hoodium
    chain client. Ask validators to upgrade to `v1.0.1` first. It is important
    to NOT BACKPORT the `v2.Upgrade` to `v1.0.0` as it will break the
    Cosmos In-Place Store Migrations mechanism.
@@ -88,7 +88,7 @@ The procedure is as follows:
    upgrade handler in the `app/upgrades/v2/upgrades.go` file. The upgrade handler
    should perform all necessary store migrations.
 3. Register the `v2.Upgrade` in the `app.Upgrades` list, in the `app/upgrades.go` file.
-4. Release version `v2.0.0` of the Rune chain client.
+4. Release version `v2.0.0` of the Hoodium chain client.
 5. The governance schedules the `v2` upgrade plan through the `Upgrade` precompile.
 6. Once validators reach the upgrade block, the chain will halt due to the `v2` upgrade plan.
 7. After the halt, validators should upgrade to `v2.0.0` and restart their nodes.
@@ -126,7 +126,7 @@ The procedure is as follows:
    necessary store migrations and the fix for the incident.
 4. Register the `v14_0.Upgrade` in the `app.Upgrades` list, in the
    `app/upgrades.go` file.
-5. Release version `v14.0.0` of the Rune chain client.
+5. Release version `v14.0.0` of the Hoodium chain client.
 6. Validators install the release and restart their nodes. Nobody schedules the
    plan again, because the lockdown already wrote it to the store, and the
    halted chain accepts no transaction anyway.
@@ -148,7 +148,7 @@ the [Planned upgrade with chain halt](#planned-upgrade-with-chain-halt) scenario
 
 The `x/upgrade` module defines a `Plan` type in which a live upgrade is scheduled to occur.
 A `Plan` can be scheduled at a specific block `Height`. A `Plan` is submitted via the `Upgrade`
-precompile after a Rune chain client release with an appropriate upgrade handler.
+precompile after a Hoodium chain client release with an appropriate upgrade handler.
 
 An upgrade `Plan` has the following values:
 
@@ -191,7 +191,7 @@ npx hardhat upgrade:cancelPlan --signer OWNER
 
 ### Versioning
 
-Rune client was using `v0.Y.Z-rcN` versioning pattern for the initial phase
+Hoodium client was using `v0.Y.Z-rcN` versioning pattern for the initial phase
 of the project where only testnet was available. The major version was fixed
 to `0` before mainnet readiness was reached. Moreover, all testnet-only
 versions were release candidates (`-rcN`) to indicate that the software was
@@ -203,7 +203,7 @@ The first mainnet release is `v1.0.0`.
 
 ### Testnet
 
-Here is the list of upgrades performed on the Rune Matsnet testnet.
+Here is the list of upgrades performed on the Hoodium Matsnet testnet.
 For testnet-only versions, the `-rcN` suffix is omitted for brevity.
 In that case, always assume the latest `-rcN` suffix for the given version.
 

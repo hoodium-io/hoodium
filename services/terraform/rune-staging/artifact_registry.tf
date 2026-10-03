@@ -7,14 +7,14 @@ resource "google_artifact_registry_repository" "docker_internal" {
 
 resource "google_artifact_registry_repository" "docker_public" {
   location      = var.region.name
-  repository_id = "rune-staging-docker-public"
+  repository_id = "hoodium-staging-docker-public"
   description   = "Docker repository for public images"
   format        = "DOCKER"
 }
 
 resource "google_artifact_registry_repository" "generic_public" {
   location      = var.region.name
-  repository_id = "rune-staging-binary-public"
+  repository_id = "hoodium-staging-binary-public"
   description   = "Generic repository for public binaries"
   format        = "generic"
 }

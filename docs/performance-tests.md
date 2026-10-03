@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This report presents a comprehensive analysis of the Rune Node's (and EVM base blockchain)
+This report presents a comprehensive analysis of the Hoodium Node's (and EVM base blockchain)
 performance testing, focusing on key parameters that affect transaction processing.
 
 Our testing methodology was designed to evaluate the optimal configuration of three critical parameters:
@@ -161,7 +161,7 @@ computational complexity and gas consumption patterns:
   While the underlying operation is still a native token transfer, this method
   introduces additional overhead as it requires interacting with the precompile
   through the EVM. This transaction type represents an intermediate level of
-  complexity and provides insights into how efficiently the Rune Node handles
+  complexity and provides insights into how efficiently the Hoodium Node handles
   precompiled contracts.
 
 - ERC20 contract transfers: Finally we executed transfers using an actual
@@ -187,7 +187,7 @@ The following metrics have been observed while running the perfomances tests:
 - Mempool unconfirmed transaction: The count of pending transactions awaiting to be
   added in blocks indicates of network congestion. A growing mempool backlog
   signals that the network cannot process transactions at the rate they're being
-  submitted. For Rune Node specifically, monitoring this metric is crucial due to
+  submitted. For Hoodium Node specifically, monitoring this metric is crucial due to
   its transaction pruning behavior, as excessive mempool growth triggers more
   frequent re-checking operations that can impact node performance. Persistent
   mempool growth may indicate the need for increased block capacity or fee market

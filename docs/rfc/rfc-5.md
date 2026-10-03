@@ -73,11 +73,11 @@ Changes described in this section should be covered with a comprehensive
 
 ### Ethereum sidecar
 
-Each Rune validator runs an instance of the Ethereum sidecar that feeds the existing 1-way bridge with events
+Each Hoodium validator runs an instance of the Ethereum sidecar that feeds the existing 1-way bridge with events
 emitted on the Ethereum chain. This proposal assumes re-using this infrastructure for bridging out of Rune.
 
 The Ethereum sidecar should be enhanced with an ability to fetch recent `AssetsUnlocked`entries submitted on the
-Rune chain and attest them on Ethereum. The specific logic described below is supposed to be executed only by
+Hoodium chain and attest them on Ethereum. The specific logic described below is supposed to be executed only by
 validators having the "bridge" privilege (the so called bridge validators). List of those validators can be
 determined by calling the `validatorsByPrivilege` method (with `1` as parameter) exposed by the `ValidatorPool`
 precompile.

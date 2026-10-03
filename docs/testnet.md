@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Rune testnet is a network of nodes running the Rune client software,
+The Hoodium testnet is a network of nodes running the Hoodium client software,
 assisted by several auxiliary services. This network is used for testing and
 experimentation. Specific components that form the core of the testnet are:
 
@@ -44,7 +44,7 @@ accessible to the public. Here is an overview of the setup from the ground up.
 
 ### Artifacts
 
-The main artifacts necessary to bootstrap a testnet Rune chain are:
+The main artifacts necessary to bootstrap a testnet Hoodium chain are:
 
 - A global genesis file defining the initial state of the chain
   (most importantly, the initial validator set)
@@ -65,7 +65,7 @@ The resulting artifacts are stored in the
 ---
 
 **Note**: In the future, the `scripts/public-testnet.sh` script will be
-integrated into the Rune client software and exposed as a command-line
+integrated into the Hoodium client software and exposed as a command-line
 interface (CLI) command
 
 ---
@@ -73,9 +73,9 @@ interface (CLI) command
 ### Infrastructure
 
 Testnet artifacts mentioned above are infrastructure-agnostic and can be used
-to bootstrap a Rune chain on any platform. In practice, Rune engineering team
+to bootstrap a Hoodium chain on any platform. In practice, Rune engineering team
 uses Google Cloud Platform (GCP) as the infrastructure provider for the core
-components of the Rune testnet. Moreover, GCP resources are managed using
+components of the Hoodium testnet. Moreover, GCP resources are managed using
 Terraform. The Terraform configuration is located in the
 [`infrastructure/terraform/rune-staging`](../infrastructure/terraform/rune-staging/README.md)
 directory. Most important infrastructure resources managed by Terraform are:
@@ -103,12 +103,12 @@ Config maps hold configuration files and the genesis file, while secrets store
 sensitive information like private keys. Artifacts porting is done manually
 for now but should be automated in the future.
 
-Validators deployments use the latest Docker image of the Rune client
+Validators deployments use the latest Docker image of the Hoodium client
 software living in the internal Docker registry. The image is built and pushed
 manually by the Rune engineering team but this process will be automated in the
-near future. Moreover, the Rune client Docker image will be soon available in the
+near future. Moreover, the Hoodium client Docker image will be soon available in the
 public Docker registry for external users to pull and run their own nodes.
-That will happen once the first stable version of the Rune client is released
+That will happen once the first stable version of the Hoodium client is released
 and a proper onboarding procedure for external nodes is in place.
 
 #### Auxiliary services
@@ -124,15 +124,15 @@ the process easier as there is no need to deal with Helm directly.
 
 ## Ethereum Sidecar
 
-The sidecar is a component of the Rune node, running as a separate process
+The sidecar is a component of the Hoodium node, running as a separate process
 responsible for interacting with the Ethereum network. It plays a key role in
 the bridging architecture, monitoring the Ethereum network for `AssetsLocked`
 events emitted by the `RuneBridge` contract when assets are deposited.
 
 Once the blocks containing these `AssetsLocked` events are finalized, they are cached
-for further processing by the Rune node. Due to Ethereum’s block finality mechanics,
+for further processing by the Hoodium node. Due to Ethereum’s block finality mechanics,
 the sidecar is bound by the same constraints. As a result, it takes approximately
 13 to 14 minutes for a new event to be finalized and stored in the “finalized” cache
-for the Rune node to process.
+for the Hoodium node to process.
 
 More details can be found in the following [RFC](../docs/rfc/rfc-2.md#ethereum-sidecar)

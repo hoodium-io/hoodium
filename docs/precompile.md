@@ -63,7 +63,7 @@ Follow these steps to add a new precompile:
 
 ## Available Precompiles
 
-The following precompiles are available in the Rune blockchain:
+The following precompiles are available in the Hoodium blockchain:
 
 ### BTC Token Precompile
 
@@ -109,7 +109,7 @@ interface for a list of methods.
 #### Overview
 
 The Validator Pool precompile provides an interface for managing validators on
-the Rune blockchain. It allows submitting and approving validator applications,
+the Hoodium blockchain. It allows submitting and approving validator applications,
 modifying privileges, and handling validator ownership transfers.
 
 #### Address
@@ -128,7 +128,7 @@ interface for a list of methods.
 #### Overview
 
 The Assets Bridge precompile enables observability of pseudo-transactions,
-allowing the Rune blockchain explorer to decipher these transactions. It also
+allowing the Hoodium blockchain explorer to decipher these transactions. It also
 provides limited asset bridging functionalities, such as ERC-20 token mapping.
 
 #### Address
@@ -171,7 +171,7 @@ interface for a list of methods.
 
 The Upgrade precompile provides an interface for managing blockchain upgrade plans.
 It allows for scheduling, retrieving, and canceling upgrade plans, ensuring
-a controlled upgrade process for the Rune blockchain.
+a controlled upgrade process for the Hoodium blockchain.
 
 #### Address
 
@@ -189,7 +189,7 @@ interface for a list of methods.
 #### Overview
 
 The Price Oracle precompile provides access to price data for assets tracked
-by the Rune blockchain. It enables querying the latest price updates and
+by the Hoodium blockchain. It enables querying the latest price updates and
 retrieving asset price information with a predefined level of precision.
 
 #### Address

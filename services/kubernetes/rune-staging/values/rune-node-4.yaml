@@ -1,4 +1,4 @@
-image: us-central1-docker.pkg.dev/rune-test-420708/rune-staging-docker-public/runed
+image: us-central1-docker.pkg.dev/hoodium-test-420708/hoodium-staging-docker-public/runed
 tag: v13.0.0-rc0
 
 env:

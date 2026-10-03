@@ -19,7 +19,7 @@ probably using a mechanism described in RFC-3.
 
 The goal of the proposal is to perform the minimum necessary changes to the
 existing RFC-2 Bitcoin bridging protocol, without adding too much overhead to
-the Rune validator client, both in terms of the code and chain performance.
+the Hoodium validator client, both in terms of the code and chain performance.
 
 ### RuneBridge contract
 

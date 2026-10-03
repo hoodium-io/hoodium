@@ -6,7 +6,7 @@
 ## Background
 
 [RFC-2: Bridging Bitcoin to Rune](./rfc-2.md) describes the mechanism of
-bridging Bitcoin represented on EVM as tBTC to Rune chain. Bitcoin is the base
+bridging Bitcoin represented on EVM as tBTC to Hoodium chain. Bitcoin is the base
 asset of Rune and requires a separate bridging path that may in the future be
 transformed into direct tBTC minting on Rune by moving the tBTC Bridge ledger
 there.
@@ -21,9 +21,9 @@ canonical token addresses.
 
 ### Canonical Token
 
-The bridging itself may not require any work from the Rune development team.
+The bridging itself may not require any work from the Hoodium development team.
 Various bridging solutions such as Wormhole, LayerZero, or Axelar exist
-on the market. The development teams of bridges could integrate with Rune chain
+on the market. The development teams of bridges could integrate with Hoodium chain
 and enable minting bridged tokens. The problem with this out-of-the-box solution
 is liquidity fragmentation given each bridge mints its own representation of
 the token. As an example, we could have three or more representations of USDC on
@@ -48,7 +48,7 @@ Optimism, Polygon, Base, and Solana. Instead of minting Wormhole wrapped tokens,
 the canonical representations of tBTC are minted by Wormhole L2 gateway contract
 on each mentioned chain.
 
-For the Rune chain launch, we will integrate with at least one well-established
+For the Hoodium chain launch, we will integrate with at least one well-established
 bridging partner to bridge all tokens but Bitcoin to Rune. Bitcoin bridging will
 remain controlled exclusively by our native bridge.
 
@@ -146,7 +146,7 @@ for the L2 tBTC bridging. The standard relayer should be integrated with the
 ERC20 Rune Bridge allowing users to pay for Rune token redemption when
 initiating a bridge operation on Ethereum.
 
-This will require having the bridge gateways deployed on Rune chain to support
+This will require having the bridge gateways deployed on Hoodium chain to support
 the [`IWormholeReceiver`](https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/bacbe82e6ae3f7f5ec7cdcd7d480f1e528471bbb/src/interfaces/IWormholeReceiver.sol#L44-L50)
 interface.
 
@@ -173,8 +173,8 @@ action will be required to initiate bridging to Rune.
 
 ### Ethereum ERC20 Bridge contract
 
-After the Rune chain launch users will no longer be expected to lock their
-assets in the Portal for a specific time but instead to bridge them to the Rune
+After the Hoodium chain launch users will no longer be expected to lock their
+assets in the Portal for a specific time but instead to bridge them to the Hoodium
 chain. Since a separate mechanism handles Bitcoin bridging, no Ethereum contract
 for ERC20 bridging should be necessary if integrating standard relayer calls
 will be possible using the Wormhole SDK. If this proves not to be the case

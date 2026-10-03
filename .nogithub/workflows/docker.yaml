@@ -18,7 +18,7 @@ jobs:
       contents: read
       id-token: write
     with:
-      registry: "us-central1-docker.pkg.dev/rune-test-420708/rune-staging-docker-public/runed"
+      registry: "us-central1-docker.pkg.dev/hoodium-test-420708/hoodium-staging-docker-public/runed"
     secrets:
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
@@ -27,7 +27,7 @@ jobs:
     if: ${{ !contains(github.ref_name, 'rc') }}
     uses: ./.github/workflows/_docker-package.yaml
     with:
-      registry: "docker.io/rune/runed"
+      registry: "docker.io/hoodium/runed"
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

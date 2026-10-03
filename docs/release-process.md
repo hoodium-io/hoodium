@@ -1,6 +1,6 @@
 # Release process
 
-This document outlines the process for releasing a new version of the Rune chain client.
+This document outlines the process for releasing a new version of the Hoodium chain client.
 
 ## Determine the release type and version number
 
@@ -142,7 +142,7 @@ Major releases with consensus breaking changes rolled out using the **Planned up
 upgrade type require that the chain governance issues an upgrade plan to the [`Upgrade` precompile](./upgrades.md#the-upgrade-precompile).
 
 For Mainnet, use [safe.rune.org](https://safe.rune.org/home?safe=rune:0x98D8899c3030741925BE630C710A98B57F397C7a)
-to craft a `submitPlan` transaction JSON from the Rune Governance SAFE, to the `Upgrade` precompile.
+to craft a `submitPlan` transaction JSON from the Hoodium Governance SAFE, to the `Upgrade` precompile.
 
 Fill transaction fields as follows:
 
@@ -151,7 +151,7 @@ Fill transaction fields as follows:
 - The `info` should point to the binary download link in the Cosmovisor format. For example:
   `{"binaries":{"linux/amd64":"https://github.com/hoodium-io/runed/releases/download/v2.0.0/linux-amd64.tar.gz"}}`
 
-Pass the JSON to the Rune Governance SAFE signers and make sure the transaction is executed BEFORE the
+Pass the JSON to the Hoodium Governance SAFE signers and make sure the transaction is executed BEFORE the
 planned chain halt block.
 
 For Testnet, this process is simpler as the governance is an EOA.

@@ -2,7 +2,7 @@
 
 ## Background
 
-Rune chain uses Bitcoin as a base token. The EVM-compatible version of Bitcoin
+Hoodium chain uses Bitcoin as a base token. The EVM-compatible version of Bitcoin
 is tBTC and the tBTC Bridge will be used to bring Bitcoin to Rune. Currently,
 the tBTC Bridge ledger exists on Ethereum, so Ethereum-to-Rune tBTC bridging
 has to be achieved in the first release. The bridging mechanism has to be
@@ -18,7 +18,7 @@ from Ethereum to Rune is out of the scope of this RFC.
 
 ### Bridge validators
 
-All Rune validators validate bridging operations but only a subset of them is
+All Hoodium validators validate bridging operations but only a subset of them is
 able to initiate bridging operations. Validators that will initiate bridging
 operations will be referred in this document as *bridging validators*. All
 bridging validators are expected to run full Ethereum nodes.
@@ -39,7 +39,7 @@ contract is tempting but this contract has recently incorporated more logic,
 such as stBTC token minting and support for the liquidity-treasury-managed
 assets. We need a separate contract for the bridge with a clear separation of
 concerns - tBTC locked in the BitcoinBridge contract on Ethereum will be
-reflected 1:1 on the Rune chain and locked in the contract until not bridged
+reflected 1:1 on the Hoodium chain and locked in the contract until not bridged
 back by the user for to-Bitcoin redemption via tBTC Bridge.
 
 The BitcoinBridge contract should be upgradeable by the governance to allow
@@ -92,7 +92,7 @@ BitcoinBridge contract is bridging native Bitcoin to Rune and this fact should
 be reflected in how the contract code is organized.
 
 After the chain launch, the Portal contract will no longer accept deposits and
-all new deposits will be bridged automatically to the Rune chain through the
+all new deposits will be bridged automatically to the Hoodium chain through the
 BitcoinBridge contract. Hence, the BitcoinBridge contract is what the Ethereum
 sidecar should observe for events.
 
@@ -100,7 +100,7 @@ sidecar should observe for events.
 
 Validators need to be aware of the state of Ethereum. This will be
 achieved by implementing a sidecar observing the Ethereum Rune Bridge contract.
-The sidecar may be embedded into the Rune validator process, or run as a
+The sidecar may be embedded into the Hoodium validator process, or run as a
 separate one. Each of those two choices has its advantages. Keeping the sidecar
 embedded in the validator process makes the operational work easier. Keeping the
 sidecar separate makes the experience consistent with the Skip protocol sidecar
@@ -160,7 +160,7 @@ transaction proposals by the block proposer.
 
 ### Consensus
 
-To achieve the consensus about the assets being bridged to the Rune chain, we
+To achieve the consensus about the assets being bridged to the Hoodium chain, we
 are going to utilize ABCI++ and vote extensions. The mechanism allows an
 application to extend a pre-commit vote with arbitrary data. In our case, the
 arbitrary data will be information read from the Ethereum sidecar about
@@ -248,7 +248,7 @@ Bitcoin tokens using the x/Bank module to the addresses appointed in the
 ### Chain launch
 
 On the chain launch, all tokens that are locked in the Portal contract on
-Ethereum should be bridged automatically to the Rune chain. In practice, it
+Ethereum should be bridged automatically to the Hoodium chain. In practice, it
 means disabling new deposits in the Portal contract and moving tBTC from all
 non-stBTC-ed deposits from Portal to BitcoinBridge for bridging. This is
 a complicated operation requiring cooperation with a market maker to unwrap
@@ -259,7 +259,7 @@ description of the transition will be covered by a separate RFC.
 On a high level, upon disabling deposits and withdrawals in the Portal contract,
 a special script should iterate towards Portal's `DepositInfo` structures,
 filter deposits for tBTC token for which stBTC was not minted, and generate
-a module genesis JSON to set Bitcoin balances on Rune chain for each depositor.
+a module genesis JSON to set Bitcoin balances on Hoodium chain for each depositor.
 `DepositInfo` structures can be retrieved by scanning `Deposited` events in the
 Portal contract. Note that the depositor address could be an Ethereum wallet
 address or OrangeKit's EVM address derived from a Bitcoin wallet but from the

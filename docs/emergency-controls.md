@@ -1,6 +1,6 @@
 # Emergency controls
 
-This document describes the emergency controls of the Rune chain: the Emergency
+This document describes the emergency controls of the Hoodium chain: the Emergency
 Team role, the lockdown mode it drives, and the audit trail both leave behind.
 
 The Emergency Team role and the bridge lockdown ship in `v13.0.0`. They replace
@@ -106,7 +106,7 @@ fill the fields as follows:
 | Method | `setEmergencyTeam`                                    |
 | `team` | the new Emergency Team, or the zero address to revoke |
 
-Pass the transaction JSON to the Rune Governance Safe signers, the same way as
+Pass the transaction JSON to the Hoodium Governance Safe signers, the same way as
 an upgrade plan. See [Governance](./release-process.md#governance).
 
 ## Lockdown mode

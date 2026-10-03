@@ -3,7 +3,7 @@
 ## Overview
 
 This package contains a collection of tools and utilities to execute performances testing
-against a Rune network.
+against a Hoodium network.
 
 A command line binary is provided with the following functionalities:
 
