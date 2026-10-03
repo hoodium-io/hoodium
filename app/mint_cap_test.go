@@ -77,16 +77,40 @@ func TestNewMintCapRestriction(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "zero mint amount is rejected",
-			supply:      nil,
-			mint:        sdk.NewCoins(sdk.NewCoin(utils.BaseDenom, sdkmath.ZeroInt())),
+			name:   "zero mint amount is rejected",
+			supply: nil,
+			// Constructed via a struct literal on purpose: sdk.NewCoin panics on
+			// invalid amounts, but the restriction must still defend against a
+			// malformed Coins value reaching it.
+			mint:        sdk.Coins{{Denom: utils.BaseDenom, Amount: sdkmath.ZeroInt()}},
 			expectError: true,
 		},
 		{
 			name:        "negative mint amount is rejected",
 			supply:      nil,
-			mint:        sdk.NewCoins(sdk.NewCoin(utils.BaseDenom, sdkmath.NewInt(-1))),
+			mint:        sdk.Coins{{Denom: utils.BaseDenom, Amount: sdkmath.NewInt(-1)}},
 			expectError: true,
+		},
+		{
+			// MintCoins does not validate that denoms are unique, so a malformed
+			// Coins value carrying the same denom twice must still be capped on
+			// the SUM of the entries, not each entry independently.
+			name:   "duplicate denom entries are summed before the cap check",
+			supply: nil,
+			mint: sdk.Coins{
+				{Denom: utils.BaseDenom, Amount: runeCap.SubRaw(1)},
+				{Denom: utils.BaseDenom, Amount: sdkmath.NewInt(2)},
+			},
+			expectError: true,
+		},
+		{
+			name:   "duplicate denom entries exactly at cap are allowed",
+			supply: nil,
+			mint: sdk.Coins{
+				{Denom: utils.BaseDenom, Amount: runeCap.SubRaw(1)},
+				{Denom: utils.BaseDenom, Amount: sdkmath.NewInt(1)},
+			},
+			expectError: false,
 		},
 	}
 

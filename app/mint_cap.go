@@ -50,16 +50,23 @@ func DenomMaxSupplies() map[string]sdkmath.Int {
 // then.
 func NewMintCapRestriction(getSupply func(ctx context.Context, denom string) sdkmath.Int) banktypes.MintingRestrictionFn {
 	return func(ctx context.Context, coins sdk.Coins) error {
+		// Aggregate the requested mint amounts per capped denom BEFORE comparing
+		// against the cap. MintCoins adds each entry of `coins` to the supply
+		// independently (and does NOT validate that denoms are unique), so a
+		// malformed Coins value carrying the same denom twice must not be able
+		// to slip past a per-entry check. Summing first makes that impossible.
+		requested := make(map[string]sdkmath.Int, len(denomMaxSupplies))
 		for _, coin := range coins {
-			cap, capped := denomMaxSupplies[coin.Denom]
-			if !capped {
+			if _, capped := denomMaxSupplies[coin.Denom]; !capped {
 				// Uncapped denom (e.g. an unrelated token) - nothing to enforce.
 				continue
 			}
 
 			// Guard against a degenerate/negative amount being minted. A mint
 			// must be strictly positive; anything else is rejected before the
-			// supply math.
+			// supply math. (sdk.NewCoin already panics on invalid amounts, but
+			// MintCoins runs its restriction before any validation, so a
+			// malformed Coins value can still reach us.)
 			amount := coin.Amount
 			if amount.IsNil() || !amount.IsPositive() {
 				return fmt.Errorf(
@@ -68,14 +75,24 @@ func NewMintCapRestriction(getSupply func(ctx context.Context, denom string) sdk
 				)
 			}
 
-			currentSupply := getSupply(ctx, coin.Denom)
+			acc, ok := requested[coin.Denom]
+			if !ok {
+				acc = sdkmath.ZeroInt()
+			}
+			requested[coin.Denom] = acc.Add(amount)
+		}
+
+		// Now compare the aggregated amount per denom against its cap.
+		for denom, amount := range requested {
+			cap := denomMaxSupplies[denom]
+			currentSupply := getSupply(ctx, denom)
 
 			// projected = currentSupply + amount. Reject if projected > cap.
 			projected := currentSupply.Add(amount)
 			if projected.GT(cap) {
 				return fmt.Errorf(
 					"mint would exceed max supply of denom %s: current supply %s + minted %s = %s > max supply %s",
-					coin.Denom, currentSupply, amount, projected, cap,
+					denom, currentSupply, amount, projected, cap,
 				)
 			}
 		}
