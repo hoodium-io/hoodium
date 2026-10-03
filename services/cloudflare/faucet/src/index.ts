@@ -5,15 +5,15 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 
 const cfVerifyUrl = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 const invalidTargetAddressError = "Invalid target address. Try to use a proper 20-byte hexadecimal address prefixed with 0x."
-const mezoTokenAddress = "0x7b7c000000000000000000000000000000000001"
+const runeTokenAddress = "0x7b7c000000000000000000000000000000000001"
 
 type Env = {
-  MEZO_API_URL: string
-  MEZO_FAUCET_PRIVATE_KEY: string
+  RUNE_API_URL: string
+  RUNE_FAUCET_PRIVATE_KEY: string
   TURNSTILE_SITE_KEY: string
   TURNSTILE_SECRET_KEY: string
   AMOUNT_BTC: string
-  AMOUNT_MEZO: string
+  AMOUNT_RUNE: string
   RATE_LIMITER: any
   REQUEST_DELAY_SECONDS: number
   PUBLIC_ACCESS: string
@@ -21,7 +21,7 @@ type Env = {
   API_KEY: string
 }
 
-type TokenType = "BTC" | "MEZO"
+type TokenType = "BTC" | "RUNE"
 
 const ERC20_TRANSFER_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)"
@@ -62,10 +62,10 @@ const publicSend = async (request: Request, env: Env) => {
   }
 
   try {
-    if (token === "MEZO") {
-      const amountMEZO = env.AMOUNT_MEZO
-      const transactionHash = await internalSendMEZO(env, targetAddress, amountMEZO)
-      return html(successHTML(transactionHash, amountMEZO, "MEZO"))
+    if (token === "RUNE") {
+      const amountRUNE = env.AMOUNT_RUNE
+      const transactionHash = await internalSendRUNE(env, targetAddress, amountRUNE)
+      return html(successHTML(transactionHash, amountRUNE, "RUNE"))
     } else {
       const amountBTC = env.AMOUNT_BTC
       const transactionHash = await internalSendBTC(env, targetAddress, amountBTC)
@@ -93,8 +93,8 @@ async function internalSendBTC(
   }
 
   const wallet = new ethers.Wallet(
-    env.MEZO_FAUCET_PRIVATE_KEY,
-    ethers.getDefaultProvider(env.MEZO_API_URL)
+    env.RUNE_FAUCET_PRIVATE_KEY,
+    ethers.getDefaultProvider(env.RUNE_API_URL)
   )
 
   const transaction = await wallet.sendTransaction({
@@ -105,34 +105,34 @@ async function internalSendBTC(
   return transaction.hash
 }
 
-async function internalSendMEZO(
+async function internalSendRUNE(
   env: Env,
   targetAddress: string,
-  amountMEZO: string
+  amountRUNE: string
 ): Promise<string> {
   if (!ethers.isAddress(targetAddress)) {
     throw Error(invalidTargetAddressError)
   }
 
-  let parsedAmountMEZO: bigint
+  let parsedAmountRUNE: bigint
   try {
-    parsedAmountMEZO = ethers.parseEther(amountMEZO)
+    parsedAmountRUNE = ethers.parseEther(amountRUNE)
   } catch (error) {
-    throw Error(`Invalid MEZO amount: ${error}`)
+    throw Error(`Invalid RUNE amount: ${error}`)
   }
 
   const wallet = new ethers.Wallet(
-    env.MEZO_FAUCET_PRIVATE_KEY,
-    ethers.getDefaultProvider(env.MEZO_API_URL)
+    env.RUNE_FAUCET_PRIVATE_KEY,
+    ethers.getDefaultProvider(env.RUNE_API_URL)
   )
 
-  const mezoToken = new ethers.Contract(
-    mezoTokenAddress,
+  const runeToken = new ethers.Contract(
+    runeTokenAddress,
     ERC20_TRANSFER_ABI,
     wallet
   )
 
-  const transaction = await mezoToken.transfer(targetAddress, parsedAmountMEZO)
+  const transaction = await runeToken.transfer(targetAddress, parsedAmountRUNE)
 
   return transaction.hash
 }
@@ -190,8 +190,8 @@ router
 
     try {
       let transactionHash: string
-      if (token === "MEZO") {
-        transactionHash = await internalSendMEZO(env, targetAddress, amount)
+      if (token === "RUNE") {
+        transactionHash = await internalSendRUNE(env, targetAddress, amount)
       } else {
         transactionHash = await internalSendBTC(env, targetAddress, amount)
       }
@@ -216,8 +216,8 @@ export class InternalEntrypoint extends WorkerEntrypoint {
   async send(targetAddress: string, amount: string, token: TokenType = "BTC"): Promise<InternalSendResponse> {
     try {
       let transactionHash: string
-      if (token === "MEZO") {
-        transactionHash = await internalSendMEZO(this.env as Env, targetAddress, amount)
+      if (token === "RUNE") {
+        transactionHash = await internalSendRUNE(this.env as Env, targetAddress, amount)
       } else {
         transactionHash = await internalSendBTC(this.env as Env, targetAddress, amount)
       }

@@ -1,11 +1,11 @@
-# Mezod Contracts
+# Runed Contracts
 
 This directory contains Solidity smart contracts being inherent components of native
-features provided by the Mezod chain client.
+features provided by the Runed chain client.
 
 ## Mainnet contracts
 
-| Token Name | Mezo Address | Ethereum Address |
+| Token Name | Rune Address | Ethereum Address |
 |------------|--------------|------------------|
 | mcbBTC | 0x6a7CD8E1384d49f502b4A4CE9aC9eb320835c5d7 | 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf |
 | mDAI | 0x1531b6e3d51BF80f634957dF81A990B92dA4b154 | 0x6B175474E89094C44Da98b954EedeAC495271d0F |
@@ -20,7 +20,7 @@ features provided by the Mezod chain client.
 
 ## Testnet contracts
 
-| Token Name | Mezo Address | Ethereum Sepolia Address |
+| Token Name | Rune Address | Ethereum Sepolia Address |
 |------------|--------------|-------------------------|
 | mcbBTC | 0x2278CAAE0009E8a325a346feA573eF23C5756DbF | 0x50ea58658f2139766Bc80694f30005413997E743 |
 | mDAI | 0x367c502008004dCc0c08a55aD46670248EA9Ab76 | 0x20fAeA18B6a1D0FCDBCcFfFe3d164314744baF30 |

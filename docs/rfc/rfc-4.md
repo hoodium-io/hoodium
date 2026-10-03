@@ -2,15 +2,15 @@
 
 ## Background
 
-[RFC-3: Bridging non-Bitcoin assets to Mezo](./rfc-3.md) was the first attempt
+[RFC-3: Bridging non-Bitcoin assets to Rune](./rfc-3.md) was the first attempt
 to describe the mechanism to support the operation of bridging non-Bitcoin
-assets to Mezo minimizing the fragmentation of liquidity. While all of the
+assets to Rune minimizing the fragmentation of liquidity. While all of the
 concepts presented in RFC-3 are still technically correct, the RFC-3 proposal is
-based on the existence of a Bridging Partner ready to perform to-Mezo bridging
+based on the existence of a Bridging Partner ready to perform to-Rune bridging
 on day one, and this assumption is quite risky in practice.
 
 RFC-4 proposes an extension to the Bitcoin bridge mechanism described in
-[RFC-2: Bridging Bitcoin to Mezo](./rfc-2.md) to support a small, selected group
+[RFC-2: Bridging Bitcoin to Rune](./rfc-2.md) to support a small, selected group
 of non-Bitcoin assets in the native bridge. The non-Bitcoin assets not supported
 by the native bridge described in RFC-4 will be bridgeable in the future, most
 probably using a mechanism described in RFC-3.
@@ -19,9 +19,9 @@ probably using a mechanism described in RFC-3.
 
 The goal of the proposal is to perform the minimum necessary changes to the
 existing RFC-2 Bitcoin bridging protocol, without adding too much overhead to
-the Mezo validator client, both in terms of the code and chain performance.
+the Rune validator client, both in terms of the code and chain performance.
 
-### MezoBridge contract
+### RuneBridge contract
 
 The Ethereum sidecar observes the `AssetsLocked` events emitted by the
 `BitcoinBridge` contracts. Sufficiently confirmed events are processed during
@@ -40,7 +40,7 @@ event AssetsLocked(
 );
 ```
 
-The `MezoBridge` is a single contract deployed on Ethereum. It is the native
+The `RuneBridge` is a single contract deployed on Ethereum. It is the native
 bridge contract controlling both Bitcoin (tBTC) and ERC20 bridging. All bridging
 operations are sequenced using the same nonce. The existing `BitcoinBridge`
 contract deployed on Sepolia is going to be replaced maintaining the continuity
@@ -48,14 +48,14 @@ of the nonce.
 
 This RFC does not enforce any specific implementation choices in regards to how
 to organize the contract code. One interesting option is to separate Bitcoin and
-ERC20 bridging operations into two parent contracts for `MezoBridge`:
+ERC20 bridging operations into two parent contracts for `RuneBridge`:
 `BitcoinBridge` and `ERC20Bridge`. In this setup, some of the fields, events,
 and errors in the `BitcoinBridge` contract will have to be renamed to clearly
 indicate they are used for Bitcoin bridging.
 
-Only a small selected set of ERC20 tokens should be accepted by the `MezoBridge`
+Only a small selected set of ERC20 tokens should be accepted by the `RuneBridge`
 contract. The contract should expose a set of functions for the governance to
-add and remove the to-Mezo bridging support for selected ERC20s. There should be
+add and remove the to-Rune bridging support for selected ERC20s. There should be
 a global limit of 20 tokens supported by the native bridge protecting the chain
 and bridge performance in the event of the bridge governance getting compromised.
 Ideally, the minimum bridgeable amount should be tracked for each token
@@ -65,7 +65,7 @@ separately as each token has a different value.
 
 No changes to the Ethereum sidecar are necessary other than those required to
 reflect the changes in the `AssetsLocked` event and pull the events from the new
-`MezoBridge` contract instead of the existing `BitcoinBridge` contract.
+`RuneBridge` contract instead of the existing `BitcoinBridge` contract.
 
 ### x/bridge module
 
@@ -83,28 +83,28 @@ will be minimal. Also, the particular entries once set, should never change.
 ### Token contracts
 
 Each token supported by the native bridge will have its corresponding token
-contract deployed on Mezo EVM with a minting authority delegated to the bridge
+contract deployed on Rune EVM with a minting authority delegated to the bridge
 module's address. The pre-blocker, upon detecting the bridging request in the
 vote extension pseudo-transaction, will prepare an internal EVM transaction
 triggering the token mint. Such transactions will not incur any gas costs.
 
 Token address mapping will be held by a maintenance precompile managed by the
-governance. Before the token is allowlisted in the `MezoBridge` contract,
+governance. Before the token is allowlisted in the `RuneBridge` contract,
 a mapping has to be added to the maintenance precompile. In case of a governance
 failure to perform those operations in the right order and the mapping entry not
 being present, the bridge should ignore the bridging request, and proceed as
-usual. The funds locked in the `MezoBridge` contract will remain locked there
+usual. The funds locked in the `RuneBridge` contract will remain locked there
 forever unless they are manually recovered. The initial implementation will
 assume governance actions are executed in the right order and will not introduce
 any mechanism for token recovery from the bridging contract.
 
 This approach allows the governance to add new tokens to the bridge without
-involving mezod development teams or performing chain forks. It also enables
+involving runed development teams or performing chain forks. It also enables
 adding custom logic to the token contract, depending on individual needs.
 Enabling IBC will require introducing a dedicated token mapping mechanism.
 
 The bridge maintenance precompile should enforce the same global limit of 20
-tokens supported by the native bridge, as the `MezoBridge` contract. This limit
+tokens supported by the native bridge, as the `RuneBridge` contract. This limit
 can be increased by the validator development team in the future, after thorough
 consideration of the performance implications.
 
@@ -131,14 +131,14 @@ about the asset that got bridged.
 ### Supported Tokens
 
 Based on the current knowledge, about 10 ERC-20 tokens should be bridgeable to
-Mezo on day one. Each token can have separate conversion rules. For example,
+Rune on day one. Each token can have separate conversion rules. For example,
 USDC and USDT are converted to M but then bridged separately as mUSDC and mUSDT.
 ETH is wrapped to stETH but bridged as mETH. All those conversions are out of
 the scope of RFC-4 and should happen before the token is deposited in the
-`MezoBridge` contract.
+`RuneBridge` contract.
 
 For the PoC implementation of the bridging protocol, we will assume the
-following tokens should be represented on Mezo:
+following tokens should be represented on Rune:
 
 * mETH
 * mUSDC

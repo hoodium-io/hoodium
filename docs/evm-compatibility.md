@@ -2,7 +2,7 @@
 
 ## Overview
 
-Mezo achieves EVM compatibility by implementing components that collectively
+Rune achieves EVM compatibility by implementing components that collectively
 support EVM state transitions and maintaining a developer experience similar to
 Ethereum.
 
@@ -10,14 +10,14 @@ Ethereum.
 
 ### EVM forks up to London
 
-Mezo offers EVM compatibility, supporting all Ethereum features
+Rune offers EVM compatibility, supporting all Ethereum features
 up to the London fork. For more information about the London fork, please see
 [here](https://ethereum.org/en/history/#london).
 
 ### EVM forks post-London
 
-Mezo sets post-London forks in its chain config. In some cases, Mezo's runtime
-behavior can deviate from Ethereum. For example, Mezo does not support
+Rune sets post-London forks in its chain config. In some cases, Rune's runtime
+behavior can deviate from Ethereum. For example, Rune does not support
 PREVRANDAO (EIP-4399) and does not support blob transactions (EIP-4844).
 See the fork/EIP notes below for details.
 
@@ -28,27 +28,27 @@ not change EVM execution.
 
 #### Gray Glacier
 
-Gray Glacier (EIP-5133) did the same; Mezo does not use a PoW difficulty bomb, so
-neither Glacier fork affects Mezo's EVM compatibility.
+Gray Glacier (EIP-5133) did the same; Rune does not use a PoW difficulty bomb, so
+neither Glacier fork affects Rune's EVM compatibility.
 
 #### Paris (The Merge)
 
 Paris is Ethereum's Merge upgrade. It changed contract-visible EVM behavior
-and also changed Ethereum consensus. Mezo runs on CometBFT, so only the EVM
+and also changed Ethereum consensus. Rune runs on CometBFT, so only the EVM
 execution semantics matter directly.
 
 - EIP-4399 (PREVRANDAO / opcode `0x44`)
     - Description: changes opcode `0x44` from `DIFFICULTY` (PoW mining
       difficulty) to `PREVRANDAO` (beacon-chain randomness value).
-    - Mezo implementation: PREVRANDAO is not supported. Mezo does not provide
+    - Rune implementation: PREVRANDAO is not supported. Rune does not provide
       an EVM randomness value, so contracts observe `0` for opcode `0x44`.
       Contracts must not use `DIFFICULTY`/`PREVRANDAO` as a randomness source
-      on Mezo.
+      on Rune.
     - Ref: https://eips.ethereum.org/EIPS/eip-4399
 
 - EIP-3675 (The Merge consensus transition)
     - Description: transitions Ethereum block production from PoW to PoS.
-    - Mezo implementation: not applicable to Mezo block production (Mezo runs
+    - Rune implementation: not applicable to Rune block production (Rune runs
       on CometBFT).
     - Ref: https://eips.ethereum.org/EIPS/eip-3675
 
@@ -60,7 +60,7 @@ Shanghai is an execution-layer upgrade that changed EVM behavior and gas rules.
     - Description: treats the block `COINBASE` address as 'warm' at the start
       of each tx, so the first access costs less gas. This only changes gas
       usage (except edge cases where a tx runs out of gas).
-    - Mezo implementation: implemented in `StateDB.Prepare` by adding
+    - Rune implementation: implemented in `StateDB.Prepare` by adding
       `coinbase` to the access list when Shanghai is active.
     - Ref: https://eips.ethereum.org/EIPS/eip-3651
 
@@ -68,7 +68,7 @@ Shanghai is an execution-layer upgrade that changed EVM behavior and gas rules.
     - Description: pre-Shanghai, contracts pushed `0` as `PUSH1 0x00`. Shanghai
       adds `PUSH0` (`0x5f`) to push `0` directly, making bytecode slightly
       smaller and cheaper without changing contract logic.
-    - Mezo implementation: supported in the underlying VM when Shanghai is
+    - Rune implementation: supported in the underlying VM when Shanghai is
       active.
     - Ref: https://eips.ethereum.org/EIPS/eip-3855
 
@@ -79,7 +79,7 @@ Shanghai is an execution-layer upgrade that changed EVM behavior and gas rules.
       large, contract creation fails. This only affects contract creation
       (deployments and CREATE/CREATE2), not normal execution of already
       deployed contracts.
-    - Mezo implementation: supported in the underlying VM when Shanghai is
+    - Rune implementation: supported in the underlying VM when Shanghai is
       active (create-tx size checks and initcode metering).
     - Ref: https://eips.ethereum.org/EIPS/eip-3860
 
@@ -88,7 +88,7 @@ Shanghai is an execution-layer upgrade that changed EVM behavior and gas rules.
       to blocks, used to pay out validator staking withdrawals into normal
       accounts. This is block processing, not a user transaction: the client
       applies these balance credits before transactions run.
-    - Mezo implementation: Mezo does not have Beacon-chain withdrawals, so
+    - Rune implementation: Rune does not have Beacon-chain withdrawals, so
       blocks won't include EIP-4895 withdrawals processing.
     - Ref: https://eips.ethereum.org/EIPS/eip-4895
 
@@ -96,7 +96,7 @@ Shanghai is an execution-layer upgrade that changed EVM behavior and gas rules.
     - Description: adds an official warning that `SELFDESTRUCT` is deprecated
       and its behavior may change in future forks. EIP-6049 itself does not
       change EVM execution, so it does not change transaction outcomes.
-    - Mezo implementation: `SELFDESTRUCT` is disabled on Mezo. See EIP-6780
+    - Rune implementation: `SELFDESTRUCT` is disabled on Rune. See EIP-6780
       below for details.
     - Ref: https://eips.ethereum.org/EIPS/eip-6049
 
@@ -105,7 +105,7 @@ Shanghai is an execution-layer upgrade that changed EVM behavior and gas rules.
 Cancun is the execution-layer part of Dencun on Ethereum. It adds new opcodes
 and runtime behavior, including transient storage and blob-transaction support.
 
-Note: the full Dencun upgrade also includes consensus-layer EIPs. Mezo runs on
+Note: the full Dencun upgrade also includes consensus-layer EIPs. Rune runs on
 CometBFT, so only the execution-layer EIPs below apply directly.
 See EIP-7569 for the full Dencun EIP list.
 
@@ -115,7 +115,7 @@ See EIP-7569 for the full Dencun EIP list.
       back later in the same transaction (including across internal calls),
       but it is always cleared after the transaction finishes. This enables
       cheap per-tx caches and reentrancy locks without writing permanent storage.
-    - Mezo implementation: supported via `StateDB` transient storage and reset
+    - Rune implementation: supported via `StateDB` transient storage and reset
       at the start of each transaction.
     - Ref: https://eips.ethereum.org/EIPS/eip-1153
 
@@ -124,15 +124,15 @@ See EIP-7569 for the full Dencun EIP list.
       contracts: the parent beacon block root. The execution client writes it
       to a fixed "system contract" address during block processing so
       contracts can query recent roots.
-    - Mezo implementation: Mezo does not run Ethereum consensus, so there is
+    - Rune implementation: Rune does not run Ethereum consensus, so there is
       no beacon root source. It is reasonable to treat EIP-4788 as out-of-scope
-      because it depends on consensus-layer data that Mezo does not have.
+      because it depends on consensus-layer data that Rune does not have.
     - Ref: https://eips.ethereum.org/EIPS/eip-4788
 
 - EIP-4844 (Shard blob transactions)
     - Description: adds type-3 "blob" transactions and blob gas accounting.
       It also adds `BLOBHASH` and the KZG point evaluation precompile at `0x0a`.
-    - Mezo implementation: Mezo shims EIP-4844 opcodes for compatibility but
+    - Rune implementation: Rune shims EIP-4844 opcodes for compatibility but
       does not support blob transactions. Type-3 transactions are rejected.
       RPC block fields `blobGasUsed` and `excessBlobGas` are always `nil`.
       `BLOBHASH` returns `0` because blob hashes are never present.
@@ -145,7 +145,7 @@ See EIP-7569 for the full Dencun EIP list.
       `MLOAD`/`MSTORE` or calling the identity precompile for memory copying.
       This is mainly a gas/performance change (except edge cases where a tx
       runs out of gas).
-    - Mezo implementation: supported in the underlying VM when Cancun is
+    - Rune implementation: supported in the underlying VM when Cancun is
       active.
     - Ref: https://eips.ethereum.org/EIPS/eip-5656
 
@@ -155,14 +155,14 @@ See EIP-7569 for the full Dencun EIP list.
       storage at the end of the transaction. Since Cancun (EIP-6780), deletion
       only happens if the contract was created in the same transaction;
       otherwise only the balance is transferred.
-    - Mezo implementation: `SELFDESTRUCT` is disabled on Mezo. Executing the
+    - Rune implementation: `SELFDESTRUCT` is disabled on Rune. Executing the
       opcode reverts with an invalid-opcode error.
     - Ref: https://eips.ethereum.org/EIPS/eip-6780
 
 - EIP-7516 (BLOBBASEFEE opcode)
     - Description: adds `BLOBBASEFEE` to read the current blob base fee from
       the block header.
-    - Mezo implementation: since Mezo rejects blob transactions, there is no
+    - Rune implementation: since Rune rejects blob transactions, there is no
       real blob base fee. `BLOBBASEFEE` returns `0`.
     - Ref: https://eips.ethereum.org/EIPS/eip-7516
 
@@ -172,13 +172,13 @@ Reference list: Dencun meta EIP (execution + consensus): https://eips.ethereum.o
 
 Prague is the execution-layer part of Pectra on Ethereum. It adds new
 precompiles, a new transaction type, block-header fields tied to a
-beacon-chain side that Mezo does not have, and several gas-accounting
+beacon-chain side that Rune does not have, and several gas-accounting
 adjustments. The full Pectra upgrade also includes consensus-layer EIPs
-(EIP-7251, EIP-7549, EIP-7691); since Mezo runs on CometBFT, those CL
+(EIP-7251, EIP-7549, EIP-7691); since Rune runs on CometBFT, those CL
 EIPs are out of scope and not covered below. See EIP-7600 for the full
 Pectra EIP list.
 
-Prague is active on Mezo: at genesis on fresh chains, and via the
+Prague is active on Rune: at genesis on fresh chains, and via the
 v11.0 upgrade on living chains (see
 [`docs/upgrades.md`](./upgrades.md)).
 
@@ -186,7 +186,7 @@ v11.0 upgrade on living chains (see
     - Description: adds seven precompiled contracts at addresses `0x0b`
       through `0x11` implementing BLS12-381 curve operations (G1Add,
       G1MSM, G2Add, G2MSM, PairingCheck, MapFpToG1, MapFp2ToG2).
-    - Mezo implementation: supported at the standard addresses
+    - Rune implementation: supported at the standard addresses
       `0x0b`–`0x11`. Slots `0x12` and `0x13` — where the
       pre-finalization 9-precompile draft placed `G1Mul`/`G2Mul` —
       resolve to empty accounts.
@@ -200,7 +200,7 @@ v11.0 upgrade on living chains (see
       opcode is unchanged and still covers only the last 256 blocks;
       callers that need older hashes are expected to `SLOAD` them from
       the history storage contract directly.
-    - Mezo implementation: the system contract is not deployed. The
+    - Rune implementation: the system contract is not deployed. The
       `BLOCKHASH` opcode behaves as in standard go-ethereum, returning
       hashes only for the last 256 blocks. The observable divergence
       is that contracts `SLOAD`ing the history storage address — to
@@ -213,7 +213,7 @@ v11.0 upgrade on living chains (see
       an execution-layer deposit system contract at
       `0x00000000219ab540356cBB839Cbe05303d7705Fa` whose `DepositEvent`
       logs are gathered by the EL into the block-level requests list.
-    - Mezo implementation: not applicable. Mezo runs on CometBFT and
+    - Rune implementation: not applicable. Rune runs on CometBFT and
       has no beacon chain consuming deposits; the deposit system
       contract is not deployed.
     - Ref: https://eips.ethereum.org/EIPS/eip-6110
@@ -225,7 +225,7 @@ v11.0 upgrade on living chains (see
       partial or full exit by sending value to the contract; the
       contract emits requests gathered into the block-level requests
       list for the beacon chain.
-    - Mezo implementation: not applicable. Same reason as EIP-6110 —
+    - Rune implementation: not applicable. Same reason as EIP-6110 —
       no beacon chain, and the withdrawal-request system contract is
       not deployed.
     - Ref: https://eips.ethereum.org/EIPS/eip-7002
@@ -236,7 +236,7 @@ v11.0 upgrade on living chains (see
       byte, 40 gas per non-zero byte), in addition to the existing
       per-byte cost. The floor only changes a transaction's gas
       consumption (except edge cases where a tx runs out of gas).
-    - Mezo implementation: supported. Transactions whose declared
+    - Rune implementation: supported. Transactions whose declared
       `gasLimit` is below the calldata floor are rejected at
       submission; transactions that execute below the floor are
       charged at least the floor amount regardless of refunds.
@@ -252,11 +252,11 @@ v11.0 upgrade on living chains (see
       withdrawals, EIP-7251 consolidations). Engine-API consumers and
       the beacon chain rely on `requestsHash` to verify EL-CL
       communication.
-    - Mezo implementation: not supported. Mezo has no EL→CL messaging
+    - Rune implementation: not supported. Rune has no EL→CL messaging
       and produces no requests. JSON-RPC block responses omit the
       `requestsHash` field entirely (not emitted as `null`). Tooling
       that hard-requires `requestsHash` on a Prague-active chain will
-      need to treat its absence as the Mezo-specific shape.
+      need to treat its absence as the Rune-specific shape.
     - Ref: https://eips.ethereum.org/EIPS/eip-7685
 
 - EIP-7702 (Set Code Transactions)
@@ -269,18 +269,18 @@ v11.0 upgrade on living chains (see
       `0xef0100 || target_address` written to the authority's code field;
       the authority rotates or clears it by signing a fresh
       authorization (clearing is `target = 0x0`).
-    - Mezo implementation: type-`0x04` transactions are accepted.
-      The keeper applies authorization tuples to mezod's
+    - Rune implementation: type-`0x04` transactions are accepted.
+      The keeper applies authorization tuples to runed's
       `statedb.StateDB` (delegation install, rotation via re-signing,
       clearing via `target = 0x0`); `EthAccountVerificationDecorator` gains
       a delegation-aware EIP-3607 exemption so a delegated EOA can still
       send transactions; `EXTCODESIZE`/`EXTCODECOPY`/`EXTCODEHASH` return
       the raw 23-byte designator so on-chain contracts can detect a
       delegation; authorizations whose target is in `evm.Precompiles()`
-      (the union of stock and Mezo custom precompiles) are rejected per
+      (the union of stock and Rune custom precompiles) are rejected per
       the EIP's per-tuple rule. See
       [`docs/spec/eip7702-set-code.md`](./spec/eip7702-set-code.md) for
-      the canonical mezod behavior, configuration, and Mezo-specific
+      the canonical runed behavior, configuration, and Rune-specific
       divergences from upstream geth.
     - Ref: https://eips.ethereum.org/EIPS/eip-7702
 
@@ -289,7 +289,7 @@ v11.0 upgrade on living chains (see
       update fraction part of `ChainConfig` rather than client-hardcoded
       constants, so chains can carry different schedules without
       forking client code.
-    - Mezo implementation: not applicable in practice. Mezo carries an
+    - Rune implementation: not applicable in practice. Rune carries an
       upstream-default blob schedule for chain-config validity but
       rejects EIP-4844 blob transactions entirely, so no blob fee
       market operates against the schedule values.
@@ -300,7 +300,7 @@ v11.0 upgrade on living chains (see
       messages and bumps the protocol version to `eth/69`. It is a
       peer-to-peer wire-protocol cleanup with no contract-visible
       effect.
-    - Mezo implementation: not applicable. Mezo's peer-to-peer layer
+    - Rune implementation: not applicable. Rune's peer-to-peer layer
       is CometBFT, not devp2p; there is no `eth/68`/`eth/69` handler.
       `eth_protocolVersion` returns a static value and is not a real
       negotiated wire version.
@@ -314,28 +314,28 @@ Osaka is the execution-layer part of Fusaka on Ethereum. It tightens
 gas accounting around MODEXP, caps per-transaction gas, adds a new
 opcode and precompile, and exposes chain-config metadata via JSON-RPC.
 The full Fusaka upgrade also includes consensus-layer EIPs (EIP-7594
-PeerDAS, EIP-7917 proposer lookahead); since Mezo runs on CometBFT,
+PeerDAS, EIP-7917 proposer lookahead); since Rune runs on CometBFT,
 those CL EIPs are out of scope and not covered below. See EIP-7607 for
 the full Fusaka EIP list.
 
-Osaka is active on Mezo. The v11.0 upgrade activates Prague and Osaka
+Osaka is active on Rune. The v11.0 upgrade activates Prague and Osaka
 together on living chains (see
 [`docs/upgrades.md`](./upgrades.md)); on fresh chains both activate at
-genesis. Mezo collapses Cancun → Prague → Osaka into a single chain
+genesis. Rune collapses Cancun → Prague → Osaka into a single chain
 upgrade (Cancun → Prague was never rolled out separately).
 
 - EIP-7823 (MODEXP input upper bound)
     - Description: rejects MODEXP precompile calls whose base, exponent,
       or modulus length exceeds 8192 bits, capping inputs that would
       otherwise dominate block validation cost.
-    - Mezo implementation: supported.
+    - Rune implementation: supported.
     - Ref: https://eips.ethereum.org/EIPS/eip-7823
 
 - EIP-7825 (Transaction gas limit cap)
     - Description: caps the maximum gas a single transaction can
       declare to `2^24 = 16_777_216` gas (≈16.78M), independent of
       block gas limit, to bound worst-case transaction validation.
-    - Mezo implementation: moot under current chain parameters. Mezo's
+    - Rune implementation: moot under current chain parameters. Rune's
       block gas limit is 10,000,000, which already bounds
       per-transaction gas below the EIP-7825 cap; transactions
       declaring more than the block gas limit are rejected before the
@@ -348,22 +348,22 @@ upgrade (Cancun → Prague was never rolled out separately).
       from 200 to 500 gas, and the per-iteration cost for large
       operands doubles. Targets the same DoS-shape that EIP-7823
       addresses by input bound.
-    - Mezo implementation: supported.
+    - Rune implementation: supported.
     - Ref: https://eips.ethereum.org/EIPS/eip-7883
 
 - EIP-7934 (RLP block-size limit)
     - Description: caps the RLP-encoded size of a block at 10 MiB to
       bound network-propagation and storage costs.
-    - Mezo implementation: not applicable. Mezo blocks are
+    - Rune implementation: not applicable. Rune blocks are
       CometBFT-encoded; an RLP block representation only exists at the
-      JSON-RPC boundary. Block size limits on Mezo come from CometBFT
+      JSON-RPC boundary. Block size limits on Rune come from CometBFT
       consensus parameters, not the Ethereum RLP cap.
     - Ref: https://eips.ethereum.org/EIPS/eip-7934
 
 - EIP-7935 (Default gas limit raise to 60M)
     - Description: raises Ethereum's default block gas limit target
       from 30M to 60M.
-    - Mezo implementation: not applicable. Mezo's block gas limit is
+    - Rune implementation: not applicable. Rune's block gas limit is
       governed by its own fee-market parameters and CometBFT consensus
       parameters, not Ethereum's default.
     - Ref: https://eips.ethereum.org/EIPS/eip-7935
@@ -372,15 +372,15 @@ upgrade (Cancun → Prague was never rolled out separately).
     - Description: adds opcode `0x1e` `CLZ` (count leading zeros) on
       a 256-bit stack word, returning the number of leading zero bits.
       Mirrors `BIT.popcnt`-style helpers used by gas-tight algorithms.
-    - Mezo implementation: supported.
+    - Rune implementation: supported.
     - Ref: https://eips.ethereum.org/EIPS/eip-7939
 
 - EIP-7951 (secp256r1 `P256VERIFY` precompile)
     - Description: adds a precompile at
       `0x0000000000000000000000000000000000000100` that verifies an
       ECDSA signature on the secp256r1 (NIST P-256) curve.
-    - Mezo implementation: supported at the standard address `0x0100`.
-      Mezo's custom precompiles live in a separate address range
+    - Rune implementation: supported at the standard address `0x0100`.
+      Rune's custom precompiles live in a separate address range
       (`0x7b7c…`), so there is no address clash.
     - Ref: https://eips.ethereum.org/EIPS/eip-7951
 
@@ -388,7 +388,7 @@ upgrade (Cancun → Prague was never rolled out separately).
     - Description: introduces "BPO" forks whose only effect is to swap
       the active blob schedule entry, without invoking a full
       execution-layer fork.
-    - Mezo implementation: not applicable. Mezo rejects blob
+    - Rune implementation: not applicable. Rune rejects blob
       transactions, so a BPO schedule swap would have no
       contract-visible effect.
     - Ref: https://eips.ethereum.org/EIPS/eip-7892
@@ -397,7 +397,7 @@ upgrade (Cancun → Prague was never rolled out separately).
     - Description: changes the blob fee market so the base fee per
       blob gas cannot fall below an execution-block-related floor,
       preventing pathological zero-fee blob inclusion.
-    - Mezo implementation: not applicable. Mezo rejects EIP-4844 blob
+    - Rune implementation: not applicable. Rune rejects EIP-4844 blob
       transactions entirely; `BLOBBASEFEE` returns `0` and there is no
       blob fee market on which to apply a floor.
     - Ref: https://eips.ethereum.org/EIPS/eip-7918
@@ -405,7 +405,7 @@ upgrade (Cancun → Prague was never rolled out separately).
 - EIP-7642 (eth/69 wire-protocol cleanup)
     - Description: see the Prague section above. EIP-7642 is referenced
       by both Pectra and Fusaka meta-EIPs.
-    - Mezo implementation: not applicable for the same reason — Mezo
+    - Rune implementation: not applicable for the same reason — Rune
       has no devp2p layer.
     - Ref: https://eips.ethereum.org/EIPS/eip-7642
 
@@ -414,7 +414,7 @@ upgrade (Cancun → Prague was never rolled out separately).
       returns the active chain configuration (fork activation times,
       blob schedule, chain ID, precompile list) so clients and tracers
       can discover post-Fusaka behavior without out-of-band metadata.
-    - Mezo implementation: out of scope for now. Callers receive a
+    - Rune implementation: out of scope for now. Callers receive a
       method-not-found error. Support may be added in a later release.
     - Ref: https://eips.ethereum.org/EIPS/eip-7910
 
@@ -422,7 +422,7 @@ Reference list: Fusaka meta EIP (execution + consensus): https://eips.ethereum.o
 
 ## EVM JSON-RPC API reference
 
-The `mezod` node exposes the following JSON-RPC API. The reference is split into specific namespaces.
+The `runed` node exposes the following JSON-RPC API. The reference is split into specific namespaces.
 
 ### `web3` namespace
 
@@ -433,7 +433,7 @@ The `mezod` node exposes the following JSON-RPC API. The reference is split into
 - **Returns**: `String` - The current client version.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### web3_sha3
@@ -444,7 +444,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],
 - **Returns**: `String` - The SHA3 result of the given data.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"web3_sha3","params":["0x68656c6c6f20776f726c64"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"web3_sha3","params":["0x68656c6c6f20776f726c64"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 ### `net` namespace
@@ -456,7 +456,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"web3_sha3","params":["0x68656c6c
 - **Returns**: `String` - The current network ID.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### net_listening
@@ -466,7 +466,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}
 - **Returns**: `Boolean` - `true` if listening, `false` otherwise.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"net_listening","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"net_listening","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### net_peerCount
@@ -476,7 +476,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"net_listening","params":[],"id":
 - **Returns**: `String` - Number of connected peers.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 ### `eth` namespace
@@ -488,7 +488,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"net_peerCount","params":[],"id":
 - **Returns**: `String` - The Ethereum protocol version.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_protocolVersion","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_protocolVersion","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_syncing
@@ -499,7 +499,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_protocolVersion","params":[]
     - `Object | Boolean` - An object with sync status or `false`.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_syncing","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_coinbase
@@ -510,7 +510,7 @@ This address is where any mining rewards will be sent if the node is mining.
 - **Returns**: `String` - Coinbase address.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_coinbase","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_coinbase","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_chainId
@@ -520,7 +520,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_coinbase","params":[],"id":1
 - **Returns**: `String` - Chain ID.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_gasPrice
@@ -530,7 +530,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}
 - **Returns**: `String` - The current gas price in wei.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_gasPrice","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_gasPrice","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_accounts
@@ -540,7 +540,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_gasPrice","params":[],"id":1
 - **Returns**: `Array` - Array of addresses.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_accounts","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_accounts","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_blockNumber
@@ -550,7 +550,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_accounts","params":[],"id":1
 - **Returns**: `String` - The block number.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getBalance
@@ -562,7 +562,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id
 - **Returns**: `String` - The balance in abtc, as a hexadecimal.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getStorageAt
@@ -575,7 +575,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBalance","params":["0x050
 - **Returns**: `String` - The value at this storage position.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getStorageAt","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","0x0","latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getStorageAt","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","0x0","latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getTransactionCount
@@ -587,7 +587,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getStorageAt","params":["0x0
 - **Returns**: `String` - The transaction count as a hexadecimal number.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionCount","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getBlockTransactionCountByHash
@@ -599,7 +599,7 @@ matching the given block hash.
 - **Returns**: `String` - The number of transactions in the block as a hexadecimal.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockTransactionCountByHash","params":["0x41175c10b68dd0bfa27f2533a23979445a5d643427e0ffd1870d11806f31b291"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockTransactionCountByHash","params":["0x41175c10b68dd0bfa27f2533a23979445a5d643427e0ffd1870d11806f31b291"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getBlockTransactionCountByNumber
@@ -610,7 +610,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockTransactionCountByHa
 - **Returns**: `String` - The number of transactions in the block as a hexadecimal.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockTransactionCountByNumber","params":["0x1"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockTransactionCountByNumber","params":["0x1"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getCode
@@ -631,7 +631,7 @@ a contract, `0x` for a plain EOA, or a 23-byte EIP-7702 delegation designator
 for a delegated EOA.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_sign
@@ -643,7 +643,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x0504d8
 - **Returns**: `String` - The signature.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_sign","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","0xdeadbeef"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_sign","params":["0x0504d82efb7db7a8c05e8df8cea575d8c9f48bb2","0xdeadbeef"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_sendTransaction
@@ -670,7 +670,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_sign","params":["0x0504d82ef
 - **Returns**: `String` - The transaction hash.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_sendTransaction","params":[{see above}],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_sendTransaction","params":[{see above}],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_sendRawTransaction
@@ -684,7 +684,7 @@ and dynamic-fee types.
 - **Returns**: `String` - The transaction hash.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":["0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":["0xd46e8dd67c5d32be8d46e8dd67c5d32be8058bb8eb970870f072445675058bb8eb970870f072445675"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_call
@@ -723,7 +723,7 @@ functions.
 - **Returns**: `String` - The return value of the executed contract.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_call","params":[{see above}],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_call","params":[{see above}],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_simulateV1
@@ -733,7 +733,7 @@ synthetic blocks, with state and block overrides. See
 [`docs/spec/eth-simulate-v1.md`](./spec/eth-simulate-v1.md) for the full spec.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_simulateV1","params":[{"blockStateCalls":[{"stateOverrides":{"0xc100000000000000000000000000000000000001":{"balance":"0x56bc75e2d63100000"}},"calls":[{"from":"0xc100000000000000000000000000000000000001","to":"0xc100000000000000000000000000000000000002","value":"0x1"}]}]},"latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_simulateV1","params":[{"blockStateCalls":[{"stateOverrides":{"0xc100000000000000000000000000000000000001":{"balance":"0x56bc75e2d63100000"}},"calls":[{"from":"0xc100000000000000000000000000000000000001","to":"0xc100000000000000000000000000000000000002","value":"0x1"}]}]},"latest"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_estimateGas
@@ -769,7 +769,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_simulateV1","params":[{"bloc
 - **Returns**: `String` - The estimated gas amount.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_estimateGas","params":[{"from":"0xFF3014B077D307E7B0bf262d072B25dbE19E2Be3","to":"0xd3CdA913deB6f67967B99D67aCDFa1712C293601","value":"0x186a0"}],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_estimateGas","params":[{"from":"0xFF3014B077D307E7B0bf262d072B25dbE19E2Be3","to":"0xd3CdA913deB6f67967B99D67aCDFa1712C293601","value":"0x186a0"}],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getBlockByHash
@@ -781,7 +781,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_estimateGas","params":[{"fro
 - **Returns**: `Object` - Block information.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByHash","params":["0x8d80d1a8ac12c5e57c17c580afbb4c03987649934b60ce04ec89fcd336e3a186", true],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByHash","params":["0x8d80d1a8ac12c5e57c17c580afbb4c03987649934b60ce04ec89fcd336e3a186", true],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getBlockByNumber
@@ -793,7 +793,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByHash","params":["0
 - **Returns**: `Object` - Block information.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x1b4", true],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["0x1b4", true],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getTransactionByHash
@@ -804,7 +804,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":[
 - **Returns**: `Object` - Transaction information.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByHash","params":["0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByHash","params":["0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getTransactionByBlockHashAndIndex
@@ -816,7 +816,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByHash","param
 - **Returns**: `Object` - Transaction information.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByBlockHashAndIndex","params":["0x8d80d1a8ac12c5e57c17c580afbb4c03987649934b60ce04ec89fcd336e3a186", "0x0"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByBlockHashAndIndex","params":["0x8d80d1a8ac12c5e57c17c580afbb4c03987649934b60ce04ec89fcd336e3a186", "0x0"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getTransactionByBlockNumberAndIndex
@@ -828,7 +828,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByBlockHashAnd
 - **Returns**: `Object` - Transaction information.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByBlockNumberAndIndex","params":["0x1b4", "0x0"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByBlockNumberAndIndex","params":["0x1b4", "0x0"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getTransactionReceipt
@@ -839,7 +839,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionByBlockNumberA
 - **Returns**: `Object` - Transaction receipt.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0x1758f2ad26d448ecdcc2f225432c520bc77c03194536e76f6776f8c5dabce9a9"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","params":["0x1758f2ad26d448ecdcc2f225432c520bc77c03194536e76f6776f8c5dabce9a9"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getLogs
@@ -861,7 +861,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getTransactionReceipt","para
 - **Returns**: `Array` - Array of log objects.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlock": "0x1", "toBlock": "0x2"}],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlock": "0x1", "toBlock": "0x2"}],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_newFilter
@@ -872,7 +872,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlo
 - **Returns**: `String` - Filter ID.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newFilter","params":[{"fromBlock": "0x1", "toBlock": "0x2"}],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newFilter","params":[{"fromBlock": "0x1", "toBlock": "0x2"}],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_newBlockFilter
@@ -882,7 +882,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newFilter","params":[{"fromB
 - **Returns**: `String` - A filter ID.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newBlockFilter","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newBlockFilter","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_newPendingTransactionFilter
@@ -892,7 +892,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newBlockFilter","params":[],
 - **Returns**: `String` - A filter ID.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newPendingTransactionFilter","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newPendingTransactionFilter","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_uninstallFilter
@@ -903,7 +903,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_newPendingTransactionFilter"
 - **Returns**: `Boolean` - `true` if the filter was successfully uninstalled.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_uninstallFilter","params":["0x1"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_uninstallFilter","params":["0x1"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getFilterChanges
@@ -914,7 +914,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_uninstallFilter","params":["
 - **Returns**: `Array` - An array of logs that have occurred since the last poll.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getFilterChanges","params":["0x1"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getFilterChanges","params":["0x1"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getFilterLogs
@@ -925,7 +925,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getFilterChanges","params":[
 - **Returns**: `Array` - An array of log objects that match the filter, providing historical log data.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getFilterLogs","params":["0x1"],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getFilterLogs","params":["0x1"],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### eth_getProof
@@ -938,7 +938,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getFilterLogs","params":["0x
 - **Returns**: `Object` - An object containing the account details, storage proof, and relevant Merkle proofs.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x1234567890123456789012345678901234567890",["0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000001"],`"latest"`],"id":1}' -H "Content-type:application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x1234567890123456789012345678901234567890",["0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000001"],`"latest"`],"id":1}' -H "Content-type:application/json" https://rpc.test.rune.org
 ```
 
 ### `eth` namespace - not supported methods
@@ -975,7 +975,7 @@ Due to the nature of PoA consensus, the following methods might revert or return
 - **Returns**: `Object` - Detailed information about the transaction execution, such as step-by-step state changes.
 
 ```bash
-curl -X POST -H "Content-Type: application/json" --data '{"jsonrpc": "2.0", "method": "debug_traceTransaction", "params": ["0x14bd9cd554b725129a6c86f916490f52060644dc9627414bf9c62e1889130bf1", {"disableMemory": true, "disableStorage": false, "disableStack": false}], "id": 1}' https://rpc.test.mezo.org
+curl -X POST -H "Content-Type: application/json" --data '{"jsonrpc": "2.0", "method": "debug_traceTransaction", "params": ["0x14bd9cd554b725129a6c86f916490f52060644dc9627414bf9c62e1889130bf1", {"disableMemory": true, "disableStorage": false, "disableStack": false}], "id": 1}' https://rpc.test.rune.org
 ```
 
 #### debug_traceBlockByNumber
@@ -988,7 +988,7 @@ curl -X POST -H "Content-Type: application/json" --data '{"jsonrpc": "2.0", "met
 step-by-step state changes.
 
 ```bash
-curl -X POST -H "Content-Type: application/json" --data '{"jsonrpc": "2.0", "method": "debug_traceBlockByNumber", "params": ["0x29C7C", {"tracer": "callTracer"}], "id": 1}'  https://rpc.test.mezo.org
+curl -X POST -H "Content-Type: application/json" --data '{"jsonrpc": "2.0", "method": "debug_traceBlockByNumber", "params": ["0x29C7C", {"tracer": "callTracer"}], "id": 1}'  https://rpc.test.rune.org
 ```
 
 ### `txpool` namespace
@@ -1001,7 +1001,7 @@ curl -X POST -H "Content-Type: application/json" --data '{"jsonrpc": "2.0", "met
 detailed transaction data.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"txpool_content","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"txpool_content","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### txpool_inspect
@@ -1013,7 +1013,7 @@ transaction pool.
 transactions with sender addresses and brief details.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"txpool_inspect","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"txpool_inspect","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 #### txpool_status
@@ -1024,7 +1024,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"txpool_inspect","params":[],"id"
 each state.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"txpool_status","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"txpool_status","params":[],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 ### `personal` namespace
@@ -1033,11 +1033,11 @@ The `personal` namespace is exposed, however it has been
 [deprecated](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-personal).
 It will be removed in the future releases and any usage is discouraged.
 
-### `mezo` namespace
+### `rune` namespace
 
-The `mezo` namespace is a custom one that exposes additional methods.
+The `rune` namespace is a custom one that exposes additional methods.
 
-#### mezo_estimateCost
+#### rune_estimateCost
 
 - **Description**: Estimates the cost necessary to execute a transaction.
 - **Parameters**:
@@ -1054,5 +1054,5 @@ The `mezo` namespace is a custom one that exposes additional methods.
                   to obtain the base BTC value.
 
 ```bash
-curl -X POST --data '{"jsonrpc":"2.0","method":"mezo_estimateCost","params":[{"from":"0xFF3014B077D307E7B0bf262d072B25dbE19E2Be3","to":"0xd3CdA913deB6f67967B99D67aCDFa1712C293601","value":"0x186a0"}],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"rune_estimateCost","params":[{"from":"0xFF3014B077D307E7B0bf262d072B25dbE19E2Be3","to":"0xd3CdA913deB6f67967B99D67aCDFa1712C293601","value":"0x186a0"}],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```

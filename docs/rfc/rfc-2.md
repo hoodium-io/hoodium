@@ -1,31 +1,31 @@
-# RFC-2: Bridging Bitcoin to Mezo
+# RFC-2: Bridging Bitcoin to Rune
 
 ## Background
 
-Mezo chain uses Bitcoin as a base token. The EVM-compatible version of Bitcoin
-is tBTC and the tBTC Bridge will be used to bring Bitcoin to Mezo. Currently,
-the tBTC Bridge ledger exists on Ethereum, so Ethereum-to-Mezo tBTC bridging
+Rune chain uses Bitcoin as a base token. The EVM-compatible version of Bitcoin
+is tBTC and the tBTC Bridge will be used to bring Bitcoin to Rune. Currently,
+the tBTC Bridge ledger exists on Ethereum, so Ethereum-to-Rune tBTC bridging
 has to be achieved in the first release. The bridging mechanism has to be
-compatible with the Bitcoin token precompile on Mezo and reflect the balances
+compatible with the Bitcoin token precompile on Rune and reflect the balances
 in the `x/bank` module.
 
-This RFC describes bridging tBTC from Ethereum to Mezo. Bridging back and
+This RFC describes bridging tBTC from Ethereum to Rune. Bridging back and
 bridging other assets is out of the scope and will be covered in separate RFC
 documents. Also, the potential future work of moving the tBTC Bridge ledger
-from Ethereum to Mezo is out of the scope of this RFC.
+from Ethereum to Rune is out of the scope of this RFC.
 
 ## Proposal
 
 ### Bridge validators
 
-All Mezo validators validate bridging operations but only a subset of them is
+All Rune validators validate bridging operations but only a subset of them is
 able to initiate bridging operations. Validators that will initiate bridging
 operations will be referred in this document as *bridging validators*. All
 bridging validators are expected to run full Ethereum nodes.
 
 Having all validators in the network fully participate in bridging does not make
 it any more secure if most of them use the same Ethereum JSON-RPC endpoint.
-Additionally, for the Mezo-to-Ethereum bridge, we will reuse the same subset of
+Additionally, for the Rune-to-Ethereum bridge, we will reuse the same subset of
 bridging validators to generate a signature to unlock assets on Ethereum. The
 governance will appoint the bridge validators using an EVM bridge precompile.
 The list of addresses participating in bridging has to be known to all other
@@ -33,13 +33,13 @@ validators in the network to achieve consensus about bridging decisions.
 
 ### Ethereum BitcoinBridge contract
 
-Mezo Portal contract on Ethereum accepts ERC20 deposits and accumulates TVL for
+Rune Portal contract on Ethereum accepts ERC20 deposits and accumulates TVL for
 the network before the chain launches. Adding bridging logic to the Portal
 contract is tempting but this contract has recently incorporated more logic,
 such as stBTC token minting and support for the liquidity-treasury-managed
 assets. We need a separate contract for the bridge with a clear separation of
 concerns - tBTC locked in the BitcoinBridge contract on Ethereum will be
-reflected 1:1 on the Mezo chain and locked in the contract until not bridged
+reflected 1:1 on the Rune chain and locked in the contract until not bridged
 back by the user for to-Bitcoin redemption via tBTC Bridge.
 
 The BitcoinBridge contract should be upgradeable by the governance to allow
@@ -49,7 +49,7 @@ bridging. It should expose four external functions at a minimum:
 
 ```
 /// @notice Transfer and locks the `amount` of tBTC in the contract and emits
-///         `AssetsLocked` event to initiate bridging to Mezo to the `recipient`
+///         `AssetsLocked` event to initiate bridging to Rune to the `recipient`
 ///          address.
 function bridge(uint256 amount, address recipient) external
 
@@ -76,31 +76,31 @@ function initializeDeposit(
 
 /// @notice Finalizes tBTC Bitcoin deposit in the tBTC Bitcoin bridge. Locks
 ///         the deposit in the contract and emits `AssetsLocked` event to
-///         initiate bridging to Mezo to the `recipient` address.
+///         initiate bridging to Rune to the `recipient` address.
 function finalizeDeposit(uint256 depositKey, address recipient)
 ```
 
-The RFC suggests placing the BitcoinBridge contract in the `thesis/mezo-portal`
+The RFC suggests placing the BitcoinBridge contract in the `thesis/rune-portal`
 monorepo, next to the Portal contract as the Portal dApp will be reworked to
 expose bridging functionality.
 
 A good example of a contract extending tBTC `BitcoinDepositor` and implementing
-`initializeDeposit` and `finalizeDeposit` function is the Mezo Portal contract.
-In contrast to the Mezo Portal contract, the BitcoinBridge contract should
+`initializeDeposit` and `finalizeDeposit` function is the Rune Portal contract.
+In contrast to the Rune Portal contract, the BitcoinBridge contract should
 extend the `AbstractTBTCDepositor` directly. The core functionality of the
-BitcoinBridge contract is bridging native Bitcoin to Mezo and this fact should
+BitcoinBridge contract is bridging native Bitcoin to Rune and this fact should
 be reflected in how the contract code is organized.
 
 After the chain launch, the Portal contract will no longer accept deposits and
-all new deposits will be bridged automatically to the Mezo chain through the
+all new deposits will be bridged automatically to the Rune chain through the
 BitcoinBridge contract. Hence, the BitcoinBridge contract is what the Ethereum
 sidecar should observe for events.
 
 ### Ethereum sidecar
 
 Validators need to be aware of the state of Ethereum. This will be
-achieved by implementing a sidecar observing the Ethereum Mezo Bridge contract.
-The sidecar may be embedded into the Mezo validator process, or run as a
+achieved by implementing a sidecar observing the Ethereum Rune Bridge contract.
+The sidecar may be embedded into the Rune validator process, or run as a
 separate one. Each of those two choices has its advantages. Keeping the sidecar
 embedded in the validator process makes the operational work easier. Keeping the
 sidecar separate makes the experience consistent with the Skip protocol sidecar
@@ -128,7 +128,7 @@ future-proof approach:
   run a separate process.
 
 The sidecar must expose a gRPC API returning information about confirmed
-`AssetsLocked` events in the Ethereum Mezo Bridge contract.
+`AssetsLocked` events in the Ethereum Rune Bridge contract.
 
 To understand ETH2 finality, an understanding of checkpoints and epochs is
 required. Each epoch has 32 slots and each slot takes 12 seconds. The checkpoint
@@ -149,7 +149,7 @@ a part of serving the request from the validator.
 The `x/bridge` module should be our custom Cosmos module where all the bridging
 state changes logic and the bridge Keeper should be located. Also, in the
 initial version, this is the module that should interact with `x/bank` to mint
-tokens for the users who bridged their Bitcoin to Mezo.
+tokens for the users who bridged their Bitcoin to Rune.
 
 The EVM observability of bridge events should be implemented once the initial
 version of the bridging mechanism works. It is possible to launch the chain
@@ -160,7 +160,7 @@ transaction proposals by the block proposer.
 
 ### Consensus
 
-To achieve the consensus about the assets being bridged to the Mezo chain, we
+To achieve the consensus about the assets being bridged to the Rune chain, we
 are going to utilize ABCI++ and vote extensions. The mechanism allows an
 application to extend a pre-commit vote with arbitrary data. In our case, the
 arbitrary data will be information read from the Ethereum sidecar about
@@ -218,7 +218,7 @@ This model ensures that only the validators running the full Ethereum nodes can
 initiate bridging and the entire network monitors the initiated bridging
 operations. In the worst case of a single compromised JSON-RPC endpoint being
 used by the rest of the network, the bridging halts but no artificial Bitcoins
-are minted on Mezo. In reality, the rest of the network will not use the same
+are minted on Rune. In reality, the rest of the network will not use the same
 JSON-RPC endpoint and even if the three most popular JSON-RPC providers are
 used, the entire network performs the verification without blindly trusting a
 subset of validators. Also, this solution is easier to extend if we decide to
@@ -248,7 +248,7 @@ Bitcoin tokens using the x/Bank module to the addresses appointed in the
 ### Chain launch
 
 On the chain launch, all tokens that are locked in the Portal contract on
-Ethereum should be bridged automatically to the Mezo chain. In practice, it
+Ethereum should be bridged automatically to the Rune chain. In practice, it
 means disabling new deposits in the Portal contract and moving tBTC from all
 non-stBTC-ed deposits from Portal to BitcoinBridge for bridging. This is
 a complicated operation requiring cooperation with a market maker to unwrap
@@ -259,7 +259,7 @@ description of the transition will be covered by a separate RFC.
 On a high level, upon disabling deposits and withdrawals in the Portal contract,
 a special script should iterate towards Portal's `DepositInfo` structures,
 filter deposits for tBTC token for which stBTC was not minted, and generate
-a module genesis JSON to set Bitcoin balances on Mezo chain for each depositor.
+a module genesis JSON to set Bitcoin balances on Rune chain for each depositor.
 `DepositInfo` structures can be retrieved by scanning `Deposited` events in the
 Portal contract. Note that the depositor address could be an Ethereum wallet
 address or OrangeKit's EVM address derived from a Bitcoin wallet but from the
@@ -281,7 +281,7 @@ The security model of the proposed solution relies on the fact bridge validators
 run full Ethereum nodes independently instead of using a single Ethereum
 JSON-RPC provider. We can take this solution one step forward and integrate the
 Ethereum light client into the sidecar, possibly enabling all network validators
-to participate in Ethereum-to-Mezo bridging. In this solution, the light client
+to participate in Ethereum-to-Rune bridging. In this solution, the light client
 would provide a trusted state root from the header via the EIP-1186
 `eth_getProof` endpoint and we would perform a
 [validation](https://github.com/ethereum/EIPs/issues/1186#issuecomment-401161169)

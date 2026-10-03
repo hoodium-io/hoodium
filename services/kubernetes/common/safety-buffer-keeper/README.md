@@ -7,7 +7,7 @@ This directory contains Kubernetes manifests for deploying the safety buffer kee
 The deployment expects a secret named `safety-buffer-keeper` with:
 
 - `private-key`: Value injected into `SAFETY_BUFFER_KEEPER_PRIVATE_KEY`
-- `rpc-url`: Value injected into `MEZO_BOAR_HTTPS_URL`
+- `rpc-url`: Value injected into `RUNE_BOAR_HTTPS_URL`
 
 ## Files
 

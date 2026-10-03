@@ -2,7 +2,7 @@ import type { DeployFunction } from "hardhat-deploy/types"
 import { mERC20DeployFunctionFactory } from "../helpers/deploy-helpers"
 
 const tokenContract = "mSolvBTC"
-const tokenName = "Mezo Solv BTC"
+const tokenName = "Rune Solv BTC"
 const tokenSymbol = "mSolvBTC"
 const decimals = 18
 

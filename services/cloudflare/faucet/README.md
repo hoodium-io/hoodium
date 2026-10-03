@@ -1,6 +1,6 @@
 # Faucet
 
-This module contains the implementation of the Mezo Testnet Faucet.
+This module contains the implementation of the Rune Testnet Faucet.
 The faucet is written and deployed as a Cloudflare Worker.
 
 ### Prerequisites
@@ -12,13 +12,13 @@ npm install
 
 ### Development
 
-To work on the faucet locally, you need to set up a Mezo localnet first.
+To work on the faucet locally, you need to set up a Rune localnet first.
 Follow the instructions in the [docs/development.md](../../../docs/development.md) 
 file. Binary-based localnet setup is recommended.
 
 Make sure the EVM JSON-RPC of one of the localnet nodes is available under
 `http://localhost:8545`. The faucet uses this default endpoint to send transactions. 
-This can be changed by setting the `vars.MEZO_API_URL` variable in the 
+This can be changed by setting the `vars.RUNE_API_URL` variable in the 
 `wrangler.toml` file.
 
 Once the localnet is running, configure development secrets by running
@@ -27,13 +27,13 @@ cp .dev.vars.sample .dev.vars
 ```
 and fill in the required values in the fresh `.dev.vars` file. 
 
-The `MEZO_FAUCET_PRIVATE_KEY` secret can be obtained by running the 
-`mezod keys unsafe-export-eth-key` command against the localnet node's 
+The `RUNE_FAUCET_PRIVATE_KEY` secret can be obtained by running the 
+`runed keys unsafe-export-eth-key` command against the localnet node's 
 homedir supposed to be the purse for the faucet. Assuming binary-based localnet 
 is used, the call should look like this:
 ```shell
-# Invoke from `mezod` project root.
-./build/mezod keys unsafe-export-eth-key --home=./.localnet/node0/mezod --keyring-backend=test node0   
+# Invoke from `runed` project root.
+./build/runed keys unsafe-export-eth-key --home=./.localnet/node0/runed --keyring-backend=test node0   
 ```
 
 Once `.dev.vars` is ready, you can start the development server by running

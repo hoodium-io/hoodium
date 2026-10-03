@@ -1,5 +1,5 @@
 {
-  "name": "@mezo-org/mezod-contracts",
+  "name": "@hoodium-io/runed-contracts",
   "version": "1.0.0",
   "license": "LGPL-3.0",
   "scripts": {
@@ -28,7 +28,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mezo-org/mezod.git",
+    "url": "https://github.com/hoodium-io/runed.git",
     "directory": "solidity"
   }
 }

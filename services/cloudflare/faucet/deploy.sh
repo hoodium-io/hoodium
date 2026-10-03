@@ -22,10 +22,10 @@ printf "\nchecking Wrangler authentication\n\n"
 wrangler whoami && wrangler versions list
 
 # Step 1: Read secrets from 1Password and put them into the Worker environment.
-op read "op://Mezo DevOps/faucet_private_key/notes" | wrangler secret put MEZO_FAUCET_PRIVATE_KEY
-op read "op://Mezo DevOps/faucet_turnstile_site_key/notes" | wrangler secret put TURNSTILE_SITE_KEY
-op read "op://Mezo DevOps/faucet_turnstile_secret_key/notes" | wrangler secret put TURNSTILE_SECRET_KEY
-op read "op://Mezo DevOps/faucet_api_key/notes" | wrangler secret put API_KEY
+op read "op://Rune DevOps/faucet_private_key/notes" | wrangler secret put RUNE_FAUCET_PRIVATE_KEY
+op read "op://Rune DevOps/faucet_turnstile_site_key/notes" | wrangler secret put TURNSTILE_SITE_KEY
+op read "op://Rune DevOps/faucet_turnstile_secret_key/notes" | wrangler secret put TURNSTILE_SECRET_KEY
+op read "op://Rune DevOps/faucet_api_key/notes" | wrangler secret put API_KEY
 
 # Step 2: Deploy the Worker.
 wrangler deploy src/index.ts

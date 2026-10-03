@@ -7,7 +7,7 @@ spec:
   selector:
     app: balance-exporter
   ports:
-    - name: mezo
+    - name: rune
       port: 9115
       targetPort: 9115
     - name: ethereum

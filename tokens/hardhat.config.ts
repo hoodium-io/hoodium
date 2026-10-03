@@ -31,7 +31,7 @@ const config: HardhatUserConfig = {
     governance: {
       default: 1,
       testnet: "0x6e80164ea60673d64d5d6228beb684a1274bb017", // testertesting.eth
-      mainnet: "0x98D8899c3030741925BE630C710A98B57F397C7a"  // mezo multisig
+      mainnet: "0x98D8899c3030741925BE630C710A98B57F397C7a"  // rune multisig
     },
     minter: {
       default: 2,
@@ -127,16 +127,16 @@ const config: HardhatUserConfig = {
         network: "testnet",
         chainId: 31611,
         urls: {
-          apiURL: "https://api.explorer.test.mezo.org/api",
-          browserURL: "https://explorer.test.mezo.org"
+          apiURL: "https://api.explorer.test.rune.org/api",
+          browserURL: "https://explorer.test.rune.org"
         }
       },
       {
         network: "mainnet",
         chainId: 31612,
         urls: {
-          apiURL: "https://api.explorer.mezo.org/api",
-          browserURL: "https://explorer.mezo.org"
+          apiURL: "https://api.explorer.rune.org/api",
+          browserURL: "https://explorer.rune.org"
         }
       }
     ]

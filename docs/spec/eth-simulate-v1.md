@@ -7,10 +7,10 @@ or more synthetic blocks, with per-block state and block-header overrides. It
 returns per-call results (return data, logs, gas usage, status) and a
 per-block envelope shaped like a normal Ethereum block.
 
-Mezo ships `eth_simulateV1` so that the broader EVM tooling ecosystem
+Rune ships `eth_simulateV1` so that the broader EVM tooling ecosystem
 (ethers v6, viem, MetaMask, Rabby, debug UIs) — which increasingly assumes the
-method is available — works against mezod without an external simulation
-service. Mezo is the first Cosmos-SDK / Evmos-derived chain to implement it.
+method is available — works against runed without an external simulation
+service. Rune is the first Cosmos-SDK / Evmos-derived chain to implement it.
 
 Compared to `eth_call`, `eth_simulateV1`:
 
@@ -30,7 +30,7 @@ Compared to `eth_call`, `eth_simulateV1`:
 
 - **Request envelope.** The typed JSON shapes (`SimOpts`, `SimBlock`,
   `SimCallResult`, `SimBlockResult`) and their strict unmarshaler live in
-  `x/evm/types/`. Strict unmarshaling rejects fields mezod cannot honor before
+  `x/evm/types/`. Strict unmarshaling rejects fields runed cannot honor before
   the request reaches the keeper.
 - **Keeper driver.** `x/evm/keeper/simulate_v1.go` drives execution. A single
   `*statedb.StateDB` is shared across every call of every block in the
@@ -56,11 +56,11 @@ repository:
 - Conformance fixtures: `tests/eth_simulateV1/*.io` — 91 `.io` files pinning
   request shape, response shape, and error codes for every documented case.
 
-Mezod ports a high-signal subset of those fixtures plus the per-feature
+Runed ports a high-signal subset of those fixtures plus the per-feature
 coverage cases into `tests/system/test/SimulateV1_SpecCompliance.test.ts`.
 The system test asserts per-field invariants (status, gasUsed, log topics,
 error code, block envelope shape) rather than byte-level response equality:
-mezod's localnode chain id, base block, and account state never match the
+runed's localnode chain id, base block, and account state never match the
 upstream reference replay, so byte-for-byte response hashes are not a
 meaningful check.
 
@@ -70,50 +70,50 @@ The same 91 fixtures are wired into the Go fuzz target
 carries a documented `*SimError` code from
 `x/evm/types/simulate_v1_errors.go`".
 
-## Mezo-specific divergences
+## Rune-specific divergences
 
 Each divergence has a tripwire test in
-`tests/system/test/SimulateV1_MezoDivergence.test.ts` so that any accidental
+`tests/system/test/SimulateV1_RuneDivergence.test.ts` so that any accidental
 spec-conformant flip surfaces loudly.
 
-1. **EIP-4844, EIP-4788, EIP-4895 overrides rejected.** Mezo runs on
+1. **EIP-4844, EIP-4788, EIP-4895 overrides rejected.** Rune runs on
    CometBFT and has no beacon chain, no DA layer, and no validator-withdrawal
    queue. Overrides for `BlockOverrides.BeaconRoot` (EIP-4788),
    `BlockOverrides.Withdrawals` (EIP-4895), and the blob gas fields
    `BlobBaseFee` (EIP-4844) are rejected at parse time as
    `-32602 invalid params`.
-2. **Custom mezo precompiles immovable.** `MovePrecompileTo` works for the
+2. **Custom rune precompiles immovable.** `MovePrecompileTo` works for the
    standard precompiles at `0x01..0x0a`, but is rejected for any of the
-   mezo custom precompiles enumerated in `x/evm/types/precompile.go`
+   rune custom precompiles enumerated in `x/evm/types/precompile.go`
    (`DefaultPrecompilesVersions`). The rejection is a structured `-32602`
    error (the geth spec does not assign a dedicated `-380xx` code; geth
    uses the same mapping for "source is not a precompile").
 3. **`GasUsed` honors `MinGasMultiplier`.** Reported `gasUsed` matches what
-   would appear on a mezod on-chain receipt:
+   would appear on a runed on-chain receipt:
    `gasUsed = max(gasLimit * MinGasMultiplier, raw_evm_gas)`. Raw EVM gas is
    used only for internal pool accounting. Callers comparing simulate results
-   across chains should not assume mezod's `gasUsed` matches geth's.
-4. **`stateRoot` is always the zero hash.** Mezod's `statedb.StateDB` wraps a
+   across chains should not assume runed's `gasUsed` matches geth's.
+4. **`stateRoot` is always the zero hash.** Runed's `statedb.StateDB` wraps a
    Cosmos cached multistore and has no Merkle Patricia Trie, so there is no
    `IntermediateRoot()` to call after a simulated block executes. Echoing
    `base.Root` would be misleading (it would ignore everything the simulation
    did) and is explicitly rejected. Callers parsing the simulate response
-   MUST NOT treat `stateRoot` as semantically meaningful on mezod.
+   MUST NOT treat `stateRoot` as semantically meaningful on runed.
 5. **Insufficient-funds is per-call when `validation` is omitted.** Geth
    promotes a value-transfer balance failure to a top-level fatal `-38014`
-   even with `validation=false`; mezod's `CanTransfer` fires per-call
+   even with `validation=false`; runed's `CanTransfer` fires per-call
    regardless of validation, surfacing the failure as per-call `status=0x0`
    with error code `-32015`. Pinned by
-   `tests/system/test/SimulateV1_MezoDivergence.test.ts`.
+   `tests/system/test/SimulateV1_RuneDivergence.test.ts`.
 6. **EIP-7623 calldata floor surfaces as `-38013`.** Neither the spec
    (`execute.yaml`) nor geth reserve a distinct simulate-v1 code for
    `ErrFloorDataGas` — geth's `txValidationError` doesn't match it, so a
-   floor failure falls through to `-32603` (internal error). Mezod folds
+   floor failure falls through to `-32603` (internal error). Runed folds
    it into the `SimErrCodeIntrinsicGas` (`-38013`) family because the
    failure is semantically the same gas-too-low signal. The Prague-gated
    check fires both in `validateSimCall` (`validation=true`, request-level)
    and in `processSimBlock`'s apply-time `runErr` catch (`validation=false`).
-   Pinned by `tests/system/test/SimulateV1_MezoDivergence.test.ts`.
+   Pinned by `tests/system/test/SimulateV1_RuneDivergence.test.ts`.
 
 ## Key decisions
 

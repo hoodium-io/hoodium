@@ -1,6 +1,6 @@
 # Activity
 
-This module contains the implementation of the Mezo chain activity component.
+This module contains the implementation of the Rune chain activity component.
 This component is written and deployed as a Cloudflare Worker.
 
 ### Prerequisites

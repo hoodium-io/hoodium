@@ -1,7 +1,7 @@
 # Incident report: 2025-03-12 Matsnet halt
 
 In the afternoon UTC of March 12, 2025, a transaction was submitted to the
-Mezo testnet, referred to as Matsnet, that caused a consensus failure in the network
+Rune testnet, referred to as Matsnet, that caused a consensus failure in the network
 and a halt to block production. The system was restored to working
 status roughly 22 hours after the incident began by an already-planned upgrade
 whose timeline was accelerated.
@@ -20,23 +20,23 @@ that we already had in the pipeline as well as any new observations in the
 
 ## Summary
 
-`mezod`, the Mezo validator software, is a fork of an old version of [evmos],
+`runed`, the Rune validator software, is a fork of an old version of [evmos],
 from prior to a relicensing of the evmos software away from the [GNU General Public License][gpl]
 to a more restrictive non-[copyleft] license. The fork predates certain security
 fixes that evmos has applied, including some that allow for disagreements to
 develop between the Cosmos and EVM layers of the system, creating opportunities
-for bad accounting. When implementing `mezod`, the team was peripherally aware
+for bad accounting. When implementing `runed`, the team was peripherally aware
 of the classes of unpatched security bugs in the forked version of the evmos client,
 and introduced commensurate safeguards to ensure that these bugs, even if exploited,
 could not result in the opportunity to create more of the base asset (BTC) than
 the chain had accounted for over a valid bridge.
 
-Fixing this class of bug was one of the final elements of the pre-mainnet `mezod`
+Fixing this class of bug was one of the final elements of the pre-mainnet `runed`
 roadmap, and the team targeted an upgrade with related fixes to roll out to Matsnet
 validators in the final weeks of March. Simultaneously, the team was doing testing
-on [Tigris], the incentive system for Mezo mainnet. On March 12, 2025, around
+on [Tigris], the incentive system for Rune mainnet. On March 12, 2025, around
 15:57:18 UTC, a test transaction was included in a block that triggered a bug
-within `mezod` that resulted in the creation of more BTC than the chain had
+within `runed` that resulted in the creation of more BTC than the chain had
 accounted for. This produced an immediate halt in block production as the validator
 nodes all tripped the BTC supply safeguards.
 
@@ -45,7 +45,7 @@ class of bug, and the release aimed for later was accelerated. Given the testnet
 nature of the issue, we elected to let everyone get a good night's sleep rather
 than the production approach of immediately focusing on fixing the system, extending
 the downtime into the next day. Our initial hypothesis was that a cheeky user had
-seen the recent open sourcing of the `mezod` repository, noticed the open bug, and
+seen the recent open sourcing of the `runed` repository, noticed the open bug, and
 submitted an exploit transaction; exploration once the bug was fixed confirmed that
 the issue was actually triggered by Tigris testing.
 
@@ -62,13 +62,13 @@ the issue was actually triggered by Tigris testing.
 
 ## Origin of the incident
 
-Versions v0.5.x (and lower) of `mezod` were vulnerable to a critical security
-issue reported by Halborn, an auditing firm, in https://github.com/mezo-org/mezod/issues/401.
+Versions v0.5.x (and lower) of `runed` were vulnerable to a critical security
+issue reported by Halborn, an auditing firm, in https://github.com/hoodium-io/runed/issues/401.
 In short, state changes between EVM and Cosmos layers of the chain were not properly
 propagated in all cases. The vulnerability allowed arbitrary minting/burning of testnet
-BTC by calling the Mezo BTC ERC20 precompiled contract in specific ways.
+BTC by calling the Rune BTC ERC20 precompiled contract in specific ways.
 
-**At this point, the Mezo chain client repository was still closed source. Moreover,
+**At this point, the Rune chain client repository was still closed source. Moreover,
 Matsnet testnet was the only existing network. Therefore, no real funds were ever at risk.**
 
 Given the complex nature of the vulnerability, the development team approached the fix it in steps:
@@ -77,8 +77,8 @@ Given the complex nature of the vulnerability, the development team approached t
   to halt the chain and prevent state corruption in case the mentioned vulnerability
   was exploited on Matsnet. The BTC supply safeguard was triggered on every block and
   asserted that the current BTC supply was equal to the difference between BTC minted
-  and burned in the Mezo bridge. This effectively prevented arbitrary minting/burning
-  of BTC beyond the Mezo bridge.
+  and burned in the Rune bridge. This effectively prevented arbitrary minting/burning
+  of BTC beyond the Rune bridge.
 - In v0.7.0-rc0, the development team implemented a comprehensive fix that completely
   patched the mentioned security issue.
 
@@ -130,4 +130,4 @@ the incident. Those are:
 [evmos]: https://evmos.org
 [gpl]: https://www.gnu.org/licenses/gpl-3.0.html
 [copyleft]: https://www.gnu.org/licenses/copyleft.en.html
-[Tigris]: https://blog.mezo.org/mezo-the-2025-roadmap/#3-tigris
+[Tigris]: https://blog.rune.org/rune-the-2025-roadmap/#3-tigris

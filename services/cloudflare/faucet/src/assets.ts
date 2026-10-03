@@ -85,7 +85,7 @@ export const indexHTML = (turnstileSiteKey: string) => `
   <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Mezo Faucet</title>
+      <title>Rune Faucet</title>
       <style>
           ${styleCSS}
       </style>
@@ -99,8 +99,8 @@ export const indexHTML = (turnstileSiteKey: string) => `
           <div class="token-toggle">
               <input type="radio" id="btc" name="token" value="BTC" checked>
               <label for="btc">BTC</label>
-              <input type="radio" id="mezo" name="token" value="MEZO">
-              <label for="mezo">MEZO</label>
+              <input type="radio" id="rune" name="token" value="RUNE">
+              <label for="rune">RUNE</label>
           </div>
           <input type="text" name="address" placeholder="0x..." required>
           <button type="submit">Request Tokens</button>
@@ -117,7 +117,7 @@ export const errorHTML = (error: string) => `
   <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Mezo Faucet</title>
+      <title>Rune Faucet</title>
       <style>
           ${styleCSS}
       </style>
@@ -139,7 +139,7 @@ export const successHTML = (txHash: string, amount: string, token: string) => `
   <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Mezo Faucet</title>
+      <title>Rune Faucet</title>
       <style>
           ${styleCSS}
       </style>
@@ -149,7 +149,7 @@ export const successHTML = (txHash: string, amount: string, token: string) => `
       <img src="data:image/svg+xml;base64,${logoSVGBase64}" alt="Logo" class="logo">
 
       <h1 style="color: green">${amount} ${token} sent!</h1>
-      <p><b>Transaction: </b><a href="https://explorer.test.mezo.org/tx/${txHash}">${txHash}</a></p>
+      <p><b>Transaction: </b><a href="https://explorer.test.rune.org/tx/${txHash}">${txHash}</a></p>
   </div>
   </body>
   </html>

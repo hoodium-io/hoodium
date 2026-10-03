@@ -12,21 +12,21 @@
 
 ## Background
 
-BTC is bridged from Ethereum to Mezo using the native bridge described in
+BTC is bridged from Ethereum to Rune using the native bridge described in
 [RFC-2](./rfc-2.md) and extended for non-Bitcoin assets in [RFC-4](./rfc-4.md).
-In this model, `AssetsLocked` events emitted by the `MezoBridge`
+In this model, `AssetsLocked` events emitted by the `RuneBridge`
 contract on Ethereum are observed by the Ethereum sidecar, propagated through
 vote extensions, and executed in the `PreBlocker` which mints BTC using the
 `x/bank` module. The bridge-out mechanism described in [RFC-5](./rfc-5.md)
-completes the picture by allowing assets to flow from Mezo back to Ethereum and
+completes the picture by allowing assets to flow from Rune back to Ethereum and
 Bitcoin.
 
-Currently, BTC minting on Mezo is exclusively driven by the native bridge
+Currently, BTC minting on Rune is exclusively driven by the native bridge
 infrastructure. There is no mechanism for minting BTC based on signals originating
 from outside of the sidecar.
 
 This RFC proposes an alternative BTC minting path that allows authorized addresses
-to request BTC minting on Mezo through the existing bridge infrastructure.
+to request BTC minting on Rune through the existing bridge infrastructure.
 The design accommodates any triparty setup and a specific triparty mechanism is
 out of the scope of this document. The only requirement for a triparty mechanism
 is that it should be able to issue transactions to the precompile.
@@ -296,4 +296,4 @@ operations to check the state of reserves before processing bridge-out requests
 and delay processing if there is not enough BTC locked in the bridge contract to
 cover them. This mechanism will have to be aligned with other research projects,
 like layered lending minting tokens through standard ERC20 operations on the
-Mezo chain.
+Rune chain.

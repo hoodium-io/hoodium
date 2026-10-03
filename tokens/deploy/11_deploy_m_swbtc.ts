@@ -2,7 +2,7 @@ import type { DeployFunction } from "hardhat-deploy/types"
 import { mERC20DeployFunctionFactory } from "../helpers/deploy-helpers"
 
 const tokenContract = "mswBTC"
-const tokenName = "Mezo swBTC"
+const tokenName = "Rune swBTC"
 const tokenSymbol = "mswBTC"
 const decimals = 8
 

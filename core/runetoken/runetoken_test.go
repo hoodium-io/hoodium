@@ -38,7 +38,7 @@ func buildDomainSeparator() []byte {
 	return sep
 }
 
-func TestBTCPrecompile(t *testing.T) {
+func TestRUNEPrecompile(t *testing.T) {
 	precompileFactoryFn := func(app *app.Hoodium) (*core.Contract, error) {
 		return runetoken.NewPrecompile(app.BankKeeper, app.AuthzKeeper, *app.EvmKeeper, "rune_6590-1")
 	}

@@ -1,13 +1,13 @@
 # Terraform
 
-This package contains Terraform configuration for the `mezo-<environment>` GCP projects.
+This package contains Terraform configuration for the `rune-<environment>` GCP projects.
 Each sub-directory contains Terraform configuration for a single GCP project representing
-the given Mezo environment. This general guide applies to all environments. Please consult
+the given Rune environment. This general guide applies to all environments. Please consult
 README files in each sub-directory for environment-specific instructions.
 
 ## Prerequisites
 
-- The `mezo-<environment>` GCP project. The GCP project ID should be set in the `.env` file
+- The `rune-<environment>` GCP project. The GCP project ID should be set in the `.env` file
 - Service account with email `terraform@<project-id>.iam.gserviceaccount.com` (**Editor** role assigned)
 - Terraform (at least v1.8.1). Recommended approach is using the [tfenv](https://github.com/tfutils/tfenv) version manager
 - [dotenv](https://www.npmjs.com/package/dotenv) with a plugin loading env 
@@ -33,16 +33,16 @@ gcloud auth application-default login
 
 ## Terraform state
 
-Terraform requires a GCP bucket named `mezo-<environment>-terraform-backend-bucket` to 
+Terraform requires a GCP bucket named `rune-<environment>-terraform-backend-bucket` to 
 store its state. If the bucket already exists, you can skip this step. Otherwise, you can 
-create it by moving to the `mezo-<environment>/remote-state` directory and invoking:
+create it by moving to the `rune-<environment>/remote-state` directory and invoking:
 ```shell
 terraform init && terraform apply
 ```
 
 ## Create and modify infrastructure resources
 
-To create (or modify) the infrastructure resources, move to the `mezo-<environment>` root 
+To create (or modify) the infrastructure resources, move to the `rune-<environment>` root 
 directory and follow the steps below.
 
 1. Load secrets from 1password (**this action needs to be done only once**):
@@ -66,7 +66,7 @@ directory and follow the steps below.
 
 ## Supplementary non-managed resources
 
-The `mezo-<environment>` GCP projects may require some supplementary resources that are 
+The `rune-<environment>` GCP projects may require some supplementary resources that are 
 not managed by Terraform at the moment.
 
 ### Cloudflare
@@ -77,7 +77,7 @@ Domains are managed manually in the Cloudflare dashboard.
 Moreover, some services require Cloudflare proxy to be configured. 
 In such a case, the following setup is used:
 ```asciidoc
-[User] --- HTTPS ---> [Cloudflare] --- HTTPS ---> [GCP mezo-<environment> service]
+[User] --- HTTPS ---> [Cloudflare] --- HTTPS ---> [GCP rune-<environment> service]
 ```
 To make it work:
 - The Cloudflare proxy should be enabled for the given service domain
@@ -93,7 +93,7 @@ To make it work:
 - A Cloudflare [origin certificate](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca) 
   should be created and attached to the service 
   (e.g. as a pre-shared GCP SSL certificate tied to a global HTTPS load balancer).
-  The `mezo-<environment>` Terraform module can automatically load origin certificates
+  The `rune-<environment>` Terraform module can automatically load origin certificates
   from 1password and attach them to appropriate 
   services (see `./load-secrets.sh` script)
   

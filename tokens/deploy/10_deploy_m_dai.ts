@@ -2,7 +2,7 @@ import type { DeployFunction } from "hardhat-deploy/types"
 import { mERC20DeployFunctionFactory } from "../helpers/deploy-helpers"
 
 const tokenContract = "mDAI"
-const tokenName = "Mezo Dai Stablecoin"
+const tokenName = "Rune Dai Stablecoin"
 const tokenSymbol = "mDAI"
 const decimals = 18
 

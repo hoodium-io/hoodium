@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This report presents a comprehensive analysis of the Mezo Node's (and EVM base blockchain)
+This report presents a comprehensive analysis of the Rune Node's (and EVM base blockchain)
 performance testing, focusing on key parameters that affect transaction processing.
 
 Our testing methodology was designed to evaluate the optimal configuration of three critical parameters:
@@ -21,27 +21,27 @@ Our testing methodology was designed to evaluate the optimal configuration of th
   of the network and establishing efficient fee markets that properly incentivize validators
   while maintaining accessibility for users.
 
-## Notes regarding Mezo and Ethereum EVM behaviours
+## Notes regarding Rune and Ethereum EVM behaviours
 
 ### Fee market (EIP-1559)
 
-Both Mezo and Ethereum both implement EIP-1559, but with notable differences in their approach.
+Both Rune and Ethereum both implement EIP-1559, but with notable differences in their approach.
 
 #### Gas price
 
 While Ethereum's implementation introduced a base fee that gets burned and a priority fee
-that goes to miners, Mezo adapted this model to fit its Cosmos-based architecture. In Mezo,
+that goes to miners, Rune adapted this model to fit its Cosmos-based architecture. In Rune,
 the fee market do not burn the base fees, per so not supporting deflationary tokenomics
 similar to Ethereum.
 
-Regarding the the fee tip / priority fee, Mezo also account for it in a different manner,
+Regarding the the fee tip / priority fee, Rune also account for it in a different manner,
 while Ethereum used this as a way of prioritising the transaction insertion into a block,
-Mezo uses it in order only to confirm the transaction will pay enough gas to be added in the
+Rune uses it in order only to confirm the transaction will pay enough gas to be added in the
 block, not as a ordering mean.
 
 #### Dynamic block sizing
 
-[EIP-1559] on Ethereum introduced an approach to block capacity that isn't fully implemented in Mezo.
+[EIP-1559] on Ethereum introduced an approach to block capacity that isn't fully implemented in Rune.
 
 In Ethereum's implementation, while blocks have a target gas limit (currently 15M gas),
 EIP-1559 established a flexible block size mechanism that can temporarily increase to handle
@@ -53,23 +53,23 @@ When blocks exceed the target size, the protocol increases the base fee more agg
 creating economic pressure to bring usage back to target levels while still accommodating
 temporary surges in demand.
 
-Mezo doesn't implement this dynamic block sizing capability. Instead, Mezo maintains fixed
+Rune doesn't implement this dynamic block sizing capability. Instead, Rune maintains fixed
 block gas limits, which means its capacity cannot expand during high demand periods.
 
 This design choice prioritize predictable block production times (expected to be 3.5 seconds),
 but it does sacrifice some of the flexibility that Ethereum's implementation offers during
 usage spikes.
 
-#### Ethereum vs Mezo mempools behaviour
+#### Ethereum vs Rune mempools behaviour
 
-A critical architectural difference between Ethereum and Mezo lies in their mempool
+A critical architectural difference between Ethereum and Rune lies in their mempool
 management strategies. In Ethereum's implementation, transactions can remain in the mempool
 indefinitely, regardless of changing network conditions or base fee fluctuations. This persistence
 allows transactions to eventually be included when network congestion subsides or when
 their gas price becomes competitive again relative to current demand.
 
-Mezo, however, employs a more aggressive pruning approach to mempool management. When the
-minimum gas fee for block inclusion increases due to network congestion, Mezo actively
+Rune, however, employs a more aggressive pruning approach to mempool management. When the
+minimum gas fee for block inclusion increases due to network congestion, Rune actively
 removes transactions from the mempool whose gas price falls below this threshold. This is
 fundamentally different from Ethereum's model, as it means transactions can be rejected
 from the network entirely rather than simply waiting for inclusion during periods of lower demand.
@@ -82,24 +82,24 @@ and re-checking of all pending transactions can consume substantial node resourc
 affecting overall network performance during sustained high-demand periods
 
 For users, this distinction means that transaction submission strategies must be more
-carefully thought on Mezo than on Ethereum. Transactions submitted with marginally
+carefully thought on Rune than on Ethereum. Transactions submitted with marginally
 competitive gas prices that might eventually clear on Ethereum could be completely removed
-from consideration on Mezo, requiring resubmission with higher fees.
+from consideration on Rune, requiring resubmission with higher fees.
 
 #### Gas Limit per transaction and block sizing
 
-Mezo takes a different approach to determining which transactions fit into a block compared
+Rune takes a different approach to determining which transactions fit into a block compared
 to Ethereum, particularly regarding block size calculations and gas consumption mechanics.
 
-In Mezo, the effective space in a block is determined by a fixed gas limit per block, similar
-to Ethereum. However, Mezo's transaction selection process differs significantly in how
+In Rune, the effective space in a block is determined by a fixed gas limit per block, similar
+to Ethereum. However, Rune's transaction selection process differs significantly in how
 it accounts for gas consumption:
 
 ##### Gas Accounting Differences
 
 While Ethereum charges based on the actual computational resources used during execution (with
-an upfront maximum specified by the user's gasLimit), Mezo implements a minimum gas consumption
-rule. Specifically, Mezo will consume at least a factor of the gasLimit specified in a transaction,
+an upfront maximum specified by the user's gasLimit), Rune implements a minimum gas consumption
+rule. Specifically, Rune will consume at least a factor of the gasLimit specified in a transaction,
 regardless of the actual execution cost (by default this is set to half the gasLimit specified
 in the transaction).
 For example, if a user specifies a gasLimit of 100,000 for a transaction that actually requires
@@ -107,9 +107,9 @@ only 30,000 gas to execute:
 
 - On Ethereum: The user would be charged for 30,000 gas (the actual cost)
 
-- On Mezo: The user would be charged for 50,000 gas (half of the specified gasLimit)
+- On Rune: The user would be charged for 50,000 gas (half of the specified gasLimit)
 
-This means that the effective cost of transactions on Mezo can be significantly higher than
+This means that the effective cost of transactions on Rune can be significantly higher than
 their true computational cost, especially for transactions where the user overestimates the
 required gasLimit as a safety measure.
 
@@ -117,7 +117,7 @@ required gasLimit as a safety measure.
 
 This gas accounting difference directly impacts how blocks are filled:
 
-- Space Utilization: Even lightweight transactions consume more block space on Mezo than
+- Space Utilization: Even lightweight transactions consume more block space on Rune than
   they would on Ethereum due to this minimum charge rule.
 
 - Block Capacity Planning: Validators and users must account for this minimum gas consumption
@@ -125,7 +125,7 @@ This gas accounting difference directly impacts how blocks are filled:
   be lower than what raw gas limit calculations would suggest.
 
 This implementation creates different incentives for users compared to Ethereum.
-On Mezo, there's a stronger incentive to accurately estimate gasLimit values, as overestimation
+On Rune, there's a stronger incentive to accurately estimate gasLimit values, as overestimation
 directly leads to higher costs through this minimum consumption rule. This stands in contrast
 to Ethereum, where overestimating gasLimit has no cost penalty as long as the transaction
 doesn't fail.
@@ -142,7 +142,7 @@ The hardware used to run the tests reflects the original requirements from [EVMO
 
 - 200gb of disc (nvme)
 
-Note that only the mezod node was running on the server, and 100% of the performances where dedicated to it.
+Note that only the runed node was running on the server, and 100% of the performances where dedicated to it.
 
 ### Transactions used for the tests
 
@@ -161,7 +161,7 @@ computational complexity and gas consumption patterns:
   While the underlying operation is still a native token transfer, this method
   introduces additional overhead as it requires interacting with the precompile
   through the EVM. This transaction type represents an intermediate level of
-  complexity and provides insights into how efficiently the Mezo Node handles
+  complexity and provides insights into how efficiently the Rune Node handles
   precompiled contracts.
 
 - ERC20 contract transfers: Finally we executed transfers using an actual
@@ -187,7 +187,7 @@ The following metrics have been observed while running the perfomances tests:
 - Mempool unconfirmed transaction: The count of pending transactions awaiting to be
   added in blocks indicates of network congestion. A growing mempool backlog
   signals that the network cannot process transactions at the rate they're being
-  submitted. For Mezo Node specifically, monitoring this metric is crucial due to
+  submitted. For Rune Node specifically, monitoring this metric is crucial due to
   its transaction pruning behavior, as excessive mempool growth triggers more
   frequent re-checking operations that can impact node performance. Persistent
   mempool growth may indicate the need for increased block capacity or fee market
@@ -198,7 +198,7 @@ The following metrics have been observed while running the perfomances tests:
 - Time take per block: How long validators takes to construct a valid block,
   including transaction selection, execution, and state updates. Extended block
   building times can lead to inconsistent block production intervals and
-  reduced overall throughput (Mezo is trying to achieve block production every
+  reduced overall throughput (Rune is trying to achieve block production every
   3.5 seconds in average). This measurement is especially relevant when
   evaluating how the re-checking behavior of the mempool affects validator
   performance under load.
@@ -209,8 +209,8 @@ The following metrics have been observed while running the perfomances tests:
 
 ### Scripts
 
-The scripts used to run these tests are available in the mezod repository
-[here](https://github.com/mezo-org/mezod/tree/main/tests/performance).
+The scripts used to run these tests are available in the runed repository
+[here](https://github.com/hoodium-io/runed/tree/main/tests/performance).
 
 ### Tests results
 

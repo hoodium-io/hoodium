@@ -1,17 +1,17 @@
-# RFC-5: Bridging assets out of Mezo
+# RFC-5: Bridging assets out of Rune
 
 ## Background
 
-BTC and selected ERC20 assets are bridged from Ethereum (and Bitcoin) to Mezo using the 1-way native bridge
+BTC and selected ERC20 assets are bridged from Ethereum (and Bitcoin) to Rune using the 1-way native bridge
 outlined in [RFC-2](./rfc-2.md) and [RFC-4](./rfc-4.md). This document describes the architecture of a solution
-that allows bridging assets in the opposite direction - from Mezo to Ethereum and Bitcoin.
+that allows bridging assets in the opposite direction - from Rune to Ethereum and Bitcoin.
 
 ## Proposal
 
 The goal of the proposal is to deliver the ability to bridge out quickly, while avoiding unnecessary complexity
 and maintenance overhead. Existing components of the 1-way native bridge should be re-used wherever possible.
 
-### `AssetsBridge` precompile on Mezo
+### `AssetsBridge` precompile on Rune
 
 The `AssetsBridge` precompile is an existing component that currently serves for bridge observability and
 governance. We propose to make it the entry-point of the bridge out flow. To do so, the `AssetsBridge` precompile
@@ -28,7 +28,7 @@ function bridgeOut(
 
 Parameters of this method are:
 
-* `token`: address of the bridged out token on Mezo
+* `token`: address of the bridged out token on Rune
 * `amount`: amount to be bridged out in the token precision
 * `chain`: Identifier of the target chain
 * `recipient`: chain-specific recipient
@@ -53,11 +53,11 @@ If the validation passes, the `bridgeOut` method should:
 
 * Burn the specified `amount` of `token` from the `msg.sender` account
     * BTC should be burned using the `x/bank` module directly. This fact should be propagated back to the EVM
-      transaction execution context (similarly to [BTC transfers](https://github.com/mezo-org/mezod/blob/4b8925adccb84a5dd2a8ddc6c16d57bd91973e52/precompile/erc20/transfer.go#L212))
-      and to the [BTC supply guard](https://github.com/mezo-org/mezod/blob/4b8925adccb84a5dd2a8ddc6c16d57bd91973e52/x/bridge/keeper/abci.go#L38)
-    * ERC20 tokens should be burned using the `burnFrom` method exposed by the [mERC20](https://github.com/mezo-org/mezod/blob/v2.0.0/solidity/contracts/mERC20.sol)
-      contract. This call should be done as an [internal EVM call](https://github.com/mezo-org/mezod/blob/4b8925adccb84a5dd2a8ddc6c16d57bd91973e52/x/evm/keeper/call.go#L19).
-* Map the Mezo `token` address to the proper token address on the target `chain`:
+      transaction execution context (similarly to [BTC transfers](https://github.com/hoodium-io/runed/blob/4b8925adccb84a5dd2a8ddc6c16d57bd91973e52/precompile/erc20/transfer.go#L212))
+      and to the [BTC supply guard](https://github.com/hoodium-io/runed/blob/4b8925adccb84a5dd2a8ddc6c16d57bd91973e52/x/bridge/keeper/abci.go#L38)
+    * ERC20 tokens should be burned using the `burnFrom` method exposed by the [mERC20](https://github.com/hoodium-io/runed/blob/v2.0.0/solidity/contracts/mERC20.sol)
+      contract. This call should be done as an [internal EVM call](https://github.com/hoodium-io/runed/blob/4b8925adccb84a5dd2a8ddc6c16d57bd91973e52/x/evm/keeper/call.go#L19).
+* Map the Rune `token` address to the proper token address on the target `chain`:
     * If `token` is BTC, the target token should be TBTC on Ethereum, regardless of the value of the `chain`
       parameter. TBTC address is returned by the `getSourceBTCToken` method of the `AssetsBridge` precompile
     * Otherwise, the target token should be determined using bridge mappings returned by the
@@ -69,15 +69,15 @@ If the validation passes, the `bridgeOut` method should:
 * Emit appropriate EVM events
 
 Changes described in this section should be covered with a comprehensive
-[system test](https://github.com/mezo-org/mezod/tree/main/tests/system) suite.
+[system test](https://github.com/hoodium-io/runed/tree/main/tests/system) suite.
 
 ### Ethereum sidecar
 
-Each Mezo validator runs an instance of the Ethereum sidecar that feeds the existing 1-way bridge with events
-emitted on the Ethereum chain. This proposal assumes re-using this infrastructure for bridging out of Mezo.
+Each Rune validator runs an instance of the Ethereum sidecar that feeds the existing 1-way bridge with events
+emitted on the Ethereum chain. This proposal assumes re-using this infrastructure for bridging out of Rune.
 
 The Ethereum sidecar should be enhanced with an ability to fetch recent `AssetsUnlocked`entries submitted on the
-Mezo chain and attest them on Ethereum. The specific logic described below is supposed to be executed only by
+Rune chain and attest them on Ethereum. The specific logic described below is supposed to be executed only by
 validators having the "bridge" privilege (the so called bridge validators). List of those validators can be
 determined by calling the `validatorsByPrivilege` method (with `1` as parameter) exposed by the `ValidatorPool`
 precompile.
@@ -104,14 +104,14 @@ The sidecar attestation process should look as follows:
     * The sidecar produces an ECDSA signature over the given `AssetsUnlocked` entry, using the aforementioned operator
       private key of the corresponding validator
     * The sidecar submits the ECDSA signature to the Bridge Worker using an HTTP call. The Bridge Worker is an
-      off-chain component responsible for aggregating attestations and submitting them to the `MezoBridge` contract
+      off-chain component responsible for aggregating attestations and submitting them to the `RuneBridge` contract
       in one batch.
     * The sidecar monitors the progress of batch attestation for a specific time, defined by a new
       `batch_attestation_timeout` parameter
     * If the given `AssetsUnlocked`entry was properly attested by the Bridge Worker, the sidecar completes the
       attestation process for this entry. Otherwise, the sidecar falls back to individual attestation.
 * Individual attestation phase:
-    * The sidecar submits an attestation by issuing an Ethereum transaction against the `MezoBridge` contract directly.
+    * The sidecar submits an attestation by issuing an Ethereum transaction against the `RuneBridge` contract directly.
       This step uses the operator private key to set the `msg.sender` of the issued transaction and does not require
       attaching the aforementioned ECDSA signature.
     * The sidecar confirms finality of the above Ethereum transaction and completes the attestation process for the
@@ -128,14 +128,14 @@ Such a phased attestation process has the following goals:
 Moreover, the sidecar attestation process should have mechanisms allowing to cache processing data and survive
 sidecar restarts. The process must guarantee that all `AssetsUnlocked` entries are processed in a reasonable time.
 
-### `MezoBridge` contract on Ethereum
+### `RuneBridge` contract on Ethereum
 
-The existing [`MezoBridge`](https://github.com/thesis/mezo-portal/blob/main/solidity/contracts/MezoBridge.sol)
+The existing [`RuneBridge`](https://github.com/thesis/rune-portal/blob/main/solidity/contracts/RuneBridge.sol)
 contract should expose a new API allowing to obtain attestations and withdraw assets.
 
 #### Individual attestation
 
-The `MezoBridge` contract should expose a new `attestBridgeOut`function allowing for a direct submission of a
+The `RuneBridge` contract should expose a new `attestBridgeOut`function allowing for a direct submission of a
 single attestation over an `AssetsUnlocked`entry:
 
 ```
@@ -144,11 +144,11 @@ function attestBridgeOut(AssetsUnlocked calldata entry) external;
 
 This function should validate that the `msg.sender` is a bridge validator and record the attestation for the given
 `AssetsUnlocked` entry in the contract storage. Once the given entry meets the necessary attestation threshold of 2/3+
-of the bridge validators, the `MezoBridge` contract can actually withdraw its underlying assets.
+of the bridge validators, the `RuneBridge` contract can actually withdraw its underlying assets.
 
 #### Batch attestation
 
-The `MezoBridge` contract should also support batch attestations with ECDSA signatures:
+The `RuneBridge` contract should also support batch attestations with ECDSA signatures:
 
 ```
 function attestBridgeOutWithSignatures(
@@ -164,15 +164,15 @@ This function should not check `msg.sender` but instead:
 * Make sure the given signature comes from a bridge validator
 * Make sure the number of valid signatures meet the attestation threshold of 2/3+ of the bridge validators
 
-If all conditions are met, the `MezoBridge` contract can actually withdraw the underlying assets of the given
+If all conditions are met, the `RuneBridge` contract can actually withdraw the underlying assets of the given
 `AssetsUnlocked` entry.
 
 #### Assets withdrawal
 
-All ERC20 assets being under control of the `MezoBridge` contract can be unlocked by simply issuing a `transfer`
+All ERC20 assets being under control of the `RuneBridge` contract can be unlocked by simply issuing a `transfer`
 call based on the `token` and `recipient` information from the given `AssetsUnlocked` entry.
 
-However, if the `AssetsUnlocked`'s `token` is TBTC and `chain` is Bitcoin, the `MezoBridge` must request a
+However, if the `AssetsUnlocked`'s `token` is TBTC and `chain` is Bitcoin, the `RuneBridge` must request a
 redemption in the tBTC bridge so the `recipient` obtains real BTC on the Bitcoin chain. This process is more
 complicated as the tBTC bridge requires two additional pieces of data to request a redemption (comparing to what is
 available in a single `AssetsUnlocked` entry):
@@ -180,7 +180,7 @@ available in a single `AssetsUnlocked` entry):
 * The 20-byte public key hash of the wallet supposed to handle the redemption
 * The current main UTXO of the target wallet
 
-To handle this complexity, this proposal assumes that `MezoBridge` exposes an additional method allowing to deliver
+To handle this complexity, this proposal assumes that `RuneBridge` exposes an additional method allowing to deliver
 the missing data to attested `AssetsUnlocked` entries requiring tBTC to unlock funds on the Bitcoin chain:
 
 ```
@@ -207,13 +207,13 @@ a race between honest callers of `withdrawBTC` may lead to a gas loss for those 
 
 #### Bridge validators management
 
-The only source of truth about bridge validators is the `ValidatorPool` precompile on Mezo. There is no easy way to
-port that automatically to the `MezoBridge` contract on Ethereum. The `MezoBridge` should allow setting and removing
+The only source of truth about bridge validators is the `ValidatorPool` precompile on Rune. There is no easy way to
+port that automatically to the `RuneBridge` contract on Ethereum. The `RuneBridge` should allow setting and removing
 bridge validators and the governance is responsible for maintaining parity between both chains.
 
 #### Reimbursements
 
-The `MezoBridge` contract should be integrated with a mechanism allowing to reimburse:
+The `RuneBridge` contract should be integrated with a mechanism allowing to reimburse:
 
 * `attestBridgeOut` calls made by bridge validators
 * `attestBridgeOutWithSignatures` calls made by approved maintainers (e.g. Bridge Worker)
@@ -224,7 +224,7 @@ contract, similar to the one used by tBTC.
 
 #### Fees
 
-The `MezoBridge` contract should cut a fee from withdrawn assets. The fee should be governable and set per-asset.
+The `RuneBridge` contract should cut a fee from withdrawn assets. The fee should be governable and set per-asset.
 All fees should be sent to a `feeCollector` account set by the governance. Part of those fees can be used to fund
 reimbursements for eligible operations.
 
@@ -232,7 +232,7 @@ reimbursements for eligible operations.
 
 The Bridge Worker is an off-chain component that optimizes the attestation process and provides auxiliary services
 facilitating the bridge out process. This document does not enforce any specific way to implement it. Consider using
-Cloudflare Workers to fit into the existing infrastructure of Mezo off-chain components. Remember about adding
+Cloudflare Workers to fit into the existing infrastructure of Rune off-chain components. Remember about adding
 appropriate DoS protections to any public endpoints exposed by this worker.
 
 #### Endpoints
@@ -241,17 +241,17 @@ This worker should expose a HTTP endpoint that allows submitting an `AssetsUnloc
 signature made by a bridge validator. This endpoint should validate the incoming data to filter out spam and store
 proper attestations internally for further processing. At a minimum, this endpoint should check if:
 
-* The incoming `AssetsUnlocked`is a valid entry submitted on Mezo's `AssetsBridge` precompile
-* The `AssetsUnlocked` entry was not yet processed in the `MezoBridge` on Ethereum
+* The incoming `AssetsUnlocked`is a valid entry submitted on Rune's `AssetsBridge` precompile
+* The `AssetsUnlocked` entry was not yet processed in the `RuneBridge` on Ethereum
 * The attached ECDSA signature is valid, i.e. signs the associated `AssetsUnlocked` entry and is made by a bridge
   validator
 
 #### Background jobs
 
 The Bridge Worker should periodically run a background job that issues a `attestBridgeOutWithSignatures` transaction
-against the `MezoBridge` contract for entries that meet the attestation threshold of 2/3+ of the bridge validators.
+against the `RuneBridge` contract for entries that meet the attestation threshold of 2/3+ of the bridge validators.
 
-Moreover, the Bridge Worker can also take care of calling `withdrawBTC` on `MezoBridge` for bridge outs to Bitcoin
+Moreover, the Bridge Worker can also take care of calling `withdrawBTC` on `RuneBridge` for bridge outs to Bitcoin
 (i.e. for `AssetsUnlocked`entries whose `chain` is Bitcoin).
 
 ## Additional considerations
@@ -268,4 +268,4 @@ Moreover, the Bridge Worker can also take care of calling `withdrawBTC` on `Mezo
 * This document does not outline any mechanism that automatically moves the bridge out fees from the `feeCollector`
   account to the reimbursement mechanism
 * The Bridge Worker is an abstract concept introduced for the sake of this document. It can be implemented as part of
-  an existing off-chain component serving the Mezo bridge, for example, [`tbtc-api`](https://github.com/thesis/mezo-portal/tree/main/tbtc-api)
+  an existing off-chain component serving the Rune bridge, for example, [`tbtc-api`](https://github.com/thesis/rune-portal/tree/main/tbtc-api)

@@ -1,27 +1,27 @@
-# Mezo Contribution Guide
+# Rune Contribution Guide
 
 We appreciate your interest in contributing to the source code. Contributions
 from anyone are always welcome, and even the smallest improvements are
 greatly valued.
 
-If you would like to contribute to Mezo, start by forking the repository, making
+If you would like to contribute to Rune, start by forking the repository, making
 your changes, committing them, and submitting a pull request for the maintainers
 to review and merge into the main codebase. For more significant modifications,
-please reach out to the developers on the [Mezo Discord Server](https://discord.mezo.org/)
+please reach out to the developers on the [Rune Discord Server](https://discord.rune.org/)
 beforehand. This helps ensure your changes align with the project's overall
 vision and allows you to receive early feedback, making both your work and our
 review process smoother and more efficient.
 
 ## Developer Documentation
 
-The Mezo client can be run locally for development purposes. The Developer
-Documentation is available in the [`docs` directory](https://github.com/mezo-org/mezod/tree/main/docs).
+The Rune client can be run locally for development purposes. The Developer
+Documentation is available in the [`docs` directory](https://github.com/hoodium-io/runed/tree/main/docs).
 
 ## Developer Tooling
 
 ### Continuous Integration
 
-Mezo uses [Github Actions](https://github.com/mezo-org/mezod/actions) for
+Rune uses [Github Actions](https://github.com/hoodium-io/runed/actions) for
 continuous integration. All jobs must be green to merge a PR.
 
 ### Pre-commit

@@ -275,7 +275,6 @@ func buildDigest(owner, spender common.Address, amount, nonce, deadline *big.Int
 // This functions implements the EIP712 domain separator for the permit function
 // and produces the same result as the Solidity code seen e.g. in the OpenZeppelin
 // lib https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/cryptography/EIP712.sol#L89
-// that is used by tBTC token https://github.com/keep-network/tbtc-v2/blob/main/solidity/contracts/token/TBTC.sol#L8
 func BuildDomainSeparator(
 	chainID *big.Int,
 	name string,

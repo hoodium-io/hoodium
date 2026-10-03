@@ -1,11 +1,11 @@
 # Upgrades
 
 This document describes the process for breaking chain upgrades.
-Moreover, it describes all historical upgrades performed on the Mezo chain.
+Moreover, it describes all historical upgrades performed on the Rune chain.
 
 ## The process
 
-Mezo chain client defines two basic primitives for breaking upgrades. They are  
+Rune chain client defines two basic primitives for breaking upgrades. They are  
 both part of the `app/upgrades` module:
 
 - `Fork`: This component represents a hard fork upgrade that executes a one-time
@@ -22,7 +22,7 @@ both part of the `app/upgrades` module:
 
 Those two primitives can be combined to perform different upgrade procedures
 depending on the requirements of the upgrade. Each procedure assumes
-all Mezo chain clients run on version `v1.0.0` initially.
+all Rune chain clients run on version `v1.0.0` initially.
 
 ### Hard fork upgrade without chain halt
 
@@ -35,7 +35,7 @@ The procedure is as follows:
 2. Define a new `v2.Fork` in the `app/upgrades/v2/constants.go` file and the
    fork logic in the `app/upgrades/v2/forks.go` file.
 3. Register the `v2.Fork` in the `app.Forks` list, in the `app/upgrades.go` file.
-4. Release version `v2.0.0` of the Mezo chain client and ask validators to upgrade.
+4. Release version `v2.0.0` of the Rune chain client and ask validators to upgrade.
 5. Once validators reach the fork block, the fork code will be executed.
 
 After the upgrade, the `v2.0.0` clients are still able to validate past blocks produced
@@ -59,8 +59,8 @@ The procedure is as follows:
    should perform all necessary store migrations.
 4. Register the `v2.Fork` in the `app.Forks` list, in the `app/upgrades.go` file.
 5. Register the `v2.Upgrade` in the `app.Upgrades` list, in the `app/upgrades.go` file.
-6. Release version `v2.0.0` of the Mezo chain client.
-7. Backport the `v2.Fork` to `v1.0.0` and release version `v1.0.1` of the Mezo
+6. Release version `v2.0.0` of the Rune chain client.
+7. Backport the `v2.Fork` to `v1.0.0` and release version `v1.0.1` of the Rune
    chain client. Ask validators to upgrade to `v1.0.1` first. It is important
    to NOT BACKPORT the `v2.Upgrade` to `v1.0.0` as it will break the
    Cosmos In-Place Store Migrations mechanism.
@@ -88,7 +88,7 @@ The procedure is as follows:
    upgrade handler in the `app/upgrades/v2/upgrades.go` file. The upgrade handler
    should perform all necessary store migrations.
 3. Register the `v2.Upgrade` in the `app.Upgrades` list, in the `app/upgrades.go` file.
-4. Release version `v2.0.0` of the Mezo chain client.
+4. Release version `v2.0.0` of the Rune chain client.
 5. The governance schedules the `v2` upgrade plan through the `Upgrade` precompile.
 6. Once validators reach the upgrade block, the chain will halt due to the `v2` upgrade plan.
 7. After the halt, validators should upgrade to `v2.0.0` and restart their nodes.
@@ -126,7 +126,7 @@ The procedure is as follows:
    necessary store migrations and the fix for the incident.
 4. Register the `v14_0.Upgrade` in the `app.Upgrades` list, in the
    `app/upgrades.go` file.
-5. Release version `v14.0.0` of the Mezo chain client.
+5. Release version `v14.0.0` of the Rune chain client.
 6. Validators install the release and restart their nodes. Nobody schedules the
    plan again, because the lockdown already wrote it to the store, and the
    halted chain accepts no transaction anyway.
@@ -134,7 +134,7 @@ The procedure is as follows:
    and the chain continues.
 
 The fallback recovery needs no release. Validators restart the same binary with
-`mezod start --unsafe-skip-upgrades <HALT_HEIGHT>`, which clears the plan and
+`runed start --unsafe-skip-upgrades <HALT_HEIGHT>`, which clears the plan and
 resumes the chain unchanged. Use the fallback when the incident needs no code
 change.
 
@@ -148,7 +148,7 @@ the [Planned upgrade with chain halt](#planned-upgrade-with-chain-halt) scenario
 
 The `x/upgrade` module defines a `Plan` type in which a live upgrade is scheduled to occur.
 A `Plan` can be scheduled at a specific block `Height`. A `Plan` is submitted via the `Upgrade`
-precompile after a Mezo chain client release with an appropriate upgrade handler.
+precompile after a Rune chain client release with an appropriate upgrade handler.
 
 An upgrade `Plan` has the following values:
 
@@ -175,7 +175,7 @@ And emits 2 events:
 
 ### Interaction via the Hardhat toolbox
 
-Hardhat tasks are used to simplify interacting with Mezo precompiles. More information,
+Hardhat tasks are used to simplify interacting with Rune precompiles. More information,
 including setup steps and usage can be found in `precompile/hardhat/README.md`
 
 After the hardhat environment and accounts have been configured, interaction with the
@@ -191,7 +191,7 @@ npx hardhat upgrade:cancelPlan --signer OWNER
 
 ### Versioning
 
-Mezo client was using `v0.Y.Z-rcN` versioning pattern for the initial phase
+Rune client was using `v0.Y.Z-rcN` versioning pattern for the initial phase
 of the project where only testnet was available. The major version was fixed
 to `0` before mainnet readiness was reached. Moreover, all testnet-only
 versions were release candidates (`-rcN`) to indicate that the software was
@@ -203,50 +203,50 @@ The first mainnet release is `v1.0.0`.
 
 ### Testnet
 
-Here is the list of upgrades performed on the Mezo Matsnet testnet.
+Here is the list of upgrades performed on the Rune Matsnet testnet.
 For testnet-only versions, the `-rcN` suffix is omitted for brevity.
 In that case, always assume the latest `-rcN` suffix for the given version.
 
-Consult the [tags list](https://github.com/mezo-org/mezod/tags) for full version information.
+Consult the [tags list](https://github.com/hoodium-io/runed/tags) for full version information.
 
 | Version        | Block     | Type                                 | Details                                                                                                                                                                                 |
 |----------------|-----------|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `v0.1.0`       | 1         | N/A                                  | Initial genesis version.                                                                                                                                                                |
 | `v0.2.0`       | 496901    | Hard fork upgrade without chain halt | Change gas formula for the `ValidatorPool` precompile. <br/>This change was done before the `Fork` primitive was introduced. <br/>It was executed by introducing versioned precompiles. |
 | `v0.3.0`       | 1093500   | Hard fork upgrade with chain halt    | Introduce the Connect price oracle.                                                                                                                                                     |
-| `v0.4.0`       | 1745000   | Hard fork upgrade without chain halt | Update EVM storage root strategy (fix for Mezo Passport create2 problem) and introduce EVM observability for the BTC bridge.                                                            |
+| `v0.4.0`       | 1745000   | Hard fork upgrade without chain halt | Update EVM storage root strategy (fix for Rune Passport create2 problem) and introduce EVM observability for the BTC bridge.                                                            |
 | `v0.5.0`       | 2213000   | Hard fork upgrade without chain halt | On-chain precompile versioning. New Upgrade and PriceOracle precompiles and upgrade of the existing Maintenance precompile.                                                             |
 | `v0.6.0`       | 2563000   | Hard fork upgrade without chain halt | Introduce the ERC20 bridge and the BTC supply assertion.                                                                                                                                |
 | `v0.7.0`       | 3078794   | Hard fork upgrade without chain halt | Fix security issues in the EVM state DB. Introduce proper reverts for precompiles. Add chain fee splitter support. Disable Cosmos transactions.                                         |
 | `v1.0.0-rc0`   | 3569000   | Planned upgrade with chain halt      | Patch for a DoS vector in the bridge. Fix for the precompile revert mechanism.                                                                                                          |
 | `v1.0.0-rc1`   | 3712500   | Planned upgrade with chain halt      | Patch for mixed precompile addresses.                                                                                                                                                   |
 | `v2.0.2`       | 5559500   | Planned upgrade with chain halt      | Bring back parity with mainnet.                                                                                                                                                         |
-| `v3.0.0`       | 5695000   | Planned upgrade with chain halt      | [v3.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v3.0.0)                                                                                                           |
-| `v4.0.0`       | 6853500   | Planned upgrade with chain halt      | [v4.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v4.0.0)                                                                                                           |
-| `v5.0.0`       | 8838000   | Planned upgrade with chain halt      | [v5.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v5.0.0)                                                                                                           |
-| `v6.0.0`       | 10325250  | Planned upgrade with chain halt      | [v6.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v6.0.0)                                                                                                           |
-| `v7.0.0`       | 11688500  | Planned upgrade with chain halt      | [v7.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v7.0.0)                                                                                                           |
-| `v8.0.0`       | 11854127  | Planned upgrade with chain halt      | [v8.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v8.0.0)                                                                                                           |
-| `v9.0.0`       | 12193600  | Planned upgrade with chain halt      | [v9.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v9.0.0)                                                                                                           |
-| `v10.0.0`      | 12872000  | Planned upgrade with chain halt      | [v10.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v10.0.0)                                                                                                         |
-| `v11.0.0`      | 13206900  | Planned upgrade with chain halt      | [v11.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v11.0.0)                                                                                                         |
-| `v12.0.0`      | 14705350  | Planned upgrade with chain halt      | [v12.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v12.0.0)                                                                                                         |
-| `v13.0.0`      | 14978500  | Planned upgrade with chain halt      | [v13.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v13.0.0)                                                                                                         |
+| `v3.0.0`       | 5695000   | Planned upgrade with chain halt      | [v3.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v3.0.0)                                                                                                           |
+| `v4.0.0`       | 6853500   | Planned upgrade with chain halt      | [v4.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v4.0.0)                                                                                                           |
+| `v5.0.0`       | 8838000   | Planned upgrade with chain halt      | [v5.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v5.0.0)                                                                                                           |
+| `v6.0.0`       | 10325250  | Planned upgrade with chain halt      | [v6.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v6.0.0)                                                                                                           |
+| `v7.0.0`       | 11688500  | Planned upgrade with chain halt      | [v7.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v7.0.0)                                                                                                           |
+| `v8.0.0`       | 11854127  | Planned upgrade with chain halt      | [v8.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v8.0.0)                                                                                                           |
+| `v9.0.0`       | 12193600  | Planned upgrade with chain halt      | [v9.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v9.0.0)                                                                                                           |
+| `v10.0.0`      | 12872000  | Planned upgrade with chain halt      | [v10.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v10.0.0)                                                                                                         |
+| `v11.0.0`      | 13206900  | Planned upgrade with chain halt      | [v11.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v11.0.0)                                                                                                         |
+| `v12.0.0`      | 14705350  | Planned upgrade with chain halt      | [v12.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v12.0.0)                                                                                                         |
+| `v13.0.0`      | 14978500  | Planned upgrade with chain halt      | [v13.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v13.0.0)                                                                                                         |
 
 ### Mainnet
 
 | Version  | Block   | Type                                 | Details                                                                       |
 |----------|---------|--------------------------------------|-------------------------------------------------------------------------------|
 | `v1.0.0` | 1       | N/A                                  | Initial genesis version.                                                      |
-| `v2.0.0` | 706500  | Planned upgrade with chain halt      | [v2.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v2.0.0) |
-| `v3.0.0` | 1735000 | Planned upgrade with chain halt      | [v3.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v3.0.0) |
-| `v4.0.0` | 3194000 | Planned upgrade with chain halt      | [v4.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v4.0.0) |
-| `v5.0.0` | 5207000 | Planned upgrade with chain halt      | [v5.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v5.0.0) |
-| `v6.0.0` | 6773500 | Planned upgrade with chain halt      | [v6.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v6.0.0) |
-| `v7.0.0` | 7691500 | Planned upgrade with chain halt      | [v7.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v7.0.0) |
-| `v8.0.0` | 7739500 | Planned upgrade with chain halt      | [v8.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v8.0.0) |
-| `v9.0.0` | 8194500 | Planned upgrade with chain halt      | [v9.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v9.0.0) |
-| `v10.0.0` | 8773000 | Planned upgrade with chain halt      | [v10.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v10.0.0) |
-| `v11.0.0` | 9275000 | Planned upgrade with chain halt      | [v11.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v11.0.0) |
-| `v12.0.0` | 10885900 | Planned upgrade with chain halt      | [v12.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v12.0.0) |
-| `v13.0.0` | 11358000 | Planned upgrade with chain halt      | [v13.0.0 release notes](https://github.com/mezo-org/mezod/releases/tag/v13.0.0) |
+| `v2.0.0` | 706500  | Planned upgrade with chain halt      | [v2.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v2.0.0) |
+| `v3.0.0` | 1735000 | Planned upgrade with chain halt      | [v3.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v3.0.0) |
+| `v4.0.0` | 3194000 | Planned upgrade with chain halt      | [v4.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v4.0.0) |
+| `v5.0.0` | 5207000 | Planned upgrade with chain halt      | [v5.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v5.0.0) |
+| `v6.0.0` | 6773500 | Planned upgrade with chain halt      | [v6.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v6.0.0) |
+| `v7.0.0` | 7691500 | Planned upgrade with chain halt      | [v7.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v7.0.0) |
+| `v8.0.0` | 7739500 | Planned upgrade with chain halt      | [v8.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v8.0.0) |
+| `v9.0.0` | 8194500 | Planned upgrade with chain halt      | [v9.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v9.0.0) |
+| `v10.0.0` | 8773000 | Planned upgrade with chain halt      | [v10.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v10.0.0) |
+| `v11.0.0` | 9275000 | Planned upgrade with chain halt      | [v11.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v11.0.0) |
+| `v12.0.0` | 10885900 | Planned upgrade with chain halt      | [v12.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v12.0.0) |
+| `v13.0.0` | 11358000 | Planned upgrade with chain halt      | [v13.0.0 release notes](https://github.com/hoodium-io/runed/releases/tag/v13.0.0) |

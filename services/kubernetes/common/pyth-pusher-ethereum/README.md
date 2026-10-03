@@ -38,7 +38,7 @@ The deployment requires a secret named `pyth-pusher-ethereum-config` with the fo
     --namespace=default
   ```
 
-3. Navigate to mezo-<environment> directory and apply the manifests: `kubectl apply -k .`
+3. Navigate to rune-<environment> directory and apply the manifests: `kubectl apply -k .`
 
 ## Update configuration commands
 

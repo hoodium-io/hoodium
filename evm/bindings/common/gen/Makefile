@@ -41,7 +41,7 @@ _address/%: ${artifacts_dir}/%.json
 	@jq -jr .address ${artifacts_dir}/$*.json > _address/$*
 
 contract/%.go: abi/%.abi abi/%.go _address/% ${artifacts_dir}/%.json
-	$(info $* - generating Mezo bindings)
+	$(info $* - generating Rune bindings)
 	@go run github.com/keep-network/keep-common/tools/generators/ethereum $< contract/$*.go
 
 # Don't remove intermediate files that got generated.

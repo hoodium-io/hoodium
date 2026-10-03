@@ -19,7 +19,7 @@ spec:
         fsGroup: 1000
         runAsNonRoot: true
       containers:
-        - name: balance-exporter-mezo
+        - name: balance-exporter-rune
           image: rtwatts/contracts-exporter:v2.0
           imagePullPolicy: Always
           ports:
@@ -31,16 +31,16 @@ spec:
             - name: PORT
               value: "9115"
             - name: ADDRESSES_FILE
-              value: /etc/balance-exporter/addresses-mezo.txt
+              value: /etc/balance-exporter/addresses-rune.txt
             - name: CONTRACTS_FILE
               value: /etc/balance-exporter/contracts.txt
             - name: PREFIX
-              value: mezo_
+              value: rune_
             - name: CHAIN_RPC_URL
               valueFrom:
                 secretKeyRef:
                   name: rpc-url
-                  key: MEZO
+                  key: RUNE
         - name: balance-exporter-ethereum
           image: nkuba/balance-exporter
           ports:

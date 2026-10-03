@@ -62,7 +62,7 @@ on your own and provide a short summary of the results in this section.
 - [ ] Updated relevant unit and integration tests
 - [ ] Updated relevant documentation (`docs/`) or specification (`x/<module>/spec/`)
 - [ ] Assigned myself in the `Assignees` field
-- [ ] Assigned `mezod-developers` in the `Reviewers` field and notified them on Discord
+- [ ] Assigned `runed-developers` in the `Reviewers` field and notified them on Discord
 
 ### Reviewer's checklist
 

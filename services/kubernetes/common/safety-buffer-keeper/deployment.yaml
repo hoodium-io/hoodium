@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: safety-buffer-keeper
-          image: mezo/safety-buffer-keeper:latest
+          image: rune/safety-buffer-keeper:latest
           imagePullPolicy: Always
           env:
             - name: SAFETY_BUFFER_KEEPER_PRIVATE_KEY
@@ -22,7 +22,7 @@ spec:
                 secretKeyRef:
                   name: safety-buffer-keeper
                   key: private-key
-            - name: MEZO_BOAR_HTTPS_URL
+            - name: RUNE_BOAR_HTTPS_URL
               valueFrom:
                 secretKeyRef:
                   name: safety-buffer-keeper

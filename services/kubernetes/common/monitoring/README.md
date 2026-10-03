@@ -1,12 +1,12 @@
 # Kubernetes: monitoring
 
-This module contains Kubernetes deployments for monitoring the Mezo nodes.
+This module contains Kubernetes deployments for monitoring the Rune nodes.
 
 ### Prerequisites
 
-- Infrastructure components for the `mezo-<environment>` GCP project created using the
+- Infrastructure components for the `rune-<environment>` GCP project created using the
   corresponding Terraform module (make sure GKE version is >=1.29)
-- `gcloud` installed and authorized to access the `mezo-<environment>` GCP project
+- `gcloud` installed and authorized to access the `rune-<environment>` GCP project
 - `kubectl` tool installed
 
 ### Monitoring namespace
@@ -66,7 +66,7 @@ create it, use the following command:
 kubectl create secret generic metrics-scraper-config -n monitoring \
   --from-literal=chain-id=<CHAIN_ID> \
   --from-file=nodes-config.json=<PATH_TO_NODES_CONFIG> \
-  --from-literal=mezo-rpc-url=<MEZO_RPC_URL> \
+  --from-literal=rune-rpc-url=<RUNE_RPC_URL> \
   --from-literal=ethereum-rpc-url=<ETHEREUM_RPC_URL>
 ```
 
@@ -75,8 +75,8 @@ Here's an example of the `nodes-config.json` configuration file:
 {
   "nodes": [
     {
-      "rpc_url": "http://<MEZO_RPC_URL>:8545",
-      "moniker": "<MEZO_NODE_MONIKER>"
+      "rpc_url": "http://<RUNE_RPC_URL>:8545",
+      "moniker": "<RUNE_NODE_MONIKER>"
     }
   ]
 }
@@ -86,7 +86,7 @@ Here's an example of the `nodes-config.json` configuration file:
 
 The metrics scraper service requires a static IP which is to be allowlisted
 by node operators so the service can access them. It is the IP of the Cloud NAT,
-which is created as part of the `mezo-<environment>` Terraform configuration.
+which is created as part of the `rune-<environment>` Terraform configuration.
 
 Node operators will need to allowlist this IP on their EVM JSON-RPC port
 (the default being 8545).
@@ -96,9 +96,9 @@ Node operators will need to allowlist this IP on their EVM JSON-RPC port
 `monitoring` defines one ingress resource (ingress.yaml), which  creates an external
 access point for Grafana. This allows external users to securely access the Grafana
 monitoring dashboard through HTTPS at the path "/grafana". It is pinned to the
-`mezo-<environment>-monitoring-hub-external-ip` static global IP and uses
-`mezo-<environment>-monitoring-hub-ssl-certificate` SSL certificate, both created by
-the `mezo-<environment>` Terraform module.
+`rune-<environment>-monitoring-hub-external-ip` static global IP and uses
+`rune-<environment>-monitoring-hub-ssl-certificate` SSL certificate, both created by
+the `rune-<environment>` Terraform module.
 
 ### Add a node to the monitoring
 

@@ -1,19 +1,19 @@
-# RFC-3: Bridging non-Bitcoin assets to Mezo
+# RFC-3: Bridging non-Bitcoin assets to Rune
 
 >[!WARNING]
 > This document was superseded by [RFC-4](./rfc-4.md).
 
 ## Background
 
-[RFC-2: Bridging Bitcoin to Mezo](./rfc-2.md) describes the mechanism of
-bridging Bitcoin represented on EVM as tBTC to Mezo chain. Bitcoin is the base
-asset of Mezo and requires a separate bridging path that may in the future be
-transformed into direct tBTC minting on Mezo by moving the tBTC Bridge ledger
+[RFC-2: Bridging Bitcoin to Rune](./rfc-2.md) describes the mechanism of
+bridging Bitcoin represented on EVM as tBTC to Rune chain. Bitcoin is the base
+asset of Rune and requires a separate bridging path that may in the future be
+transformed into direct tBTC minting on Rune by moving the tBTC Bridge ledger
 there.
 
-The RFC-3 focuses on bridging non-tBTC assets from Ethereum to Mezo. The
+The RFC-3 focuses on bridging non-tBTC assets from Ethereum to Rune. The
 mechanism described in this RFC is going to be used in the native
-Ethereum-to-Mezo bridge. An important requirement for the proposal is to
+Ethereum-to-Rune bridge. An important requirement for the proposal is to
 minimize the liquidity fragmentation for major assets by establishing clear
 canonical token addresses.
 
@@ -21,13 +21,13 @@ canonical token addresses.
 
 ### Canonical Token
 
-The bridging itself may not require any work from the Mezo development team.
+The bridging itself may not require any work from the Rune development team.
 Various bridging solutions such as Wormhole, LayerZero, or Axelar exist
-on the market. The development teams of bridges could integrate with Mezo chain
+on the market. The development teams of bridges could integrate with Rune chain
 and enable minting bridged tokens. The problem with this out-of-the-box solution
 is liquidity fragmentation given each bridge mints its own representation of
 the token. As an example, we could have three or more representations of USDC on
-Mezo, all with different addresses.
+Rune, all with different addresses.
 
 This proposal addresses the liquidity fragmentation problem by introducing
 a canonical ERC20 token contract. The canonical token implementation should be
@@ -48,8 +48,8 @@ Optimism, Polygon, Base, and Solana. Instead of minting Wormhole wrapped tokens,
 the canonical representations of tBTC are minted by Wormhole L2 gateway contract
 on each mentioned chain.
 
-For the Mezo chain launch, we will integrate with at least one well-established
-bridging partner to bridge all tokens but Bitcoin to Mezo. Bitcoin bridging will
+For the Rune chain launch, we will integrate with at least one well-established
+bridging partner to bridge all tokens but Bitcoin to Rune. Bitcoin bridging will
 remain controlled exclusively by our native bridge.
 
 The first bridging partner we will integrate with is Wormhole but we should add
@@ -74,9 +74,9 @@ same entity as the ValidatorPool precompile.
 
 A battle-proven implementation of a Wormhole-specific gateway is available in
 tBTC repository as [`L2WormholeGateway`](https://github.com/keep-network/tbtc-v2/blob/main/solidity/contracts/l2/L2WormholeGateway.sol)
-and can be reused for Mezo.
+and can be reused for Rune.
 
-The RFC recommends keeping the gateway implementations in the mezo-portal
+The RFC recommends keeping the gateway implementations in the rune-portal
 repository, next to the Bitcoin Bridge contract described in RFC-2.
 
 ### Architecture Graph
@@ -89,7 +89,7 @@ minting canonical token representation.
 
 ```
                                          +-------------------------------------------------------------------------------+
-                                         |                                      Mezo                                     |
+                                         |                                      Rune                                     |
                                          |                                                                               |
                                          |                                   +---------------------+  +--------------+   |
 +----------------------------+           |                               +---| USDCWormholeGateway |--|     USDC     |   |
@@ -115,45 +115,45 @@ to the same implementation. An audited implementation of a proxy and mechanism
 for deploying such proxies could be borrowed from the
 [OrangeKit Safe factory](https://github.com/thesis/orangekit/blob/4285a3dbacf944a43914a182ba5313ce818416b8/solidity/contracts/OrangeKitSafeFactory.sol#L270-L314).
 The canonical token factory should be owned by the same entity as the one owning
-ValidatorPool and provide an on-chain mapping between Ethereum and Mezo token
+ValidatorPool and provide an on-chain mapping between Ethereum and Rune token
 addresses.
 
-### Mezo Portal UI
+### Rune Portal UI
 
 The UI abstracting out the complexity of the bridging operations needs to be
-integrated into the Mezo Portal. The complexity of integrating the bridging
+integrated into the Rune Portal. The complexity of integrating the bridging
 partner with our custom UI should be one of the deciding factors when selecting
 bridging partners. Wormhole provides a [TypeScript SDK](https://wormhole.com/products/sdk)
 and [Wormhole Connect](https://docs.wormhole.com/wormhole/wormhole-connect/overview)
-to integrate with their bridge. When bridging to Mezo from Ethereum, users would
+to integrate with their bridge. When bridging to Rune from Ethereum, users would
 interact with one of the bridging partner's infrastructure but this interaction
 would be hidden under the hood and the users would only have to interact with
-the Mezo Portal.
+the Rune Portal.
 
 ### Relaying post-bridge redemptions
 
 One common usability issue when bridging tokens to another chain is the
 necessity of redeeming them on the target chain once the bridging operation is
-completed. In the case of Mezo, redemption requires calling the receive function
+completed. In the case of Rune, redemption requires calling the receive function
 of the gateway to redeem wrapped tokens from the bridge and mint canonical tokens
-on Mezo. This requires users to already have Bitcoin on Mezo and remember to
+on Rune. This requires users to already have Bitcoin on Rune and remember to
 execute this operation once the bridging is completed.
 
 This additional complexity can be avoided by utilizing relayers. Wormhole
 provides a standard relayer, we were already able to
 [integrate successfully](https://github.com/keep-network/tbtc-v2/blob/e0a0bd46d783b616805815fc9840d5cc09fe79fd/solidity/contracts/l2/L1BitcoinDepositor.sol#L651-L660)
 for the L2 tBTC bridging. The standard relayer should be integrated with the
-ERC20 Mezo Bridge allowing users to pay for Mezo token redemption when
+ERC20 Rune Bridge allowing users to pay for Rune token redemption when
 initiating a bridge operation on Ethereum.
 
-This will require having the bridge gateways deployed on Mezo chain to support
+This will require having the bridge gateways deployed on Rune chain to support
 the [`IWormholeReceiver`](https://github.com/wormhole-foundation/wormhole-solidity-sdk/blob/bacbe82e6ae3f7f5ec7cdcd7d480f1e528471bbb/src/interfaces/IWormholeReceiver.sol#L44-L50)
 interface.
 
 ### Bridging tokens locked in the Portal
 
 For existing deposits locked in the Portal contract, we should provide a path to
-bridge them to the same EVM address on Mezo as the `depositOwner` stored in
+bridge them to the same EVM address on Rune as the `depositOwner` stored in
 Portal. This path should be added with an upgrade to the Portal contract
 deployed on Ethereum.
 
@@ -167,14 +167,14 @@ The list of tokens to be bridged will be provided in a separate document. For
 all of them, we should establish canonical token addresses.
 
 Tokens locked in the Portal contract will not be automatically bridged. User's
-action will be required to initiate bridging to Mezo.
+action will be required to initiate bridging to Rune.
 
 ## Open Questions
 
 ### Ethereum ERC20 Bridge contract
 
-After the Mezo chain launch users will no longer be expected to lock their
-assets in the Portal for a specific time but instead to bridge them to the Mezo
+After the Rune chain launch users will no longer be expected to lock their
+assets in the Portal for a specific time but instead to bridge them to the Rune
 chain. Since a separate mechanism handles Bitcoin bridging, no Ethereum contract
 for ERC20 bridging should be necessary if integrating standard relayer calls
 will be possible using the Wormhole SDK. If this proves not to be the case

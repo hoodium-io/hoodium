@@ -13,7 +13,7 @@ require (
 // The performance harness is a local development/benchmark tool. It imports the
 // parent chain module (crypto/hd, types) and must therefore track the live
 // working tree rather than a published release. The v0.7.0-rc0 pseudo-version
-// previously pinned here referred to the pre-rename mezod module and no longer
+// previously pinned here referred to the pre-rename runed module and no longer
 // resolves. A local replace keeps the harness compiling against current source;
 // switch to a tagged version only if the harness is ever extracted and
 // benchmarked against frozen releases.
@@ -42,7 +42,7 @@ replace github.com/hoodium-io/hoodium => ../../
 //     the same explanatory comment. Mirroring it here is REQUIRED.
 //
 //  2. The root's chain code (x/evm, types, ...) is written against the
-//     mezo-org go-ethereum fork, and this harness imports go-ethereum directly
+//     hoodium-io go-ethereum fork, and this harness imports go-ethereum directly
 //     (accounts/abi/bind, ethclient, ...). Compiling root source against stock
 //     geth risks API divergence, so the fork replace is mirrored too.
 //
@@ -53,7 +53,7 @@ replace (
 	github.com/btcsuite/btcd => github.com/btcsuite/btcd v0.22.3
 	github.com/btcsuite/btcd/v2 => github.com/btcsuite/btcd v0.23.4
 
-	// use mezo geth fork (mirrors the root module)
+	// use rune geth fork (mirrors the root module)
 	github.com/ethereum/go-ethereum => github.com/mezo-org/go-ethereum v1.16.9-mezo2
 )
 

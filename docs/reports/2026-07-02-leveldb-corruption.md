@@ -1,20 +1,20 @@
 # Incident report: 2026-07-02 LevelDB corruption
 
-In the early morning UTC of July 2, 2026, the archive node of the Mezo testnet started
+In the early morning UTC of July 2, 2026, the archive node of the Rune testnet started
 crash-looping because its main database was corrupted. In the following days, mainnet
 validator operators reported the same corruption on their nodes. Neither chain halted and
 no funds were at risk, but the affected nodes needed days to get back to normal.
 
-The root cause is general and affects every `mezod` node: **killing a running `mezod`
+The root cause is general and affects every `runed` node: **killing a running `runed`
 process without letting it shut down cleanly can corrupt its databases.** This report
 explains how that happens, how to recognize it, how to recover, and what to do so it does
 not happen to your node.
 
 ## Summary
 
-`mezod` stores all chain data in [LevelDB](https://github.com/google/leveldb) databases,
-located in the `data/` directory inside the `mezod` home directory (the path passed via
-`--home`, `~/.mezod` by default; when running in Docker or Kubernetes, it lives on the
+`runed` stores all chain data in [LevelDB](https://github.com/google/leveldb) databases,
+located in the `data/` directory inside the `runed` home directory (the path passed via
+`--home`, `~/.runed` by default; when running in Docker or Kubernetes, it lives on the
 volume mounted into the container). This report calls it the **data directory**. Each
 database has a `MANIFEST` file that acts as its index. If the process is killed in the
 middle of writing (SIGKILL, out-of-memory kill, power loss), the `MANIFEST` can be left
@@ -23,12 +23,12 @@ node crash-loops on startup from that point on.
 
 Two separate chains of events led to such kills during this incident:
 
-- **Testnet:** on July 2, `mezod` on the five testnet validators operated by the Mezo
+- **Testnet:** on July 2, `runed` on the five testnet validators operated by the Rune
   team repeatedly ran out of memory and was killed by the operating system, 33
   out-of-memory (OOM) kills within 46 minutes. One of those validators also serves as
   the testnet archive node, and its database did not survive its kill.
 - **Mainnet:** operators restarted their nodes to apply the [v11.0.1] release. Every
-  previous major upgrade was a coordinated chain-halt upgrade where `mezod` stops on its
+  previous major upgrade was a coordinated chain-halt upgrade where `runed` stops on its
   own and closes its databases cleanly. This was the first large wave of *hot restarts*
   of live, actively writing nodes, and the default stop timeouts (such as those of
   [validator-kit] deployments before version 12.1.0) turned out to be too short: when
@@ -38,7 +38,7 @@ Two separate chains of events led to such kills during this incident:
   (recovery option 2 below).
 
 Neither chain halted. On the testnet (eight validators at the time of writing: five
-operated by the Mezo team, three by external operators), only the archive node was down
+operated by the Rune team, three by external operators), only the archive node was down
 for an extended time, well within the fault tolerance of consensus. The corrupted archive
 node held the only full copy of testnet history, so instead of re-syncing it (which would
 lose that history) its 90 GiB database was repaired with an experimental offline rebuild
@@ -69,12 +69,12 @@ corruption appeared within seconds of an OOM kill.
 
 ## Recovery options
 
-Ordered from safest to most dangerous. Paths below are relative to the `mezod` home
+Ordered from safest to most dangerous. Paths below are relative to the `runed` home
 directory.
 
 Before attempting any option:
 
-1. Stop `mezod` and keep it stopped for the whole procedure.
+1. Stop `runed` and keep it stopped for the whole procedure.
 2. Take a copy of the data directory (or a snapshot of the disk it lives on), so no
    recovery attempt can make things worse.
 3. If the node is a validator, copy `data/priv_validator_state.json` to a safe place
@@ -95,17 +95,17 @@ fastest.
 2. Overwrite the restored `data/priv_validator_state.json` with the copy you saved before
    starting. The backup contains an older version of this file; the saved copy is the
    only record of what your validator signed after the backup was taken.
-3. Start `mezod`. It block-syncs the gap between the backup and the chain tip; watch the
+3. Start `runed`. It block-syncs the gap between the backup and the chain tip; watch the
    logs for steadily increasing block heights.
 
 If you have no backup of your own, you can restore from someone else's: third-party
 snapshot services publish downloadable archives of the data directories of their own
 nodes. Restoring works the same way, except you replace your `data/` directory with the
 content of the archive, and you are trusting a stranger's copy of the chain data. Known
-services for Mezo mainnet are
-[Nodes Hub](https://services.nodeshub.online/mainnet/mezo/snapshot) and
-[Imperator](https://www.imperator.co/services/chain-services/mainnets/mezo).
-**These services are not vetted or endorsed by the Mezo development team; use them at
+services for Rune mainnet are
+[Nodes Hub](https://services.nodeshub.online/mainnet/rune/snapshot) and
+[Imperator](https://www.imperator.co/services/chain-services/mainnets/rune).
+**These services are not vetted or endorsed by the Rune development team; use them at
 your own risk.** As with your own backup, put your saved `priv_validator_state.json`
 back after unpacking the archive.
 
@@ -113,13 +113,13 @@ back after unpacking the archive.
 
 If you have no backup and your node is **not** an archive node, wipe the local state and
 re-sync from a recent snapshot of the chain state. This takes hours instead of days. The
-[validator-kit README](https://github.com/mezo-org/validator-kit#state-sync-from-snapshot)
+[validator-kit README](https://github.com/hoodium-io/validator-kit#state-sync-from-snapshot)
 documents the procedure in full; the steps are:
 
 1. Wipe the local state:
 
    ```bash
-   mezod tendermint unsafe-reset-all --home <mezod-home>
+   runed tendermint unsafe-reset-all --home <runed-home>
    ```
 
 2. Put your saved `priv_validator_state.json` back into `data/`. The reset in step 1
@@ -127,24 +127,24 @@ documents the procedure in full; the steps are:
    signed.
 3. Pick a trusted block from a node you trust: `http://<node-address>:26657/block`
    returns the latest block with its height and hash. Snapshots are taken at fixed
-   intervals (every 5000 blocks on the nodes operated by the Mezo team), so choose a
+   intervals (every 5000 blocks on the nodes operated by the Rune team), so choose a
    height just above a snapshot height and read its hash from
    `http://<node-address>:26657/block?height=<height>`.
 4. In `config/config.toml`, section `[statesync]`, set:
     - `enable = true`,
     - `rpc_servers` to a comma-separated list of at least two trusted RPC servers,
     - `trust_height` and `trust_hash` to the block chosen in step 3.
-5. Start `mezod`. It downloads the state snapshot from the network and then syncs the
+5. Start `runed`. It downloads the state snapshot from the network and then syncs the
    remaining blocks. Once the node is synced, you can set `enable = false` again.
 
 State sync downloads the state snapshot automatically from other nodes over the
 peer-to-peer network and verifies it against the trusted block, so it needs peers that
 serve state sync snapshots and expose their CometBFT RPC:
 
-- **Testnet:** the Mezo team serves state sync snapshots from its testnet nodes; see the
-  [validator-kit README](https://github.com/mezo-org/validator-kit#state-sync-from-snapshot)
+- **Testnet:** the Rune team serves state sync snapshots from its testnet nodes; see the
+  [validator-kit README](https://github.com/hoodium-io/validator-kit#state-sync-from-snapshot)
   for a ready-made configuration.
-- **Mainnet:** the Mezo team does **not** run public state sync sources; reach out to
+- **Mainnet:** the Rune team does **not** run public state sync sources; reach out to
   other node operators for nodes that serve state sync snapshots. If you cannot find
   any, restoring a third-party archive of the data directory (see option 1) is the
   alternative.
@@ -173,7 +173,7 @@ Step by step:
 2. Rebuild the `MANIFEST` of each corrupted database:
 
    ```bash
-   ldb-recover recover <mezod-home>/data/application.db
+   ldb-recover recover <runed-home>/data/application.db
    ```
 
    This runs goleveldb's built-in `leveldb.RecoverFile`, which scans the data files and
@@ -193,7 +193,7 @@ Step by step:
     1. Merge-sort the table files into intermediate sorted databases ("runs"):
 
        ```bash
-       ldb-recover stage1 <mezod-home>/data/application.db <scratch-dir>/runs
+       ldb-recover stage1 <runed-home>/data/application.db <scratch-dir>/runs
        ```
 
        This reads the `.ldb` files directly, in groups of 256, and writes each group
@@ -211,7 +211,7 @@ Step by step:
     3. Merge all runs into the fresh final database:
 
        ```bash
-       ldb-recover stage2 <scratch-dir>/runs <mezod-home>/data/application.db.new
+       ldb-recover stage2 <scratch-dir>/runs <runed-home>/data/application.db.new
        ```
 
        For each key, this keeps only the newest version and drops deleted keys. For our
@@ -220,7 +220,7 @@ Step by step:
        the node is verified:
 
        ```bash
-       cd <mezod-home>/data
+       cd <runed-home>/data
        mv application.db application.db.old
        mv application.db.new application.db
        ```
@@ -235,10 +235,10 @@ Step by step:
 
 Node operators should do all of the following:
 
-1. **Give `mezod` time to shut down.** Raise the stop timeout to 120 seconds so `mezod`
+1. **Give `runed` time to shut down.** Raise the stop timeout to 120 seconds so `runed`
    can close its databases before it gets killed. Do this before your next restart (for
    example, before an upgrade): restarting with the default timeouts is exactly what
-   corrupted the mainnet nodes. Depending on how you run `mezod`:
+   corrupted the mainnet nodes. Depending on how you run `runed`:
     - Kubernetes: set `terminationGracePeriodSeconds: 120` on the pod,
     - Docker Compose: set `stop_grace_period: 2m` on the service,
     - systemd: set `TimeoutStopSec=120` in the unit.
@@ -248,9 +248,9 @@ Node operators should do all of the following:
 
    A healthy shutdown takes well under a second (we measured about 20 ms), but a node
    under memory pressure or with a large, busy database can need much longer. The wide
-   margin is cheap; a SIGKILL is not. Never stop `mezod` with `kill -9`.
+   margin is cheap; a SIGKILL is not. Never stop `runed` with `kill -9`.
 2. **Back up the data directory regularly.** A daily backup turns this whole class of
-   incident into a short restore. Take backups while `mezod` is stopped, or use
+   incident into a short restore. Take backups while `runed` is stopped, or use
    point-in-time snapshots of the disk the data directory lives on. This matters most
    for archive nodes, whose data cannot be recreated from the network.
 3. **Alert on kills.** Treat container exit code 137 and OOM-kill events as incidents and
@@ -278,13 +278,13 @@ used to repair the testnet archive node, trimmed to the four needed modes:
 - `stage2 <runs-dir> <new-db>`: merge all runs into a fresh database, keeping only the
   newest version of each key and dropping deleted keys.
 
-Build it with the **exact goleveldb version `mezod` uses**, taken from the `replace`
-directive for `github.com/syndtr/goleveldb` in `mezod`'s `go.mod`:
+Build it with the **exact goleveldb version `runed` uses**, taken from the `replace`
+directive for `github.com/syndtr/goleveldb` in `runed`'s `go.mod`:
 
 ```bash
 mkdir ldb-recover && cd ldb-recover
 go mod init ldb-recover
-go get github.com/syndtr/goleveldb@<version-from-mezod-go.mod>
+go get github.com/syndtr/goleveldb@<version-from-runed-go.mod>
 # save the program below as main.go, then:
 go build -o ldb-recover .
 ```
@@ -601,5 +601,5 @@ func min(a, b int) int {
 
 </details>
 
-[v11.0.1]: https://github.com/mezo-org/mezod/releases/tag/v11.0.1
-[validator-kit]: https://github.com/mezo-org/validator-kit
+[v11.0.1]: https://github.com/hoodium-io/runed/releases/tag/v11.0.1
+[validator-kit]: https://github.com/hoodium-io/validator-kit

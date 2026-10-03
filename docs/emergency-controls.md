@@ -1,6 +1,6 @@
 # Emergency controls
 
-This document describes the emergency controls of the Mezo chain: the Emergency
+This document describes the emergency controls of the Rune chain: the Emergency
 Team role, the lockdown mode it drives, and the audit trail both leave behind.
 
 The Emergency Team role and the bridge lockdown ship in `v13.0.0`. They replace
@@ -10,7 +10,7 @@ same release.
 
 ## Overview
 
-Mezo has two control planes.
+Rune has two control planes.
 
 | Control plane | Holder         | Character                                     |
 |---------------|----------------|-----------------------------------------------|
@@ -60,7 +60,7 @@ npx hardhat validatorPool:owner
 
 `getEmergencyTeam` returns the zero address when the role is not granted. When
 a returned address is a Safe, open it on
-[safe.mezo.org](https://safe.mezo.org) to see the signer set and the signature
+[safe.rune.org](https://safe.rune.org) to see the signer set and the signature
 threshold.
 
 The `v13.0.0` upgrade handler grants the role to the retired `AssetsBridge`
@@ -95,7 +95,7 @@ npx hardhat maintenance:setEmergencyTeam --signer OWNER --team 0x000000000000000
 ```
 
 On mainnet the PoA owner is a Safe, so the call is a Safe transaction. Use
-[safe.mezo.org](https://safe.mezo.org) to craft it from the PoA owner Safe and
+[safe.rune.org](https://safe.rune.org) to craft it from the PoA owner Safe and
 fill the fields as follows:
 
 | Field  | Value                                                 |
@@ -106,13 +106,13 @@ fill the fields as follows:
 | Method | `setEmergencyTeam`                                    |
 | `team` | the new Emergency Team, or the zero address to revoke |
 
-Pass the transaction JSON to the Mezo Governance Safe signers, the same way as
+Pass the transaction JSON to the Rune Governance Safe signers, the same way as
 an upgrade plan. See [Governance](./release-process.md#governance).
 
 ## Lockdown mode
 
 Lockdown is the only power of the Emergency Team. It comes in levels, and each
-level stops more activity than the level below it. MEZO-5000 defines the model;
+level stops more activity than the level below it. RUNE-5000 defines the model;
 `v13.0.0` implements every level.
 
 | Level | Name                    | Method                                                                   | Disable on chain | Status    |
@@ -228,7 +228,7 @@ by anyone.
 
 The check sits in the `EthTxLockdownDecorator` of the EVM ante handler, directly
 after the signature verification and before the transaction consumes gas. Every
-user transaction on Mezo is an Ethereum transaction, so every transaction meets
+user transaction on Rune is an Ethereum transaction, so every transaction meets
 the check. A rejected transaction fails at `CheckTx` with
 `transaction from <SENDER> to <TARGET> rejected by the transaction lockdown`. On
 a rejected deployment the target reads `nil (contract creation)`. A rejected
@@ -441,7 +441,7 @@ plan is already in the store. See
 Path 2 is the fallback. Validators restart the same binary and skip the plan:
 
 ```
-mezod start --unsafe-skip-upgrades <HALT_HEIGHT>
+runed start --unsafe-skip-upgrades <HALT_HEIGHT>
 ```
 
 The `PreBlocker` clears the plan, logs `UPGRADE "<name>" SKIPPED`, and the chain
@@ -492,7 +492,7 @@ event while the chain still answers, or from a node after the recovery.
 Query the whole history of the role with `eth_getLogs`:
 
 ```
-curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlock":"0x0","toBlock":"latest","address":"0x7b7c000000000000000000000000000000000013","topics":["0xc22e0a53d80be0ed688451dd96632727b45a62185ad4bcf8c30014ba1bceb04b"]}],"id":1}' -H "Content-Type: application/json" https://rpc.test.mezo.org
+curl -X POST --data '{"jsonrpc":"2.0","method":"eth_getLogs","params":[{"fromBlock":"0x0","toBlock":"latest","address":"0x7b7c000000000000000000000000000000000013","topics":["0xc22e0a53d80be0ed688451dd96632727b45a62185ad4bcf8c30014ba1bceb04b"]}],"id":1}' -H "Content-Type: application/json" https://rpc.test.rune.org
 ```
 
 Add a third topic to find only the calls that granted the role to one address.
