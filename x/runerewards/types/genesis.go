@@ -4,11 +4,8 @@ import (
 	"fmt"
 )
 
-// GenesisState is the runerewards module genesis state.
-type GenesisState struct {
-	// Params is the module's initial parameters (includes the emission schedule).
-	Params Params `json:"params"`
-}
+// GenesisState is defined in genesis.pb.go (generated from
+// proto/rune/runerewards/v1/genesis.proto).
 
 // DefaultGenesisState returns the default genesis state.
 func DefaultGenesisState() *GenesisState {

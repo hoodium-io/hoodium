@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"cosmossdk.io/log"
@@ -99,9 +98,7 @@ func (k Keeper) GetParams(ctx sdk.Context) types.Params {
 	}
 
 	var params types.Params
-	if err := json.Unmarshal(bz, &params); err != nil {
-		panic(fmt.Errorf("runerewards: failed to unmarshal params: %w", err))
-	}
+	k.cdc.MustUnmarshal(bz, &params)
 	return params
 }
 
@@ -111,10 +108,7 @@ func (k Keeper) SetParams(ctx sdk.Context, params types.Params) error {
 		return err
 	}
 
-	bz, err := json.Marshal(params)
-	if err != nil {
-		return fmt.Errorf("runerewards: failed to marshal params: %w", err)
-	}
+	bz := k.cdc.MustMarshal(&params)
 
 	store := ctx.KVStore(k.storeKey)
 	store.Set(types.KeyPrefixParams, bz)

@@ -16,39 +16,6 @@ const BlocksPerYearAt6s = uint64(5_259_600)
 // BlocksPerTwoYearsAt6s is two schedule-years, the length of the first tier.
 const BlocksPerTwoYearsAt6s = 2 * BlocksPerYearAt6s
 
-// Tier is one step of the emission schedule. A tier is active while the current
-// block height is in [StartHeight, EndHeight). EndHeight == 0 means the tier is
-// open-ended (the final, effectively-infinite tier).
-//
-// Rates are expressed in aRUN (the RUNE base denomination, 1 RUNE = 10^18 arune).
-type Tier struct {
-	// StartHeight is the first block height (inclusive) at which this tier applies.
-	StartHeight uint64
-	// EndHeight is the first block height (exclusive) at which this tier stops
-	// applying. Zero means open-ended (no upper bound).
-	EndHeight uint64
-	// RewardPerBlock is the static reward emitted each block while this tier is
-	// active, in arune.
-	RewardPerBlock sdkmath.Int
-}
-
-// Params holds the runerewards module parameters.
-type Params struct {
-	// Tiers is the ordered emission schedule. Tiers must be contiguous and
-	// non-overlapping, start at height 0, and the last tier must be open-ended.
-	// The tier boundaries are expressed in block height (deterministic and
-	// consensus-safe; every node computes the same tier from the height).
-	Tiers []Tier
-
-	// Denom is the reward denomination (arune).
-	Denom string
-
-	// MinRewardPerBlock is the floor below which emission stops and rewards
-	// become fee-only, in arune. Once the active tier's reward would fall below
-	// this value, the module emits nothing and only fees remain.
-	MinRewardPerBlock sdkmath.Int
-}
-
 // DefaultTiers returns the Hoodium emission schedule (user-confirmed):
 //
 //	Y0-2 (2 years): 50 RUNE/block
@@ -56,7 +23,7 @@ type Params struct {
 //	Y4+  (open)   :  5 RUNE/block
 //
 // expressed as block-height boundaries at a 6s target block time.
-func DefaultTiers(runeDenom string) []Tier {
+func DefaultTiers() []Tier {
 	oneRune := sdkmath.NewIntWithDecimal(1, 18)
 
 	return []Tier{
@@ -81,7 +48,7 @@ func DefaultTiers(runeDenom string) []Tier {
 // DefaultParams returns the default runerewards module parameters.
 func DefaultParams(runeDenom string) Params {
 	return Params{
-		Tiers:             DefaultTiers(runeDenom),
+		Tiers:             DefaultTiers(),
 		Denom:             runeDenom,
 		MinRewardPerBlock: sdkmath.NewIntWithDecimal(5, 18), // 5 RUNE floor
 	}
