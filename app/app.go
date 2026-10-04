@@ -114,6 +114,9 @@ import (
 	"github.com/hoodium-io/hoodium/x/feemarket"
 	feemarketkeeper "github.com/hoodium-io/hoodium/x/feemarket/keeper"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
+	"github.com/hoodium-io/hoodium/x/runerewards"
+	runerewardskeeper "github.com/hoodium-io/hoodium/x/runerewards/keeper"
+	runerewardstypes "github.com/hoodium-io/hoodium/x/runerewards/types"
 
 	"github.com/hoodium-io/hoodium/app/ante"
 
@@ -167,16 +170,26 @@ var (
 		oracle.AppModuleBasic{},
 		staking.AppModuleBasic{},
 		distr.AppModuleBasic{},
+		runerewards.AppModuleBasic{},
 		genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
 	)
 
 	// module account permissions
+	//
+	// Notes:
+	//   - validator_reward_pool holds the pre-funded RUNE reserve that funds
+	//     validator block rewards (see x/runerewards). It sends RUNE out; no
+	//     mint/burn permissions.
+	//   - runerewards (the module account) needs Minter so it can fund the
+	//     validator reward pool at genesis.
 	maccPerms = map[string][]string{
-		authtypes.FeeCollectorName:       nil,
-		evmtypes.ModuleName:              {authtypes.Minter, authtypes.Burner},
-		stakingtypes.BondedPoolName:      {authtypes.Burner, authtypes.Staking},
-		stakingtypes.NotBondedPoolName:   {authtypes.Burner, authtypes.Staking},
-		distrtypes.ModuleName:            nil,
+		authtypes.FeeCollectorName:               nil,
+		evmtypes.ModuleName:                      {authtypes.Minter, authtypes.Burner},
+		stakingtypes.BondedPoolName:              {authtypes.Burner, authtypes.Staking},
+		stakingtypes.NotBondedPoolName:           {authtypes.Burner, authtypes.Staking},
+		distrtypes.ModuleName:                    nil,
+		runerewardstypes.ValidatorRewardPoolName: nil,
+		runerewardstypes.ModuleName:              {authtypes.Minter},
 	}
 
 	// module accounts that are allowed to receive tokens
@@ -216,6 +229,7 @@ type Hoodium struct {
 	FeeMarketKeeper       feemarketkeeper.Keeper
 	OracleKeeper          oraclekeeper.Keeper
 	MarketMapKeeper       marketmapkeeper.Keeper
+	RuneRewardsKeeper     runerewardskeeper.Keeper
 
 	// the module manager
 	mm *module.Manager
@@ -277,6 +291,7 @@ func NewHoodium(
 		oracletypes.StoreKey,
 		stakingtypes.StoreKey,
 		distrtypes.StoreKey,
+		runerewardstypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -428,6 +443,15 @@ func NewHoodium(
 		authority,
 	)
 
+	app.RuneRewardsKeeper = runerewardskeeper.NewKeeper(
+		appCodec,
+		keys[runerewardstypes.StoreKey],
+		app.BankKeeper,
+		app.StakingKeeper,
+		app.AccountKeeper,
+		authority.String(),
+	)
+
 	app.EvmKeeper = evmkeeper.NewKeeper(
 		appCodec,
 		keys[evmtypes.StoreKey],
@@ -482,6 +506,7 @@ func NewHoodium(
 		oracle.NewAppModule(appCodec, app.OracleKeeper),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(stakingtypes.ModuleName)),
 		distr.NewAppModule(appCodec, app.DistributionKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(distrtypes.ModuleName)),
+		runerewards.NewAppModule(app.RuneRewardsKeeper),
 		genutil.NewAppModule(app.AccountKeeper, app.StakingKeeper, app.BaseApp, encodingConfig.TxConfig),
 	)
 
@@ -521,6 +546,7 @@ func NewHoodium(
 		consensusparamstypes.ModuleName,
 		marketmaptypes.ModuleName,
 		oracletypes.ModuleName,
+		runerewardstypes.ModuleName,
 		feemarkettypes.ModuleName,
 		genutiltypes.ModuleName,
 	)
@@ -534,6 +560,7 @@ func NewHoodium(
 		distrtypes.ModuleName,
 		evmtypes.ModuleName,
 		feemarkettypes.ModuleName,
+		runerewardstypes.ModuleName,
 		authz.ModuleName,
 		paramstypes.ModuleName,
 		upgradetypes.ModuleName,

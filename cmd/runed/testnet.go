@@ -60,6 +60,7 @@ import (
 
 	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
+	runerewardstypes "github.com/hoodium-io/hoodium/x/runerewards/types"
 
 	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 	runekr "github.com/hoodium-io/hoodium/crypto/keyring"
@@ -67,27 +68,29 @@ import (
 )
 
 var (
-	flagNodeDirPrefix           = "node-dir-prefix"
-	flagNumValidators           = "v"
-	flagOutputDir               = "output-dir"
-	flagNodeDaemonHome          = "node-daemon-home"
-	flagStartingIPAddress       = "starting-ip-address"
-	flagEnableLogging           = "enable-logging"
-	flagRPCAddress              = "rpc.address"
-	flagAPIAddress              = "api.address"
-	flagPrintMnemonic           = "print-mnemonic"
+	flagNodeDirPrefix     = "node-dir-prefix"
+	flagNumValidators     = "v"
+	flagOutputDir         = "output-dir"
+	flagNodeDaemonHome    = "node-daemon-home"
+	flagStartingIPAddress = "starting-ip-address"
+	flagEnableLogging     = "enable-logging"
+	flagRPCAddress        = "rpc.address"
+	flagAPIAddress        = "api.address"
+	flagPrintMnemonic     = "print-mnemonic"
+	flagProjectOwner      = "project-owner"
 )
 
 type initArgs struct {
-	algo                    string
-	chainID                 string
-	keyringBackend          string
-	minGasPrices            string
-	nodeDaemonHome          string
-	nodeDirPrefix           string
-	numValidators           int
-	outputDir               string
-	startingIPAddress       string
+	algo              string
+	chainID           string
+	keyringBackend    string
+	minGasPrices      string
+	nodeDaemonHome    string
+	nodeDirPrefix     string
+	numValidators     int
+	outputDir         string
+	startingIPAddress string
+	projectOwner      string
 }
 
 type startArgs struct {
@@ -108,6 +111,11 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().Int(flagNumValidators, 4, "Number of validators to initialize the testnet with")
 	cmd.Flags().StringP(flagOutputDir, "o", "./.testnets", "Directory to store initialization data for the testnet")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
+	cmd.Flags().String(
+		flagProjectOwner, "",
+		"bech32 or hex address that receives the 9,000,000,000 RUNE genesis premine; "+
+			"if empty, the first validator account is used",
+	)
 	cmd.Flags().String(sdkserver.FlagMinGasPrices, fmt.Sprintf("0.000006%s", cmdcfg.BaseDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.01photino,0.001stake)")
 	cmd.Flags().String(flags.FlagKeyType, string(hd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
 }
@@ -163,6 +171,7 @@ Example:
 			args.startingIPAddress, _ = cmd.Flags().GetString(flagStartingIPAddress)
 			args.numValidators, _ = cmd.Flags().GetInt(flagNumValidators)
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
+			args.projectOwner, _ = cmd.Flags().GetString(flagProjectOwner)
 
 			return initTestnetFiles(clientCtx, cmd, serverCtx.Config, mbm, args)
 		},
@@ -388,6 +397,40 @@ func initTestnetFiles(
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appConfig)
 	}
 
+	// Hoodium RUNE genesis allocation (user-confirmed 2026-10-03):
+	//   - 9,000,000,000 RUNE premine -> project owner address
+	//   - 1,000,000,000 RUNE reserve -> validator_reward_pool module account
+	//     (funds the x/runerewards emission schedule; drains over ~12 years)
+	// Total = 10,000,000,000 RUNE (the RUNE max supply cap).
+	oneRuneGenesis := sdkmath.NewIntWithDecimal(1, 18)
+	premineAmount := oneRuneGenesis.MulRaw(9_000_000_000)
+	reserveAmount := oneRuneGenesis.MulRaw(1_000_000_000)
+
+	// Resolve the project owner address for the premine. Default: first validator.
+	ownerAddr := genAccounts[0].GetAddress()
+	if args.projectOwner != "" {
+		if a, err := sdk.AccAddressFromBech32(args.projectOwner); err == nil {
+			ownerAddr = a
+		} else if a := common.HexToAddress(args.projectOwner); a != (common.Address{}) {
+			ownerAddr = sdk.AccAddress(a.Bytes())
+		} else {
+			return fmt.Errorf("invalid --%s address: %s", flagProjectOwner, args.projectOwner)
+		}
+	}
+
+	rewardPoolAddr := authtypes.NewModuleAddress(runerewardstypes.ValidatorRewardPoolName)
+
+	genBalances = append(genBalances,
+		banktypes.Balance{
+			Address: ownerAddr.String(),
+			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, premineAmount)),
+		},
+		banktypes.Balance{
+			Address: rewardPoolAddr.String(),
+			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, reserveAmount)),
+		},
+	)
+
 	if err := initGenesisFiles(
 		clientCtx,
 		mbm,
@@ -447,6 +490,18 @@ func initGenesisFiles(
 	// Build the staking genesis: bond each validator with a self-delegation.
 	stakingGenState := stakingtypes.DefaultGenesisState()
 	stakingGenState.Params.BondDenom = coinDenom
+
+	// Hoodium staking thresholds (user-confirmed 2026-10-03):
+	//   - MaxValidators = 101 (fresh start; raise later via governance)
+	//   - MinSelfDelegation = 500,000 RUNE
+	//   - MinCommissionRate = 5%
+	// NOTE: the SDK has no on-chain "min delegation" (per-delegator) parameter;
+	// the Hoodium 0.1 RUNE minimum delegation is enforced at the msg/precompile
+	// level, not in staking params.
+	oneRune := sdkmath.NewIntWithDecimal(1, 18)
+	stakingGenState.Params.MaxValidators = 101
+	stakingGenState.Params.MinSelfDelegation = oneRune.MulRaw(500_000) // 500,000 RUNE
+	stakingGenState.Params.MinCommissionRate = sdkmath.LegacyMustNewDecFromStr("0.05")
 
 	var (
 		genDelegations []stakingtypes.Delegation
