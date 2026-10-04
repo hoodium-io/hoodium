@@ -530,6 +530,8 @@ func NewHoodium(
 		consensusparamstypes.ModuleName,
 		marketmaptypes.ModuleName,
 		genutiltypes.ModuleName,
+		// runerewards: no-op in BeginBlock (rewards are paid in EndBlock).
+		runerewardstypes.ModuleName,
 	)
 
 	// NOTE: fee market module must go last in order to retrieve the block gas used.
