@@ -56,6 +56,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	runeclient "github.com/hoodium-io/hoodium/client"
 	"github.com/hoodium-io/hoodium/encoding"
@@ -130,7 +131,13 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		genesis.NewCmd(app.ModuleBasics, encodingConfig.TxConfig, app.DefaultNodeHome),
 		toml.NewCmd(),
 		NewInitCmd(app.ModuleBasics),
-		NewSetupCmd(app.ModuleBasics, app.DefaultNodeHome),
+		NewSetupCmd(setupDeps{
+			mbm:           app.ModuleBasics,
+			txConfig:      encodingConfig.TxConfig,
+			defaultHome:   app.DefaultNodeHome,
+			valAddrCodec:  encodingConfig.TxConfig.SigningContext().ValidatorAddressCodec(),
+			genBalancesIt: banktypes.GenesisBalancesIterator{},
+		}),
 		tmcli.NewCompletionCmd(rootCmd, true),
 		NewTestnetCmd(app.ModuleBasics),
 		confixcmd.ConfigCommand(),

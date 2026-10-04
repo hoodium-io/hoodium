@@ -10,8 +10,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/input"
+	"github.com/cosmos/cosmos-sdk/codec/address"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
+	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
+	runeclient "github.com/hoodium-io/hoodium/client"
 	"github.com/hoodium-io/hoodium/utils"
 )
 
@@ -19,6 +23,12 @@ import (
 const (
 	nodeTypeValidator = "validator"
 	nodeTypeSeed      = "seed"
+)
+
+// Setup modes: automated actually runs the bootstrap commands; manual prints them.
+const (
+	setupModeAutomated = "automated"
+	setupModeManual    = "manual"
 )
 
 // setupNetworkChainID maps a friendly network name to its chain-id.
@@ -39,11 +49,16 @@ const SetupCmdLong = `Guided first-run setup for a Hoodium node.
 
 This command walks you through the whole bootstrap interactively:
 
-  1. Choose the network       (mainnet | testnet | devnet)
-  2. Choose the node type     (validator | seed)
-  3. Initialize the node      (genesis + config + node keys)
-  4. Create your wallet key   (the account that holds/stakes RUNE)
-  5. For validators only:     create the genesis transaction (gentx)
+  1. Choose the mode          (automated | manual)
+  2. Choose the network       (mainnet | testnet | devnet)
+  3. Choose the node type     (validator | seed)
+  4. Initialize the node      (genesis + config + node keys)
+  5. Create your wallet key   (the account that holds/stakes RUNE)
+  6. For validators only:     create the genesis transaction (gentx)
+
+Modes:
+  * automated - runs init, keys add and gentx for you (with prompts).
+  * manual    - prints the exact commands for you to copy-paste and run yourself.
 
 Devnet is a FULL mainnet replica for accelerated testing; it is not a localnet.
 Both validator and seed-only nodes are supported. Additional validators can join
@@ -51,8 +66,19 @@ an already-running chain later, so a single initial validator boots the network.
 
 Non-interactive use is possible by passing the flags below.`
 
+// setupDeps carries the app wiring the setup command needs to EXECUTE the
+// bootstrap commands (init, keys add, gentx) in automated mode.
+type setupDeps struct {
+	mbm           module.BasicManager
+	txConfig      client.TxConfig
+	defaultHome   string
+	valAddrCodec  address.Codec
+	genBalancesIt genutiltypes.GenesisBalancesIterator
+}
+
 // NewSetupCmd returns the guided first-run setup command.
-func NewSetupCmd(_ module.BasicManager, defaultNodeHome string) *cobra.Command {
+func NewSetupCmd(deps setupDeps) *cobra.Command {
+	defaultNodeHome := deps.defaultHome
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Guided first-run setup for a validator or seed node",
@@ -61,6 +87,7 @@ func NewSetupCmd(_ module.BasicManager, defaultNodeHome string) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			inBuf := bufio.NewReader(cmd.InOrStdin())
 
+			mode, _ := cmd.Flags().GetString(flagSetupMode)
 			moniker, _ := cmd.Flags().GetString(flagSetupMoniker)
 			network, _ := cmd.Flags().GetString(flagSetupNetwork)
 			nodeType, _ := cmd.Flags().GetString(flagSetupNodeType)
@@ -72,6 +99,22 @@ func NewSetupCmd(_ module.BasicManager, defaultNodeHome string) *cobra.Command {
 				home = defaultNodeHome
 			}
 			stakeAmount, _ := cmd.Flags().GetString(flagSetupStakeAmount)
+
+			// --- 0. Mode --------------------------------------------------------
+			if mode == "" {
+				var err error
+				mode, err = input.GetString(
+					"Do you want the setup to be [automated] (run it for you) or [manual] (print the steps)?",
+					inBuf,
+				)
+				if err != nil {
+					return err
+				}
+			}
+			mode = strings.ToLower(strings.TrimSpace(mode))
+			if mode != setupModeAutomated && mode != setupModeManual {
+				return fmt.Errorf("invalid mode %q (expected automated or manual)", mode)
+			}
 
 			// --- 1. Network -----------------------------------------------------
 			if network == "" {
@@ -132,9 +175,14 @@ func NewSetupCmd(_ module.BasicManager, defaultNodeHome string) *cobra.Command {
 				}
 			}
 
-			printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount)
+			// Manual mode: print the copy-paste guide.
+			if mode == setupModeManual {
+				printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount)
+				return nil
+			}
 
-			return nil
+			// Automated mode: run the bootstrap commands.
+			return runSetupAutomated(deps, cmd, home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount)
 		},
 	}
 
@@ -202,6 +250,7 @@ func printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBa
 }
 
 const (
+	flagSetupMode        = "mode"
 	flagSetupMoniker     = "moniker"
 	flagSetupNetwork     = "network"
 	flagSetupNodeType    = "node-type"
@@ -210,6 +259,7 @@ const (
 )
 
 func addSetupFlags(cmd *cobra.Command, defaultNodeHome string) {
+	cmd.Flags().String(flagSetupMode, "", "Setup mode: automated | manual (skip the interactive prompt)")
 	cmd.Flags().String(flagSetupMoniker, "", "Node moniker (skip the interactive prompt)")
 	cmd.Flags().String(flagSetupNetwork, "", "Network: mainnet | testnet | devnet")
 	cmd.Flags().String(flagSetupNodeType, "", "Node type: validator | seed")
@@ -224,4 +274,76 @@ func addSetupFlags(cmd *cobra.Command, defaultNodeHome string) {
 		flags.FlagKeyringBackend, flags.DefaultKeyringBackend,
 		"Keyring backend for the wallet key (os|file|test)",
 	)
+}
+
+// runSetupAutomated executes the bootstrap sequence by building and running the
+// real child commands (init, keys add, gentx). This reuses the exact same logic
+// the standalone commands use, so behaviour can never drift. Prompts (such as
+// the keyring password) are surfaced to the user as usual.
+//
+// A confirmation is required before anything is written.
+func runSetupAutomated(
+	deps setupDeps,
+	parent *cobra.Command,
+	home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount string,
+) error {
+	inBuf := bufio.NewReader(parent.InOrStdin())
+
+	// Confirm before mutating anything.
+	confirm, err := input.GetString(
+		fmt.Sprintf("\nAutomated setup will write to %q. Continue? [y/N]", home), inBuf,
+	)
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(confirm)), "y") {
+		fmt.Println("Aborted. Nothing was changed.")
+		return nil
+	}
+
+	commonArgs := []string{
+		"--" + flags.FlagHome, home,
+		"--" + flags.FlagKeyringBackend, keyringBackend,
+	}
+
+	run := func(name string, child *cobra.Command, args []string) error {
+		fmt.Printf("\n── %s ──\n", name)
+		child.SetArgs(args)
+		child.SetIn(parent.InOrStdin())
+		child.SetOut(parent.OutOrStdout())
+		child.SetErr(parent.ErrOrStderr())
+		return child.ExecuteContext(parent.Context())
+	}
+
+	// 1. init -----------------------------------------------------------------
+	initArgs := append([]string{moniker, "--" + flags.FlagChainID, chainID}, commonArgs...)
+	if err := run("runed init", NewInitCmd(deps.mbm), initArgs); err != nil {
+		return fmt.Errorf("init failed: %w", err)
+	}
+
+	// 2. keys add (validator only) -------------------------------------------
+	if nodeType == nodeTypeValidator {
+		keyArgs := append([]string{"add", keyName}, commonArgs...)
+		if err := run("runed keys add", runeclient.KeyCommands(home), keyArgs); err != nil {
+			return fmt.Errorf("keys add failed: %w", err)
+		}
+
+		// 3. gentx ------------------------------------------------------------
+		valAddrCodec := deps.valAddrCodec
+		gentxCmd := genutilcli.GenTxCmd(
+			deps.mbm, deps.txConfig, deps.genBalancesIt, deps.defaultHome, valAddrCodec,
+		)
+		gentxArgs := append([]string{keyName, stakeAmount}, commonArgs...)
+		if err := run("runed genesis gentx", gentxCmd, gentxArgs); err != nil {
+			return fmt.Errorf("gentx failed: %w", err)
+		}
+	}
+
+	// 4. Next step --------------------------------------------------------------
+	fmt.Println()
+	fmt.Println("──────────────────────────────────────────────────────────────")
+	fmt.Println("✅ Setup complete.")
+	fmt.Printf("Next: start your node with:\n  runed start --home %s\n", home)
+	fmt.Println("──────────────────────────────────────────────────────────────")
+	return nil
 }
