@@ -1,0 +1,46 @@
+syntax = "proto3";
+package rune.runerewards.v1;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/hoodium-io/hoodium/x/runerewards/types";
+
+// Tier is one step of the RUNE emission schedule. A tier is active while the
+// current block height is in [start_height, end_height). end_height == 0 means
+// the tier is open-ended (the final, effectively-infinite tier).
+message Tier {
+  // start_height is the first block height (inclusive) at which this tier applies.
+  uint64 start_height = 1;
+  // end_height is the first block height (exclusive) at which this tier stops
+  // applying. Zero means open-ended.
+  uint64 end_height = 2;
+  // reward_per_block is the static reward emitted each block while this tier is
+  // active, in arune (1 RUNE = 10^18 arune).
+  string reward_per_block = 3 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"reward_per_block\""
+  ];
+}
+
+// Params holds the runerewards module parameters.
+message Params {
+  // tiers is the ordered emission schedule (contiguous, non-overlapping,
+  // starting at height 0, last tier open-ended).
+  repeated Tier tiers = 1 [(gogoproto.nullable) = false];
+  // denom is the reward denomination (arune).
+  string denom = 2;
+  // min_reward_per_block is the floor below which emission stops and rewards
+  // become fee-only, in arune.
+  string min_reward_per_block = 3 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"min_reward_per_block\""
+  ];
+}
+
+// GenesisState is the runerewards module genesis state.
+message GenesisState {
+  // params are the module's initial parameters (includes the emission schedule).
+  Params params = 1 [(gogoproto.nullable) = false];
+}
