@@ -334,10 +334,15 @@ func initTestnetFiles(
 			return err
 		}
 
-		balance, _ := sdkmath.NewIntFromString("100000000000000000000000000")
+		// Per-node genesis balance. Covers the validator's 500,000 RUNE
+		// MinSelfDelegation with a margin, and a small HOODI amount for testing.
+		// Kept small so the TOTAL RUNE genesis supply stays within the 10B cap
+		// (numValidators * 1,000,000 RUNE, plus the premine + 1B reserve).
+		runeNodeBalance := sdkmath.NewIntWithDecimal(1, 18).MulRaw(1_000_000) // 1,000,000 RUNE
+		hoodiNodeBalance := sdkmath.NewIntWithDecimal(1, 18).MulRaw(1_000)    // 1,000 HOODI
 		coins := sdk.NewCoins(
-			sdk.NewCoin(cmdcfg.BaseDenom, balance),
-			sdk.NewCoin(utils.HoodiDenom, balance),
+			sdk.NewCoin(cmdcfg.BaseDenom, runeNodeBalance),
+			sdk.NewCoin(utils.HoodiDenom, hoodiNodeBalance),
 		)
 
 		genBalances = append(
@@ -401,10 +406,16 @@ func initTestnetFiles(
 	//   - 9,000,000,000 RUNE premine -> project owner address
 	//   - 1,000,000,000 RUNE reserve -> validator_reward_pool module account
 	//     (funds the x/runerewards emission schedule; drains over ~12 years)
-	// Total = 10,000,000,000 RUNE (the RUNE max supply cap).
+	// The per-node genesis balances (validator self-delegation funding) are also
+	// part of the 10B cap, so the premine is reduced by their total to keep the
+	// RUNE genesis supply exactly at the 10,000,000,000 cap.
 	oneRuneGenesis := sdkmath.NewIntWithDecimal(1, 18)
-	premineAmount := oneRuneGenesis.MulRaw(9_000_000_000)
 	reserveAmount := oneRuneGenesis.MulRaw(1_000_000_000)
+
+	nodeBalancesTotal := oneRuneGenesis.MulRaw(1_000_000).MulRaw(int64(args.numValidators))
+	premineAmount := oneRuneGenesis.MulRaw(10_000_000_000).
+		Sub(reserveAmount).
+		Sub(nodeBalancesTotal)
 
 	// Resolve the project owner address for the premine. Default: first validator.
 	ownerAddr := genAccounts[0].GetAddress()
@@ -493,14 +504,14 @@ func initGenesisFiles(
 
 	// Hoodium staking thresholds (user-confirmed 2026-10-03):
 	//   - MaxValidators = 101 (fresh start; raise later via governance)
-	//   - MinSelfDelegation = 500,000 RUNE
 	//   - MinCommissionRate = 5%
-	// NOTE: the SDK has no on-chain "min delegation" (per-delegator) parameter;
-	// the Hoodium 0.1 RUNE minimum delegation is enforced at the msg/precompile
-	// level, not in staking params.
+	// NOTE: the SDK has NO global "min self-delegation" or "min delegation"
+	// params. MinSelfDelegation is a PER-VALIDATOR field (set below on each
+	// validator); the Hoodium 0.1 RUNE minimum delegation is enforced at the
+	// msg/precompile level (separate task).
 	oneRune := sdkmath.NewIntWithDecimal(1, 18)
+	minSelfDelegation := oneRune.MulRaw(500_000) // 500,000 RUNE
 	stakingGenState.Params.MaxValidators = 101
-	stakingGenState.Params.MinSelfDelegation = oneRune.MulRaw(500_000) // 500,000 RUNE
 	stakingGenState.Params.MinCommissionRate = sdkmath.LegacyMustNewDecFromStr("0.05")
 
 	var (
@@ -509,13 +520,15 @@ func initGenesisFiles(
 		lastTotalPower int64
 	)
 	for i := range validators {
-		// Give each validator a self-delegation of 1 RUNE (10^18 arune) so it has
-		// exactly 1 unit of consensus power in the local testnet.
-		tokens := runetypes.PowerReduction
+		// Each validator self-delegates its MinSelfDelegation (500,000 RUNE) so
+		// the genesis is valid (self-delegation must be >= MinSelfDelegation) and
+		// the validator has consensus power.
+		tokens := minSelfDelegation
 		val := validators[i]
 		val.Status = stakingtypes.Bonded
 		val.Tokens = tokens
 		val.DelegatorShares = sdkmath.LegacyNewDecFromInt(tokens)
+		val.MinSelfDelegation = minSelfDelegation
 
 		validators[i] = val
 

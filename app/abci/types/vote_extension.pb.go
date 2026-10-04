@@ -22,7 +22,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// VoteExtension defines the vote extension structure for the Rune application.
+// VoteExtension defines the vote extension structure for the Hoodium application.
 type VoteExtension struct {
 	// height is the height of the block that the vote extension is for.
 	Height int64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
