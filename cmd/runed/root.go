@@ -130,6 +130,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		genesis.NewCmd(app.ModuleBasics, encodingConfig.TxConfig, app.DefaultNodeHome),
 		toml.NewCmd(),
 		NewInitCmd(app.ModuleBasics),
+		NewSetupCmd(app.ModuleBasics, app.DefaultNodeHome),
 		tmcli.NewCompletionCmd(rootCmd, true),
 		NewTestnetCmd(app.ModuleBasics),
 		confixcmd.ConfigCommand(),

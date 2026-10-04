@@ -77,7 +77,6 @@ var (
 	flagRPCAddress        = "rpc.address"
 	flagAPIAddress        = "api.address"
 	flagPrintMnemonic     = "print-mnemonic"
-	flagProjectOwner      = "project-owner"
 )
 
 type initArgs struct {
@@ -90,7 +89,6 @@ type initArgs struct {
 	numValidators     int
 	outputDir         string
 	startingIPAddress string
-	projectOwner      string
 }
 
 type startArgs struct {
@@ -108,14 +106,9 @@ type startArgs struct {
 }
 
 func addTestnetFlagsToCmd(cmd *cobra.Command) {
-	cmd.Flags().Int(flagNumValidators, 4, "Number of validators to initialize the testnet with")
+	cmd.Flags().Int(flagNumValidators, 1, "Number of validators to initialize the testnet with")
 	cmd.Flags().StringP(flagOutputDir, "o", "./.testnets", "Directory to store initialization data for the testnet")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
-	cmd.Flags().String(
-		flagProjectOwner, "",
-		"bech32 or hex address that receives the 9,000,000,000 RUNE genesis premine; "+
-			"if empty, the first validator account is used",
-	)
 	cmd.Flags().String(sdkserver.FlagMinGasPrices, fmt.Sprintf("0.000006%s", cmdcfg.BaseDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.01photino,0.001stake)")
 	cmd.Flags().String(flags.FlagKeyType, string(hd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
 }
@@ -171,7 +164,6 @@ Example:
 			args.startingIPAddress, _ = cmd.Flags().GetString(flagStartingIPAddress)
 			args.numValidators, _ = cmd.Flags().GetInt(flagNumValidators)
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
-			args.projectOwner, _ = cmd.Flags().GetString(flagProjectOwner)
 
 			return initTestnetFiles(clientCtx, cmd, serverCtx.Config, mbm, args)
 		},
@@ -334,21 +326,16 @@ func initTestnetFiles(
 			return err
 		}
 
-		// Per-node genesis balance. Covers the validator's 500,000 RUNE
-		// MinSelfDelegation with a margin, and a small HOODI amount for testing.
-		// Kept small so the TOTAL RUNE genesis supply stays within the 10B cap
-		// (numValidators * 1,000,000 RUNE, plus the premine + 1B reserve).
-		runeNodeBalance := sdkmath.NewIntWithDecimal(1, 18).MulRaw(1_000_000) // 1,000,000 RUNE
-		hoodiNodeBalance := sdkmath.NewIntWithDecimal(1, 18).MulRaw(1_000)    // 1,000 HOODI
-		coins := sdk.NewCoins(
-			sdk.NewCoin(cmdcfg.BaseDenom, runeNodeBalance),
-			sdk.NewCoin(utils.HoodiDenom, hoodiNodeBalance),
-		)
-
-		genBalances = append(
-			genBalances,
-			banktypes.Balance{Address: address.String(), Coins: coins.Sort()},
-		)
+		// Per-node genesis balance.
+		//
+		// The genesis validator's self-delegation is funded from the premine
+		// account (the initial validator's operator IS the premine owner), so no
+		// separate genesis balance is emitted here. Additional validators join
+		// later through their own nodes and self-fund their stake.
+		//
+		// NOTE: no bank balance is added for this account here; the premine
+		// balance (see below) covers it. The account is still created so it can
+		// sign as the genesis validator operator.
 		genAccounts = append(
 			genAccounts, &runetypes.EthAccount{
 				BaseAccount: authtypes.NewBaseAccount(address, nil, 0, 0),
@@ -402,43 +389,67 @@ func initTestnetFiles(
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appConfig)
 	}
 
-	// Hoodium RUNE genesis allocation (user-confirmed 2026-10-03):
-	//   - 9,000,000,000 RUNE premine -> project owner address
-	//   - 1,000,000,000 RUNE reserve -> validator_reward_pool module account
-	//     (funds the x/runerewards emission schedule; drains over ~12 years)
-	// The per-node genesis balances (validator self-delegation funding) are also
-	// part of the 10B cap, so the premine is reduced by their total to keep the
-	// RUNE genesis supply exactly at the 10,000,000,000 cap.
+	// ---------------------------------------------------------------------------
+	// Hoodium genesis allocation (PLACEHOLDER addresses — replace before launch)
+	//
+	//   RUNE:  9,000,000,000 premine  -> hoodiumRunePremineAddr (PLACEHOLDER)
+	//          1,000,000,000 reserve  -> validator_reward_pool (x/runerewards)
+	//   HOODI: 10,000,000    premine  -> hoodiumHoodiPremineAddr (PLACEHOLDER)
+	//
+	// RUNE total  = 10,000,000,000 (== RUNE max supply cap)
+	// HOODI total = 10,000,000     (== HOODI max supply cap)
+	//
+	// NOTE: initial validator self-delegations are funded MANUALLY by the chain
+	// operator (not from these premine balances). A genesis EVM address that
+	// receives RUNE here is the SAME account as its rune1... bech32 twin
+	// (sdk.AccAddress(evmAddr.Bytes()) == the cosmos address), so the premine is
+	// usable directly from an EVM wallet.
+	//
+	// TODO(devnet): replace the two PLACEHOLDER addresses below with the real
+	// premine addresses (or drive them from a config file) before devnet launch.
+	// ---------------------------------------------------------------------------
 	oneRuneGenesis := sdkmath.NewIntWithDecimal(1, 18)
-	reserveAmount := oneRuneGenesis.MulRaw(1_000_000_000)
 
-	nodeBalancesTotal := oneRuneGenesis.MulRaw(1_000_000).MulRaw(int64(args.numValidators))
-	premineAmount := oneRuneGenesis.MulRaw(10_000_000_000).
-		Sub(reserveAmount).
-		Sub(nodeBalancesTotal)
+	// PLACEHOLDER premine addresses.
+	//
+	// The RUNE premine is placed on the first genesis validator's account (its
+	// operator IS the premine owner), which also backs that validator's 500,000
+	// RUNE self-delegation. Additional validators join later and self-fund their
+	// stake from their own accounts.
+	//
+	// TODO(devnet): set the real HOODI premine address (and, if the RUNE premine
+	// should live on a dedicated account rather than the genesis validator, add
+	// an explicit premine address here too).
+	hoodiumHoodiPremineAddr := common.HexToAddress("0x0000000000000000000000000000000000001002")
 
-	// Resolve the project owner address for the premine. Default: first validator.
-	ownerAddr := genAccounts[0].GetAddress()
-	if args.projectOwner != "" {
-		if a, err := sdk.AccAddressFromBech32(args.projectOwner); err == nil {
-			ownerAddr = a
-		} else if a := common.HexToAddress(args.projectOwner); a != (common.Address{}) {
-			ownerAddr = sdk.AccAddress(a.Bytes())
-		} else {
-			return fmt.Errorf("invalid --%s address: %s", flagProjectOwner, args.projectOwner)
-		}
-	}
+	// Total RUNE is capped at 10,000,000,000 (9B premine + 1B reserve).
+	//
+	// The genesis validator's self-delegation (500,000 RUNE) is bonded from the
+	// premine owner's 9B balance (the initial validator operator IS the premine
+	// owner), so the totals stay exactly at the 10B cap.
+	runePremineAmount := oneRuneGenesis.MulRaw(9_000_000_000) // 9B RUNE
+	runeReserveAmount := oneRuneGenesis.MulRaw(1_000_000_000) // 1B RUNE (validator_reward_pool)
+	hoodiPremineAmount := oneRuneGenesis.MulRaw(10_000_000)   // 10M HOODI
 
 	rewardPoolAddr := authtypes.NewModuleAddress(runerewardstypes.ValidatorRewardPoolName)
 
 	genBalances = append(genBalances,
+		// RUNE premine -> first genesis validator's account (its operator is the
+		// premine owner). This balance also backs that validator's 500,000 RUNE
+		// self-delegation.
 		banktypes.Balance{
-			Address: ownerAddr.String(),
-			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, premineAmount)),
+			Address: genAccounts[0].GetAddress().String(),
+			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, runePremineAmount)),
 		},
+		// RUNE staking reserve -> validator_reward_pool (funds x/runerewards).
 		banktypes.Balance{
 			Address: rewardPoolAddr.String(),
-			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, reserveAmount)),
+			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, runeReserveAmount)),
+		},
+		// HOODI premine -> placeholder EVM address.
+		banktypes.Balance{
+			Address: sdk.AccAddress(hoodiumHoodiPremineAddr.Bytes()).String(),
+			Coins:   sdk.NewCoins(sdk.NewCoin(utils.HoodiDenom, hoodiPremineAmount)),
 		},
 	)
 
@@ -532,12 +543,15 @@ func initGenesisFiles(
 
 		validators[i] = val
 
-		// Operator is the bech32 validator address; self-delegation means the
-		// delegator and validator are the same operator.
+		// Self-delegation: the DELEGATOR is the validator's account (acc) address,
+		// while the VALIDATOR address is the valoper. The SDK decodes
+		// DelegatorAddress with the account address codec, so it MUST be an acc
+		// bech32 address (not valoper).
+		delegator := genAccounts[i].GetAddress().String()
 		operator := val.OperatorAddress
 
 		genDelegations = append(genDelegations, stakingtypes.Delegation{
-			DelegatorAddress: operator,
+			DelegatorAddress: delegator,
 			ValidatorAddress: operator,
 			Shares:           sdkmath.LegacyNewDecFromInt(tokens),
 		})
