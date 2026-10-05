@@ -412,15 +412,16 @@ func initTestnetFiles(
 
 	// PLACEHOLDER premine addresses.
 	//
-	// The RUNE premine is placed on the first genesis validator's account (its
-	// operator IS the premine owner), which also backs that validator's 500,000
-	// RUNE self-delegation. Additional validators join later and self-fund their
+	// Both premines (RUNE and HOODI) are placed on the FIRST genesis validator's
+	// wallet account (created by `keys add` / `init`). That account's operator is
+	// the premine owner. Additional validators join later and self-fund their
 	// stake from their own accounts.
 	//
-	// TODO(devnet): set the real HOODI premine address (and, if the RUNE premine
-	// should live on a dedicated account rather than the genesis validator, add
-	// an explicit premine address here too).
-	hoodiumHoodiPremineAddr := common.HexToAddress("0x0000000000000000000000000000000000001002")
+	// To control the premine from an EVM wallet, the operator copies the wallet's
+	// 0x private key (runed keys unsafe-export-eth-key <key>) into the EVM wallet.
+	//
+	// TODO(devnet): if the premines should live on a dedicated account rather than
+	// the genesis validator, add explicit premine addresses here.
 
 	// Total RUNE is capped at 10,000,000,000 (9B premine + 1B reserve).
 	//
@@ -434,9 +435,11 @@ func initTestnetFiles(
 	rewardPoolAddr := authtypes.NewModuleAddress(runerewardstypes.ValidatorRewardPoolName)
 
 	genBalances = append(genBalances,
-		// RUNE premine -> first genesis validator's account (its operator is the
-		// premine owner). This balance also backs that validator's 500,000 RUNE
-		// self-delegation.
+		// RUNE premine -> first genesis validator's wallet (the account created
+		// by keys add / init). Its operator is the premine owner. This balance
+		// also backs that validator's 500,000 RUNE self-delegation. The operator
+		// can copy this wallet's 0x private key (runed keys unsafe-export-eth-key)
+		// into an EVM wallet to control the premine.
 		banktypes.Balance{
 			Address: genAccounts[0].GetAddress().String(),
 			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, runePremineAmount)),
@@ -446,9 +449,10 @@ func initTestnetFiles(
 			Address: rewardPoolAddr.String(),
 			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, runeReserveAmount)),
 		},
-		// HOODI premine -> placeholder EVM address.
+		// HOODI premine -> first genesis validator's wallet (same account as the
+		// RUNE premine; bootstrap owner controls both).
 		banktypes.Balance{
-			Address: sdk.AccAddress(hoodiumHoodiPremineAddr.Bytes()).String(),
+			Address: genAccounts[0].GetAddress().String(),
 			Coins:   sdk.NewCoins(sdk.NewCoin(utils.HoodiDenom, hoodiPremineAmount)),
 		},
 	)
