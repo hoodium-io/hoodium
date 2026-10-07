@@ -19,6 +19,7 @@ import (
 	"runtime"
 )
 
+// Hoodium versioning
 var (
 	AppVersion = ""
 	GoVersion  = ""
