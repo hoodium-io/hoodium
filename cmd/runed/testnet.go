@@ -440,14 +440,16 @@ func initTestnetFiles(
 	// TODO(devnet): if the premines should live on a dedicated account rather than
 	// the genesis validator, add explicit premine addresses here.
 
-	// Total RUNE is capped at 10,000,000,000 (9B premine + 1B reserve).
+	// RUNE total is capped at 10,000,000,000 (9B premine + 1B reserve).
 	//
-	// The genesis validator's self-delegation (500,000 RUNE) is bonded from the
-	// premine owner's 9B balance (the initial validator operator IS the premine
-	// owner), so the totals stay exactly at the 10B cap.
-	runePremineAmount := oneRuneGenesis.MulRaw(9_000_000_000) // 9B RUNE
-	runeReserveAmount := oneRuneGenesis.MulRaw(1_000_000_000) // 1B RUNE (validator_reward_pool)
-	hoodiPremineAmount := oneRuneGenesis.MulRaw(10_000_000)   // 10M HOODI
+	// The genesis validator's self-delegation (500,000 RUNE) is bonded out of the
+	// premine owner's 9B balance: the bonded amount is moved into the
+	// bonded_tokens_pool, so the wallet's liquid premine is reduced accordingly.
+	// Totals: (9B - bonded) wallet + bonded pool + 1B reserve = exactly 10B.
+	bondedTokensTotal := oneRuneGenesis.MulRaw(500_000).MulRaw(int64(args.numValidators))
+	runePremineAmount := oneRuneGenesis.MulRaw(9_000_000_000).Sub(bondedTokensTotal) // 9B - bonded
+	runeReserveAmount := oneRuneGenesis.MulRaw(1_000_000_000)                        // 1B RUNE (validator_reward_pool)
+	hoodiPremineAmount := oneRuneGenesis.MulRaw(10_000_000)                          // 10M HOODI
 
 	rewardPoolAddr := authtypes.NewModuleAddress(runerewardstypes.ValidatorRewardPoolName)
 
@@ -473,6 +475,19 @@ func initTestnetFiles(
 			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, runeReserveAmount)),
 		},
 	)
+
+	// Fund the staking bonded_tokens_pool.
+	//
+	// Staking InitGenesis asserts `bonded_pool_balance == sum(bonded validator
+	// tokens)`; every genesis validator is bonded with a self-delegation of
+	// minSelfDelegation. Without this balance the chain panics at InitChain with
+	// "bonded pool balance is different from bonded coins". This mirrors what the
+	// app test helpers do when they build a staking genesis.
+	bondedPoolAddr := authtypes.NewModuleAddress(stakingtypes.BondedPoolName)
+	genBalances = append(genBalances, banktypes.Balance{
+		Address: bondedPoolAddr.String(),
+		Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, bondedTokensTotal)),
+	})
 
 	if err := initGenesisFiles(
 		clientCtx,
