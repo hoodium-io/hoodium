@@ -501,6 +501,17 @@ func initGenesisFiles(
 	var bankGenState banktypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[banktypes.ModuleName], &bankGenState)
 	bankGenState.Balances = genBalances
+
+	// Set the total supply explicitly so the genesis is self-documenting and
+	// auditable. The bank module derives the supply from balances if this is
+	// empty, but writing it makes the 10B RUNE / 10M HOODI cap visible in the
+	// genesis file. Values MUST equal the sum of genBalances per denom.
+	supplyMap := sdk.NewMapCoins(sdk.Coins{})
+	for _, balance := range genBalances {
+		supplyMap.Add(balance.Coins...)
+	}
+	bankGenState.Supply = supplyMap.ToCoins()
+
 	appGenState[banktypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&bankGenState)
 
 	var crisisGenState crisistypes.GenesisState
