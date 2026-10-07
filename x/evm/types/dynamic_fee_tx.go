@@ -274,10 +274,12 @@ func (tx DynamicFeeTx) Validate() error {
 		)
 	}
 
-	if !(chainID.Cmp(big.NewInt(6590)) == 0 || chainID.Cmp(big.NewInt(6591)) == 0) {
+	if !(chainID.Cmp(big.NewInt(6590)) == 0 ||
+		chainID.Cmp(big.NewInt(6591)) == 0 ||
+		chainID.Cmp(big.NewInt(6592)) == 0) {
 		return errorsmod.Wrapf(
 			errortypes.ErrInvalidChainID,
-			"chain ID must be 6591 or 6590 on Hoodium, got %s", chainID,
+			"chain ID must be 6590, 6591 or 6592 on Hoodium, got %s", chainID,
 		)
 	}
 

@@ -173,8 +173,14 @@ func (k *Keeper) WithChainID(ctx sdk.Context) {
 		panic("chain id already set")
 	}
 
-	if !(chainID.Cmp(big.NewInt(6590)) == 0 || chainID.Cmp(big.NewInt(6591)) == 0) {
-		panic("EVM only supports Hoodium chain identifiers (6591 or 6590)")
+	// Accepted Hoodium EIP-155 chain identifiers:
+	//   6590 = mainnet, 6591 = testnet, 6592 = devnet.
+	// Devnet is a full mainnet replica used for accelerated testing; it must be
+	// accepted here as well as mainnet and testnet.
+	if !(chainID.Cmp(big.NewInt(6590)) == 0 ||
+		chainID.Cmp(big.NewInt(6591)) == 0 ||
+		chainID.Cmp(big.NewInt(6592)) == 0) {
+		panic("EVM only supports Hoodium chain identifiers (6590, 6591 or 6592)")
 	}
 
 	k.eip155ChainID = chainID
