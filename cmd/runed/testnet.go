@@ -20,6 +20,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -27,6 +28,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/cosmos/cosmos-sdk/x/genutil/types"
 
@@ -40,6 +42,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	clientconfig "github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -387,6 +390,20 @@ func initTestnetFiles(
 		appConfig.JSONRPC.Address = getJSONRPCAddress(i, args.startingIPAddress)
 		appConfig.JSONRPC.WsAddress = getJSONRPCWsAddress(i, args.startingIPAddress)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appConfig)
+
+		// Write client.toml with the chain-id set. Without this, the node's
+		// client.toml has an empty chain-id, and `runed start` reads it (via the
+		// flag fallback in appCreator) to set baseapp's chain-id. An empty
+		// chain-id breaks construction of the custom EVM precompiles (they parse
+		// the chain-id for the EIP-712 domain separator).
+		clientConfig := clientconfig.DefaultConfig()
+		clientConfig.SetChainID(args.chainID)
+		clientConfig.SetKeyringBackend(args.keyringBackend)
+		if err := writeClientConfigFile(
+			filepath.Join(nodeDir, "config/client.toml"), clientConfig,
+		); err != nil {
+			return err
+		}
 	}
 
 	// ---------------------------------------------------------------------------
@@ -787,4 +804,41 @@ func startTestnet(cmd *cobra.Command, args startArgs) error {
 	testnet.Cleanup()
 
 	return nil
+}
+
+// clientConfigTemplate mirrors the Cosmos SDK's client.toml template so the file
+// we write is byte-compatible with what the SDK expects to read.
+const clientConfigTemplate = `# This is a TOML config file.
+# For more information, see https://github.com/toml-lang/toml
+
+###############################################################################
+###                           Client Configuration                            ###
+###############################################################################
+
+# The network chain ID
+chain-id = "{{ .ChainID }}"
+# The keyring's backend, where the keys are stored (os|file|kwallet|pass|test|memory)
+keyring-backend = "{{ .KeyringBackend }}"
+# CLI output format (text|json)
+output = "{{ .Output }}"
+# <host>:<port> to CometBFT RPC interface for this chain
+node = "{{ .Node }}"
+# Transaction broadcasting mode (sync|async)
+broadcast-mode = "{{ .BroadcastMode }}"
+`
+
+// writeClientConfigFile renders the client.toml template with the given config
+// and writes it to configFilePath.
+func writeClientConfigFile(configFilePath string, config *clientconfig.ClientConfig) error {
+	tmpl, err := template.New("clientConfigFileTemplate").Parse(clientConfigTemplate)
+	if err != nil {
+		return err
+	}
+
+	var buffer bytes.Buffer
+	if err := tmpl.Execute(&buffer, config); err != nil {
+		return err
+	}
+
+	return os.WriteFile(configFilePath, buffer.Bytes(), 0o600)
 }
