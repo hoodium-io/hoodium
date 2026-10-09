@@ -1,6 +1,8 @@
 package evm
 
 import (
+	"math/big"
+
 	errorsmod "cosmossdk.io/errors"
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -59,17 +61,16 @@ func (dgpd EthDeploymentGasPriceDecorator) AnteHandle(
 			return ctx, errorsmod.Wrapf(err, "failed to unpack tx data %s", ethMsg.Hash)
 		}
 
-		// Effective fee the sender will actually pay per gas unit.
+		// Effective fee the sender will actually pay (TOTAL, price × gas).
 		//
 		// For typed (non-legacy) txs the effective price depends on the EIP-1559
 		// base fee. When the base fee is not active (London not enabled, or the
 		// fee market has it disabled) `baseFee` is nil, in which case the
-		// effective price is simply the tx's gas price / fee cap.
+		// effective fee is simply the tx's static fee (gas price / fee cap × gas).
 		feeAmt := ethMsg.GetFee()
 		if txData.TxType() != ethtypes.LegacyTxType && baseFee != nil {
 			feeAmt = ethMsg.GetEffectiveFee(baseFee)
 		}
-		gasPrice := sdkmath.LegacyNewDecFromBigInt(feeAmt)
 
 		// Contract deployment? (empty `to` address).
 		minGasPrice := RegularGasPriceMin
@@ -79,7 +80,18 @@ func (dgpd EthDeploymentGasPriceDecorator) AnteHandle(
 			kind = "contract deployment"
 		}
 
-		if gasPrice.LT(minGasPrice) {
+		// Compare TOTAL fees (minimum-per-gas × gas limit vs the tx's fee), which
+		// is the same formulation the global min-gas-price decorator uses.
+		gasLimit := sdkmath.LegacyNewDecFromBigInt(new(big.Int).SetUint64(ethMsg.GetGas()))
+		requiredFee := minGasPrice.Mul(gasLimit)
+		fee := sdkmath.LegacyNewDecFromBigInt(feeAmt)
+
+		if fee.LT(requiredFee) {
+			// Report the implied per-gas price for clarity.
+			gasPrice := sdkmath.LegacyZeroDec()
+			if ethMsg.GetGas() > 0 {
+				gasPrice = fee.Quo(gasLimit)
+			}
 			return ctx, errorsmod.Wrapf(
 				errortypes.ErrInsufficientFee,
 				"%s requires a gas price of at least %s arune, got %s arune; "+
