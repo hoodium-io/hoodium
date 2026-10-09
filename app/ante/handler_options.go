@@ -75,6 +75,10 @@ func (options HandlerOptions) Validate() error {
 	if options.TxFeeChecker == nil {
 		return errorsmod.Wrap(errortypes.ErrLogic, "tx fee checker is required for AnteHandler")
 	}
+	// Fail fast if the two-gas-price constants are misconfigured.
+	if err := evmante.ValidateTwoGasPriceConfig(); err != nil {
+		return errorsmod.Wrap(errortypes.ErrLogic, err.Error())
+	}
 	return nil
 }
 
@@ -87,6 +91,9 @@ func newEVMAnteHandler(options HandlerOptions) sdk.AnteHandler {
 		evmante.NewEthMempoolFeeDecorator(options.EvmKeeper),
 		// Check eth effective gas price against the global MinGasPrice
 		evmante.NewEthMinGasPriceDecorator(options.FeeMarketKeeper, options.EvmKeeper),
+		// Enforce Hoodium's two-gas-price model: contract deployments must pay a
+		// higher minimum gas price than regular transactions.
+		evmante.NewEthDeploymentGasPriceDecorator(options.EvmKeeper),
 		evmante.NewEthValidateBasicDecorator(options.EvmKeeper),
 		evmante.NewEthSigVerificationDecorator(options.EvmKeeper),
 		evmante.NewEthAccountVerificationDecorator(options.AccountKeeper, options.EvmKeeper),
