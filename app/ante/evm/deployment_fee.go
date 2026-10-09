@@ -23,16 +23,16 @@ import (
 // applicable minimum. It does not cap fees; the EIP-1559 base fee may still push
 // the effective price above the floor under congestion.
 //
-// A tx is treated as a contract deployment when its `to` address is nil/empty
-// (EIP-2 / standard EVM semantics; also covers CREATE via type-0x04 set-code txs
-// whose `to` is populated, which are therefore NOT treated as deployments).
+// A tx is treated as a contract deployment when its `to` address is nil
+// (standard EVM CREATE semantics; EIP-7702 set-code txs carry a populated `to`
+// and are therefore NOT treated as deployments).
 type EthDeploymentGasPriceDecorator struct {
-	evmKeeper EVMKeeper
+	evmKeeper DynamicFeeEVMKeeper
 }
 
 // NewEthDeploymentGasPriceDecorator creates a new
 // EthDeploymentGasPriceDecorator.
-func NewEthDeploymentGasPriceDecorator(ek EVMKeeper) EthDeploymentGasPriceDecorator {
+func NewEthDeploymentGasPriceDecorator(ek DynamicFeeEVMKeeper) EthDeploymentGasPriceDecorator {
 	return EthDeploymentGasPriceDecorator{evmKeeper: ek}
 }
 
@@ -60,8 +60,13 @@ func (dgpd EthDeploymentGasPriceDecorator) AnteHandle(
 		}
 
 		// Effective fee the sender will actually pay per gas unit.
+		//
+		// For typed (non-legacy) txs the effective price depends on the EIP-1559
+		// base fee. When the base fee is not active (London not enabled, or the
+		// fee market has it disabled) `baseFee` is nil, in which case the
+		// effective price is simply the tx's gas price / fee cap.
 		feeAmt := ethMsg.GetFee()
-		if txData.TxType() != ethtypes.LegacyTxType {
+		if txData.TxType() != ethtypes.LegacyTxType && baseFee != nil {
 			feeAmt = ethMsg.GetEffectiveFee(baseFee)
 		}
 		gasPrice := sdkmath.LegacyNewDecFromBigInt(feeAmt)
