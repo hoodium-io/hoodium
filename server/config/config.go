@@ -87,8 +87,15 @@ const (
 	// DefaultMaxOpenConnections represents the amount of open connections (unlimited = 0)
 	DefaultMaxOpenConnections = 0
 
-	// DefaultConnectOracleEnabled is the default value indicating whether the oracle is enabled.
-	DefaultConnectOracleEnabled = true
+	// DefaultConnectOracleEnabled is the default value indicating whether the
+	// Connect price oracle client is enabled.
+	//
+	// Default is FALSE: Hoodium does not ship a Connect oracle sidecar yet. When
+	// the oracle is disabled, the client is a no-op — no sidecar connection is
+	// attempted and no "connection refused" errors are logged. Enable it (and
+	// point `oracle.oracle_address` at a running sidecar) once the RUNE/USD price
+	// feed and any additional pairs are deployed.
+	DefaultConnectOracleEnabled = false
 
 	// DefaultConnectOracleAddress is the default address of the oracle sidecar.
 	DefaultConnectOracleAddress = "localhost:8080"
@@ -236,11 +243,11 @@ func AppConfig(denom string) (string, interface{}) {
 	}
 
 	customAppConfig := Config{
-		Config:   *srvCfg,
-		EVM:      *DefaultEVMConfig(),
-		JSONRPC:  *DefaultJSONRPCConfig(),
-		TLS:      *DefaultTLSConfig(),
-		Oracle:   *DefaultOracleConfig(),
+		Config:  *srvCfg,
+		EVM:     *DefaultEVMConfig(),
+		JSONRPC: *DefaultJSONRPCConfig(),
+		TLS:     *DefaultTLSConfig(),
+		Oracle:  *DefaultOracleConfig(),
 	}
 
 	customAppTemplate := config.DefaultConfigTemplate + DefaultConfigTemplate + oracleconfig.DefaultConfigTemplate
@@ -251,11 +258,11 @@ func AppConfig(denom string) (string, interface{}) {
 // DefaultConfig returns server's default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		Config:   *config.DefaultConfig(),
-		EVM:      *DefaultEVMConfig(),
-		JSONRPC:  *DefaultJSONRPCConfig(),
-		TLS:      *DefaultTLSConfig(),
-		Oracle:   *DefaultOracleConfig(),
+		Config:  *config.DefaultConfig(),
+		EVM:     *DefaultEVMConfig(),
+		JSONRPC: *DefaultJSONRPCConfig(),
+		TLS:     *DefaultTLSConfig(),
+		Oracle:  *DefaultOracleConfig(),
 	}
 }
 
