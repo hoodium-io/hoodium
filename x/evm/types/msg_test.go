@@ -438,7 +438,7 @@ func (suite *MsgsTestSuite) TestMsgEthereumTx_ValidateBasic() {
 			accessList: &ethtypes.AccessList{},
 			chainID:    hundredInt,
 			expectPass: false,
-			errMsg:     "chain ID must be 6591 or 6590 on Hoodium",
+			errMsg:     "chain ID must be 6590, 6591 or 6592 on Hoodium",
 		},
 	}
 

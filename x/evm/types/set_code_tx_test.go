@@ -395,7 +395,7 @@ func TestSetCodeTxValidate(t *testing.T) {
 				tx.ChainID = &cid
 			},
 			wantErr:  true,
-			errMatch: "chain ID must be 6591 or 6590",
+			errMatch: "chain ID must be 6590, 6591 or 6592",
 		},
 		{
 			name: "non-Hoodium chain id (31610) rejected",
@@ -404,7 +404,7 @@ func TestSetCodeTxValidate(t *testing.T) {
 				tx.ChainID = &cid
 			},
 			wantErr:  true,
-			errMatch: "chain ID must be 6591 or 6590",
+			errMatch: "chain ID must be 6590, 6591 or 6592",
 		},
 		{
 			name: "non-Hoodium chain id (31613) rejected",
@@ -413,7 +413,7 @@ func TestSetCodeTxValidate(t *testing.T) {
 				tx.ChainID = &cid
 			},
 			wantErr:  true,
-			errMatch: "chain ID must be 6591 or 6590",
+			errMatch: "chain ID must be 6590, 6591 or 6592",
 		},
 		{
 			name: "auth with malformed address",
