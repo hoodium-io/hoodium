@@ -49,8 +49,8 @@ func TestEthDeploymentGasPriceDecorator(t *testing.T) {
 
 	decorator := NewEthDeploymentGasPriceDecorator(keeper)
 
-	// RegularGasPriceMin = 0.0001 RUNE/gas = 1e14 arune.
-	// DeploymentGasPriceMin = 0.01 RUNE/gas = 1e16 arune.
+	// RegularGasPriceMin    = 0.0001 RUNE/gas = 1e14 arune/gas.
+	// DeploymentGasPriceMin = 0.01   RUNE/gas = 1e16 arune/gas.
 	const (
 		belowRegular = int64(1e13) // 0.00001 RUNE/gas (< regular min)
 		atRegular    = int64(1e14) // 0.0001  RUNE/gas (= regular min)
@@ -109,7 +109,9 @@ func atDeployPrice() int64 { return 1e16 }
 
 func TestValidateTwoGasPriceConfig(t *testing.T) {
 	require.NoError(t, ValidateTwoGasPriceConfig())
-	require.Equal(t, sdkmath.LegacyMustNewDecFromStr("0.0001"), RegularGasPriceMin)
-	require.Equal(t, sdkmath.LegacyMustNewDecFromStr("0.01"), DeploymentGasPriceMin)
+
+	// Constants are in the base denomination (arune).
+	require.Equal(t, sdkmath.LegacyNewDec(100_000_000_000_000), RegularGasPriceMin)       // 1e14 arune = 0.0001 RUNE
+	require.Equal(t, sdkmath.LegacyNewDec(10_000_000_000_000_000), DeploymentGasPriceMin) // 1e16 arune = 0.01 RUNE
 	require.True(t, DeploymentGasPriceMin.GT(RegularGasPriceMin))
 }

@@ -14,6 +14,10 @@
 
 The deployment minimum is **100×** the regular minimum.
 
+> **Units:** gas prices flow through the chain in the base denomination,
+> **arune** (1 RUNE = 10^18 arune). Internally these are `1e14` and `1e16`
+> arune per gas respectively.
+
 Fees are computed as `gas used × gas price`. Illustrative costs:
 
 | Transaction | Gas | At regular price | At deployment price |
@@ -66,8 +70,8 @@ Both prices are **compile-time constants** in
 `app/ante/evm/deployment_fee_config.go`:
 
 ```go
-RegularGasPriceMin    = 0.0001 RUNE / gas
-DeploymentGasPriceMin = 0.01   RUNE / gas
+RegularGasPriceMin    = 1e14 arune / gas  // 0.0001 RUNE / gas
+DeploymentGasPriceMin = 1e16 arune / gas  // 0.01   RUNE / gas
 ```
 
 They are **not** governance-adjustable parameters. Changing them requires a

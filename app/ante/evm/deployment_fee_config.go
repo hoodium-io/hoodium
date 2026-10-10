@@ -13,21 +13,23 @@ import (
 // keeping ordinary transfers cheap. These are fixed constants (not governance
 // params) — changing them requires a software upgrade.
 //
-// Values are expressed in the base denomination (arune) per unit of gas:
+// UNITS: gas prices flow through the ante handler in the BASE denomination
+// (arune), because that is the unit of the tx's gas price / fee. 1 RUNE = 10^18
+// arune, so:
 //
-//	RegularGasPriceMin    = 0.0001 RUNE / gas
-//	DeploymentGasPriceMin = 0.01   RUNE / gas  (100x the regular minimum)
+//	RegularGasPriceMin    = 0.0001 RUNE / gas = 1e14 arune / gas
+//	DeploymentGasPriceMin = 0.01   RUNE / gas = 1e16 arune / gas  (100x regular)
 //
 // NOTE: these are FLOORS. The EIP-1559 base fee may push the effective gas price
 // above them under congestion; it never lowers them.
 var (
 	// RegularGasPriceMin is the minimum gas price for regular (non-deployment)
-	// transactions: 0.0001 RUNE per gas.
-	RegularGasPriceMin = sdkmath.LegacyMustNewDecFromStr("0.0001")
+	// transactions: 0.0001 RUNE per gas (= 1e14 arune).
+	RegularGasPriceMin = sdkmath.LegacyNewDec(100_000_000_000_000) // 1e14 arune
 
 	// DeploymentGasPriceMin is the minimum gas price for contract-deployment
-	// transactions (empty `to` address): 0.01 RUNE per gas.
-	DeploymentGasPriceMin = sdkmath.LegacyMustNewDecFromStr("0.01")
+	// transactions (empty `to` address): 0.01 RUNE per gas (= 1e16 arune).
+	DeploymentGasPriceMin = sdkmath.LegacyNewDec(10_000_000_000_000_000) // 1e16 arune
 )
 
 // ValidateTwoGasPriceConfig sanity-checks the compile-time gas-price constants.
