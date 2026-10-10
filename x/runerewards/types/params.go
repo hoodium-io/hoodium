@@ -16,13 +16,17 @@ const BlocksPerYearAt6s = uint64(5_259_600)
 // BlocksPerTwoYearsAt6s is two schedule-years, the length of the first tier.
 const BlocksPerTwoYearsAt6s = 2 * BlocksPerYearAt6s
 
-// DefaultTiers returns the Hoodium emission schedule (user-confirmed):
+// DefaultTiers returns the Hoodium base emission schedule (user-confirmed):
 //
 //	Y0-2 (2 years): 50 RUNE/block
 //	Y2-4 (2 years): 25 RUNE/block
-//	Y4+  (open)   :  5 RUNE/block
+//	Y4+  (open)   : 10 RUNE/block
 //
 // expressed as block-height boundaries at a 6s target block time.
+//
+// NOTE: this is the *base* (full) reward. The PoNA mechanism (x/pona), once
+// implemented, may reduce the per-block reward based on the number of
+// transactions in the block.
 func DefaultTiers() []Tier {
 	oneRune := sdkmath.NewIntWithDecimal(1, 18)
 
@@ -40,7 +44,7 @@ func DefaultTiers() []Tier {
 		{
 			StartHeight:    4 * BlocksPerYearAt6s, // 21,038,400
 			EndHeight:      0,                     // open-ended (effectively infinite)
-			RewardPerBlock: oneRune.MulRaw(5),
+			RewardPerBlock: oneRune.MulRaw(10),
 		},
 	}
 }
