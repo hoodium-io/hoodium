@@ -14,7 +14,7 @@ Distinction from [`../features/`](../features/README.md):
 | Technology | Doc | Status |
 |---|---|---|
 | `x/runerewards` block rewards | [`runerewards.md`](./runerewards.md) | Implemented (Tier-3 rate correction pending) |
-| `x/pona` (Proof of Network Activity) | [`pona.md`](./pona.md) | Designed |
+| `x/pona` (Proof of Network Activity) | [`pona.md`](./pona.md) | Implemented (in `x/runerewards`) |
 | RUNE emission schedule (50/25/10) | [`runerewards.md`](./runerewards.md#4-emission-schedule) | Designed |
 | Two-gas-price model | [`../features/tx-fees.md`](../features/tx-fees.md) | Implemented |
 

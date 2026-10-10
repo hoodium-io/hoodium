@@ -1,10 +1,12 @@
 # Proof of Network Activity (PoNA)
 
-> **Status:** Designed, **not yet implemented**. This document is the authoritative
-> description of the mechanism and its parameters. It supersedes the earlier
-> design note that lived in `docs/features/README.md`.
+> **Status:** Implemented in `x/runerewards` (see [§7.3](#73-file-layout) for the
+> code map). This document is the authoritative description of the mechanism and
+> its parameters.
 >
-> **Module:** `x/pona` (see [§7 Module boundary](#7-module-boundary)).
+> **Code:** `x/runerewards/types/pona.go` (bands, rates, validation),
+> `x/runerewards/keeper/rewards.go` (payout), `app/app.go` (tx-count capture).
+> No separate `x/pona` module — see [§7](#7-module-boundary).
 
 ## 1. Why PoNA exists
 
@@ -221,11 +223,27 @@ The tx count itself is **not** a parameter: it is captured per block from
 
 | Piece | Location |
 |---|---|
-| Band selection | `Tier.RewardForTxCount` (`x/runerewards/types/schedule.go`) |
-| Height + tx count → reward | `Params.RewardForHeightAndTxCount` |
+| PoNA bands, rates, validation | `x/runerewards/types/pona.go` |
+| Band selection | `Tier.RewardForTxCount` (`pona.go`) |
+| Height + tx count → reward | `Params.RewardForHeightAndTxCount` (`pona.go`) |
 | Tx-count capture | `app.Hoodium.PreBlocker` → `keeper.SetBlockTxCount` |
 | Reward payout | `Keeper.DistributeRuneBlockReward` (`keeper/rewards.go`) |
 | Consensus version | `runerewards/types.ConsensusVersion` = **2** |
+
+### 7.3 File layout
+
+PoNA lives in its own file, **`x/runerewards/types/pona.go`**, separate from the
+generic schedule (`schedule.go`) and the default parameters (`params.go`). A
+dedicated `x/pona` **module** is not used, but the code is isolated so the
+mechanism has a single reference point:
+
+| File | Responsibility |
+|---|---|
+| `types/pona.go` | **All PoNA**: bands, rates, `PoNAEnabled`, `RewardForTxCount`, `RewardForHeightAndTxCount`, `validatePoNA`, `DefaultTxCountThreshold` |
+| `types/schedule.go` | Generic tier lookup (`RewardForHeight`, `tierForHeight`) |
+| `types/params.go` | `DefaultTiers`/`DefaultParams`/`Validate` (schedule structure) |
+| `types/pona_test.go` | PoNA band/validation tests |
+| `types/schedule_test.go` | Schedule/boundary tests |
 
 ## 8. Interaction with the fee market
 
