@@ -52,6 +52,12 @@ func (suite *AnteTestSuite) SetupTest() {
 			feemarketGenesis := feemarkettypes.DefaultGenesisState()
 			feemarketGenesis.Params.EnableHeight = 1
 			feemarketGenesis.Params.NoBaseFee = false
+			// Disable Hoodium's two-gas-price minimums for the general ante test
+			// suite: these tests exercise the full ante chain with small gas
+			// prices and are not concerned with the fee policy. The policy itself
+			// is covered by dedicated tests in deployment_fee_test.go.
+			feemarketGenesis.Params.MinRegularGasPrice = sdkmath.LegacyZeroDec()
+			feemarketGenesis.Params.MinDeploymentGasPrice = sdkmath.LegacyZeroDec()
 			// Verify feeMarket genesis
 			err := feemarketGenesis.Validate()
 			suite.Require().NoError(err)

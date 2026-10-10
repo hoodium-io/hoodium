@@ -74,6 +74,13 @@ var DefaultConsensusParams = &tmproto.ConsensusParams{
 
 func init() {
 	feemarkettypes.DefaultMinGasPrice = sdkmath.LegacyZeroDec()
+	// Disable Hoodium's two-gas-price minimums by default in tests. These
+	// minimums are a production fee policy; the general test suites exercise the
+	// ante chain with small gas prices and are not concerned with the policy
+	// itself. The policy is covered by dedicated tests in
+	// app/ante/evm/deployment_fee_test.go.
+	feemarkettypes.DefaultMinRegularGasPrice = sdkmath.LegacyZeroDec()
+	feemarkettypes.DefaultMinDeploymentGasPrice = sdkmath.LegacyZeroDec()
 	cfg := sdk.GetConfig()
 	config.SetBech32Prefixes(cfg)
 	config.SetBip44CoinType(cfg)
