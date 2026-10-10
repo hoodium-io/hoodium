@@ -38,4 +38,22 @@ message Params {
     (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
     (gogoproto.nullable) = false
   ];
+  // min_regular_gas_price is the minimum gas price (in the base denomination,
+  // arune) for a regular, non-deployment EVM transaction.
+  //
+  // This is the lower tier of Hoodium's two-gas-price model. It is
+  // governance-adjustable via MsgUpdateParams.
+  string min_regular_gas_price = 9 [
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
+  // min_deployment_gas_price is the minimum gas price (in the base denomination,
+  // arune) for a contract-deployment EVM transaction (empty `to` address).
+  //
+  // This is the higher tier of Hoodium's two-gas-price model. It is
+  // governance-adjustable via MsgUpdateParams.
+  string min_deployment_gas_price = 10 [
+    (gogoproto.customtype) = "cosmossdk.io/math.LegacyDec",
+    (gogoproto.nullable) = false
+  ];
 }

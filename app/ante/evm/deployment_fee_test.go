@@ -13,7 +13,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
+	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 )
+
+// MockFeeMarketKeeper is a minimal FeeMarketKeeper test double backing the
+// Hoodium two-gas-price params.
+type MockFeeMarketKeeper struct {
+	Params    feemarkettypes.Params
+	BaseFeeOn bool
+}
+
+func (m MockFeeMarketKeeper) GetParams(_ sdk.Context) feemarkettypes.Params { return m.Params }
+func (m MockFeeMarketKeeper) AddTransientGasWanted(_ sdk.Context, _ uint64) (uint64, error) {
+	return 0, nil
+}
+func (m MockFeeMarketKeeper) GetBaseFeeEnabled(_ sdk.Context) bool { return m.BaseFeeOn }
 
 // buildMsgEthereumTx constructs a legacy MsgEthereumTx with the given gas price.
 // When isDeploy is true the `to` address is nil (contract creation).
@@ -39,23 +53,29 @@ func buildMsgEthereumTx(t *testing.T, gasPrice int64, isDeploy bool) sdk.Tx {
 	return sdk.Tx(msg)
 }
 
+// twoGasPriceParams returns feemarket params with the Hoodium two-gas-price
+// minimums set (in arune): regular 2.5e12, deployment 5e12.
+func twoGasPriceParams() feemarkettypes.Params {
+	p := feemarkettypes.DefaultParams()
+	p.MinRegularGasPrice = sdkmath.LegacyNewDec(2_500_000_000_000) // 0.0000025 RUNE
+	p.MinDeploymentGasPrice = sdkmath.LegacyNewDec(5_000_000_000_000)
+	return p
+}
+
 func TestEthDeploymentGasPriceDecorator(t *testing.T) {
-	// Context with London disabled (base fee nil) to exercise the nil-guard too.
 	ctx := sdk.NewContext(nil, tmproto.Header{Height: 1}, false, log.NewNopLogger())
 	keeper := MockEVMKeeper{EnableLondonHF: false}
+	feeMarket := MockFeeMarketKeeper{Params: twoGasPriceParams()}
 
-	// A no-op next handler so we only test this decorator.
 	next := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) { return ctx, nil }
+	decorator := NewEthDeploymentGasPriceDecorator(keeper, feeMarket)
 
-	decorator := NewEthDeploymentGasPriceDecorator(keeper)
-
-	// RegularGasPriceMin    = 0.0001 RUNE/gas = 1e14 arune/gas.
-	// DeploymentGasPriceMin = 0.01   RUNE/gas = 1e16 arune/gas.
+	// regular min = 2.5e12 arune/gas; deployment min = 5e12 arune/gas.
 	const (
-		belowRegular = int64(1e13) // 0.00001 RUNE/gas (< regular min)
-		atRegular    = int64(1e14) // 0.0001  RUNE/gas (= regular min)
-		belowDeploy  = int64(1e15) // 0.001   RUNE/gas (> regular min, < deploy min)
-		atDeploy     = int64(1e16) // 0.01    RUNE/gas (= deploy min)
+		belowRegular = int64(1e12) // < regular min
+		atRegular    = int64(25e11)
+		belowDeploy  = int64(4e12) // > regular min, < deploy min
+		atDeploy     = int64(5e12)
 	)
 
 	testCases := []struct {
@@ -91,27 +111,31 @@ func TestEthDeploymentGasPriceDecorator(t *testing.T) {
 func TestEthDeploymentGasPriceDecoratorNilBaseFee(t *testing.T) {
 	ctx := sdk.NewContext(nil, tmproto.Header{Height: 1}, false, log.NewNopLogger())
 	keeper := MockEVMKeeper{EnableLondonHF: false}
-	decorator := NewEthDeploymentGasPriceDecorator(keeper)
+	feeMarket := MockFeeMarketKeeper{Params: twoGasPriceParams()}
+	decorator := NewEthDeploymentGasPriceDecorator(keeper, feeMarket)
 	next := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) { return ctx, nil }
 
 	for _, isDeploy := range []bool{false, true} {
-		tx := buildMsgEthereumTx(t, atDeployPrice(), isDeploy)
+		tx := buildMsgEthereumTx(t, 5e12, isDeploy)
 		require.NotPanics(t, func() {
 			_, _ = decorator.AnteHandle(ctx, tx, false, next)
 		})
 	}
 }
 
-// atDeployPrice returns a gas price at/above the deployment minimum so the tx
-// passes and the decorator reaches its fee math (the code path that used to
-// panic).
-func atDeployPrice() int64 { return 1e16 }
+// TestEthDeploymentGasPriceDecoratorDisabled checks that zero minimums disable
+// the check entirely.
+func TestEthDeploymentGasPriceDecoratorDisabled(t *testing.T) {
+	ctx := sdk.NewContext(nil, tmproto.Header{Height: 1}, false, log.NewNopLogger())
+	keeper := MockEVMKeeper{EnableLondonHF: false}
 
-func TestValidateTwoGasPriceConfig(t *testing.T) {
-	require.NoError(t, ValidateTwoGasPriceConfig())
+	p := feemarkettypes.DefaultParams()
+	p.MinRegularGasPrice = sdkmath.LegacyZeroDec()
+	p.MinDeploymentGasPrice = sdkmath.LegacyZeroDec()
+	decorator := NewEthDeploymentGasPriceDecorator(keeper, MockFeeMarketKeeper{Params: p})
+	next := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) { return ctx, nil }
 
-	// Constants are in the base denomination (arune).
-	require.Equal(t, sdkmath.LegacyNewDec(100_000_000_000_000), RegularGasPriceMin)       // 1e14 arune = 0.0001 RUNE
-	require.Equal(t, sdkmath.LegacyNewDec(10_000_000_000_000_000), DeploymentGasPriceMin) // 1e16 arune = 0.01 RUNE
-	require.True(t, DeploymentGasPriceMin.GT(RegularGasPriceMin))
+	tx := buildMsgEthereumTx(t, 1, true)
+	_, err := decorator.AnteHandle(ctx, tx, false, next)
+	require.NoError(t, err)
 }

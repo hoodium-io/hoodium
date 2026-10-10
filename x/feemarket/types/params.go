@@ -32,6 +32,14 @@ var (
 	DefaultEnableHeight = int64(0)
 	// DefaultNoBaseFee is false
 	DefaultNoBaseFee = false
+
+	// DefaultMinRegularGasPrice is the default minimum gas price (in arune) for
+	// regular (non-deployment) EVM txs: 0.0000025 RUNE per gas = 2.5e12 arune.
+	DefaultMinRegularGasPrice = sdkmath.LegacyNewDec(2_500_000_000_000)
+
+	// DefaultMinDeploymentGasPrice is the default minimum gas price (in arune) for
+	// contract-deployment EVM txs: 0.000005 RUNE per gas = 5e12 arune.
+	DefaultMinDeploymentGasPrice = sdkmath.LegacyNewDec(5_000_000_000_000)
 )
 
 // Parameter keys
@@ -44,6 +52,9 @@ var (
 	ParamStoreKeyEnableHeight             = []byte("EnableHeight")
 	ParamStoreKeyMinGasPrice              = []byte("MinGasPrice")
 	ParamStoreKeyMinGasMultiplier         = []byte("MinGasMultiplier")
+	// Hoodium two-gas-price model keys.
+	ParamStoreKeyMinRegularGasPrice    = []byte("MinRegularGasPrice")
+	ParamStoreKeyMinDeploymentGasPrice = []byte("MinDeploymentGasPrice")
 )
 
 // ParamKeyTable returns the parameter key table.
@@ -61,6 +72,8 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 		paramtypes.NewParamSetPair(ParamStoreKeyEnableHeight, &p.EnableHeight, validateEnableHeight),
 		paramtypes.NewParamSetPair(ParamStoreKeyMinGasPrice, &p.MinGasPrice, validateMinGasPrice),
 		paramtypes.NewParamSetPair(ParamStoreKeyMinGasMultiplier, &p.MinGasMultiplier, validateMinGasPrice),
+		paramtypes.NewParamSetPair(ParamStoreKeyMinRegularGasPrice, &p.MinRegularGasPrice, validateMinGasPrice),
+		paramtypes.NewParamSetPair(ParamStoreKeyMinDeploymentGasPrice, &p.MinDeploymentGasPrice, validateMinGasPrice),
 	}
 }
 
@@ -73,6 +86,8 @@ func NewParams(
 	enableHeight int64,
 	minGasPrice sdkmath.LegacyDec,
 	minGasPriceMultiplier sdkmath.LegacyDec,
+	minRegularGasPrice sdkmath.LegacyDec,
+	minDeploymentGasPrice sdkmath.LegacyDec,
 ) Params {
 	return Params{
 		NoBaseFee:                noBaseFee,
@@ -82,6 +97,8 @@ func NewParams(
 		EnableHeight:             enableHeight,
 		MinGasPrice:              minGasPrice,
 		MinGasMultiplier:         minGasPriceMultiplier,
+		MinRegularGasPrice:       minRegularGasPrice,
+		MinDeploymentGasPrice:    minDeploymentGasPrice,
 	}
 }
 
@@ -95,6 +112,8 @@ func DefaultParams() Params {
 		EnableHeight:             DefaultEnableHeight,
 		MinGasPrice:              DefaultMinGasPrice,
 		MinGasMultiplier:         DefaultMinGasMultiplier,
+		MinRegularGasPrice:       DefaultMinRegularGasPrice,
+		MinDeploymentGasPrice:    DefaultMinDeploymentGasPrice,
 	}
 }
 
@@ -116,7 +135,25 @@ func (p Params) Validate() error {
 		return err
 	}
 
-	return validateMinGasPrice(p.MinGasPrice)
+	if err := validateMinGasPrice(p.MinGasPrice); err != nil {
+		return err
+	}
+
+	// Hoodium two-gas-price model.
+	if err := validateMinGasPrice(p.MinRegularGasPrice); err != nil {
+		return err
+	}
+	if err := validateMinGasPrice(p.MinDeploymentGasPrice); err != nil {
+		return err
+	}
+	if p.MinDeploymentGasPrice.LT(p.MinRegularGasPrice) {
+		return fmt.Errorf(
+			"min deployment gas price (%s) must be >= min regular gas price (%s)",
+			p.MinDeploymentGasPrice, p.MinRegularGasPrice,
+		)
+	}
+
+	return nil
 }
 
 func validateBool(i interface{}) error {

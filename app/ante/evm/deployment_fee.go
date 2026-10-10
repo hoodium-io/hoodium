@@ -14,33 +14,47 @@ import (
 
 // EthDeploymentGasPriceDecorator enforces Hoodium's two-gas-price model: a
 // contract-deployment transaction must pay a higher minimum gas price than a
-// regular transaction.
+// regular (non-deployment) transaction.
 //
-// Both minimums are compile-time genesis constants (see deployment_fee_config.go):
+// The two minimums live in the x/feemarket module params
+// (`MinRegularGasPrice` / `MinDeploymentGasPrice`), so they are
+// governance-adjustable via MsgUpdateParams. The defaults are:
 //
-//	RegularGasPriceMin       - normal EVM txs
-//	DeploymentGasPriceMin    - txs that deploy a contract (empty `to`)
+//	MinRegularGasPrice    = 2.5e12 arune / gas  (0.0000025 RUNE)
+//	MinDeploymentGasPrice = 5e12   arune / gas  (0.000005  RUNE)
 //
-// The check is a floor: it rejects a tx whose effective gas price is below the
-// applicable minimum. It does not cap fees; the EIP-1559 base fee may still push
-// the effective price above the floor under congestion.
+// The check is a floor: it rejects a tx whose fee is below the minimum for its
+// kind. It does not cap fees; the EIP-1559 base fee may still push the effective
+// gas price above the floor under congestion.
 //
 // A tx is treated as a contract deployment when its `to` address is nil
 // (standard EVM CREATE semantics; EIP-7702 set-code txs carry a populated `to`
 // and are therefore NOT treated as deployments).
 type EthDeploymentGasPriceDecorator struct {
-	evmKeeper DynamicFeeEVMKeeper
+	evmKeeper       DynamicFeeEVMKeeper
+	feeMarketKeeper FeeMarketKeeper
 }
 
 // NewEthDeploymentGasPriceDecorator creates a new
 // EthDeploymentGasPriceDecorator.
-func NewEthDeploymentGasPriceDecorator(ek DynamicFeeEVMKeeper) EthDeploymentGasPriceDecorator {
-	return EthDeploymentGasPriceDecorator{evmKeeper: ek}
+func NewEthDeploymentGasPriceDecorator(
+	ek DynamicFeeEVMKeeper, fk FeeMarketKeeper,
+) EthDeploymentGasPriceDecorator {
+	return EthDeploymentGasPriceDecorator{evmKeeper: ek, feeMarketKeeper: fk}
 }
 
 func (dgpd EthDeploymentGasPriceDecorator) AnteHandle(
 	ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler,
 ) (newCtx sdk.Context, err error) {
+	feeMarketParams := dgpd.feeMarketKeeper.GetParams(ctx)
+	minRegular := feeMarketParams.MinRegularGasPrice
+	minDeployment := feeMarketParams.MinDeploymentGasPrice
+
+	// Short-circuit if both minimums are zero (feature disabled).
+	if minRegular.IsZero() && minDeployment.IsZero() {
+		return next(ctx, tx, simulate)
+	}
+
 	evmParams := dgpd.evmKeeper.GetParams(ctx)
 	chainCfg := evmParams.GetChainConfig()
 	ethCfg := chainCfg.EthereumConfig(dgpd.evmKeeper.ChainID())
@@ -73,10 +87,10 @@ func (dgpd EthDeploymentGasPriceDecorator) AnteHandle(
 		}
 
 		// Contract deployment? (empty `to` address).
-		minGasPrice := RegularGasPriceMin
+		minGasPrice := minRegular
 		kind := "regular transaction"
 		if to := txData.GetTo(); to == nil {
-			minGasPrice = DeploymentGasPriceMin
+			minGasPrice = minDeployment
 			kind = "contract deployment"
 		}
 
