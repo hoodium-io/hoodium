@@ -407,38 +407,46 @@ func initTestnetFiles(
 	}
 
 	// ---------------------------------------------------------------------------
-	// Hoodium genesis allocation (PLACEHOLDER addresses — replace before launch)
+	// Hoodium genesis allocation
 	//
-	//   RUNE:  9,000,000,000 premine  -> hoodiumRunePremineAddr (PLACEHOLDER)
+	//   RUNE:  9,000,000,000 premine  -> genAccounts[0] (the genesis validator)
 	//          1,000,000,000 reserve  -> validator_reward_pool (x/runerewards)
-	//   HOODI: 10,000,000    premine  -> hoodiumHoodiPremineAddr (PLACEHOLDER)
+	//   HOODI: 10,000,000    premine  -> genAccounts[0] (the genesis validator)
 	//
 	// RUNE total  = 10,000,000,000 (== RUNE max supply cap)
 	// HOODI total = 10,000,000     (== HOODI max supply cap)
+	//
+	// There are NO hardcoded/pre-computed addresses here: both destinations are
+	// derived at runtime, so no source edit or recompile is needed.
+	//
+	//   * genAccounts[0] is the first account created by `keys add` during
+	//     `runed testnet init-files`, so the premine lands on the operator's own
+	//     key automatically.
+	//
+	//   * validator_reward_pool is a Cosmos *module account*: its address is
+	//     always ripemd160(sha256("validator_reward_pool")) =
+	//     0x4967715BC2Ba5CC2A262054A5a893e2E90FCD3f9
+	//     (bech32 rune1f9nhzk7zhfwv9gnzq4994zf796g0e5lej732lk). It is created by
+	//     the auth module from the name alone - nothing to configure, and it is
+	//     NOT a precompile.
 	//
 	// NOTE: initial validator self-delegations are funded MANUALLY by the chain
 	// operator (not from these premine balances). A genesis EVM address that
 	// receives RUNE here is the SAME account as its rune1... bech32 twin
 	// (sdk.AccAddress(evmAddr.Bytes()) == the cosmos address), so the premine is
 	// usable directly from an EVM wallet.
-	//
-	// TODO(devnet): replace the two PLACEHOLDER addresses below with the real
-	// premine addresses (or drive them from a config file) before devnet launch.
 	// ---------------------------------------------------------------------------
 	oneRuneGenesis := sdkmath.NewIntWithDecimal(1, 18)
 
-	// PLACEHOLDER premine addresses.
+	// Premine destination: the genesis validator's own wallet account.
 	//
-	// Both premines (RUNE and HOODI) are placed on the FIRST genesis validator's
-	// wallet account (created by `keys add` / `init`). That account's operator is
-	// the premine owner. Additional validators join later and self-fund their
-	// stake from their own accounts.
+	// Both premines (RUNE and HOODI) are placed on the first account created by
+	// `keys add` / `init` (see genAccounts below), so the operator running
+	// `runed testnet init-files` controls the premine by definition. Additional
+	// validators join later and self-fund their stake from their own accounts.
 	//
 	// To control the premine from an EVM wallet, the operator copies the wallet's
 	// 0x private key (runed keys unsafe-export-eth-key <key>) into the EVM wallet.
-	//
-	// TODO(devnet): if the premines should live on a dedicated account rather than
-	// the genesis validator, add explicit premine addresses here.
 
 	// RUNE total is capped at 10,000,000,000 (9B premine + 1B reserve).
 	//
