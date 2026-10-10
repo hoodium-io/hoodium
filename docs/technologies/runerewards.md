@@ -55,22 +55,26 @@ EndBlock
 
 Block time is **6 seconds** → `5,259,600` blocks/year (`5_259_600` at 6 s).
 
-| Tier | Epoch | Heights | Full rate |
-|---|---|---|---|
-| 1 | Y0–2 (2 years) | `[0, 10,519,200)` | **50 RUNE/block** |
-| 2 | Y2–4 (2 years) | `[10,519,200, 21,038,400)` | **25 RUNE/block** |
-| 3 | Y4 → infinite | `[21,038,400, 0)` (open-ended) | **10 RUNE/block** |
+| Tier | Epoch | Heights | Full rate | PoNA low | PoNA zero |
+|---|---|---|---|---|---|
+| 1 | Y0–2 (2 years) | `[0, 10,519,200)` | **50 RUNE/block** | 20 | 1 |
+| 2 | Y2–4 (2 years) | `[10,519,200, 21,038,400)` | **25 RUNE/block** | 10 | 1 |
+| 3 | Y4 → infinite | `[21,038,400, 0)` (open-ended) | **10 RUNE/block** | 5 | 1 |
 
-> ⚠️ **Pending correction:** Tier 3 was originally built at **5 RUNE/block** and
-> is being corrected to **10 RUNE/block** (with PoNA Low = 5, Zero = 1). The
-> reduced/zero rates are PoNA policy — see [`pona.md` §3](./pona.md#3-per-tier-rates).
+Each tier carries its own full/low/zero rates (see
+[`pona.md` §3](./pona.md#3-per-tier-rates)). All three are stored on-chain as
+`Tier` proto fields.
 
-### 4.1 Fee-only floor
+### 4.1 Fee-only floor — REMOVED
 
-The module carries a `min_reward_per_block` parameter below which emission stops.
-**This floor conflicts with PoNA** and must be removed or redefined: PoNA's Zero
-band pays **1 RUNE**, which is below the legacy 5-RUNE floor, so a floor of 5
-would silently force the Zero-band reward to **0**.
+The module used to carry a `min_reward_per_block` parameter below which emission
+stopped. **That floor has been removed**: PoNA's zero-activity band pays
+**1 RUNE**, which is below the old 5-RUNE floor, so a floor of 5 would have
+silently forced the zero-activity reward to **0**.
+
+Emission now ends only when **no tier covers the height** (the schedule is
+exhausted) or when the reward pool runs dry. The `min_reward_per_block` field no
+longer exists in `Params`.
 
 ## 5. Reserve lifetime
 

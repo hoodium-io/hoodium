@@ -89,16 +89,21 @@ store:
 ```
 FinalizeBlock (ABCI)
 │
-├─ PreBlock        ── x/pona captures len(req.Txs) ──► store: "current block tx count"
-│                     (txs are visible here; EndBlock cannot see them)
+├─ PreBlock        ── app-level PreBlocker(ctx, req) captures len(req.Txs)
+│                     ──► x/runerewards keeper: store "current block tx count"
+│                     (req is visible ONLY here; module-level PreBlock(ctx)
+│                      hooks receive just an sdk.Context, and EndBlock cannot
+│                      see the block's transactions at all)
+│
+├─ BeginBlock      ── (no-op for the reward path)
 │
 ├─ DeliverTx …     ── transactions execute as normal (PoNA does not interfere)
 │
 └─ EndBlock
-   ├─ x/pona       ── reads the stored tx count, classifies the band,
-   │                  computes the *effective* reward for this block
-   └─ x/runerewards ── pays the effective reward from validator_reward_pool
-                        → to the block proposer's operator address
+   ├─ x/runerewards ── reads the stored tx count, classifies the band,
+   │                  pays the *effective* reward from validator_reward_pool
+   │                  → to the block proposer's operator address
+   └─ (emits rune_block_reward with the tx_count attribute)
 ```
 
 Key properties:
@@ -176,32 +181,51 @@ reserve-funded reward left to scale.
 
 ## 7. Module boundary
 
-PoNA is split from the base reward machinery along a **money / policy** line:
+PoNA is implemented **inside `x/runerewards`** for now, split along a
+**money / policy** line within the module:
+
+| Concern | Owns |
+|---|---|
+| **Money** | The 1B `validator_reward_pool` (genesis funding, balance, top-up) and the coin-transfer plumbing to the proposer |
+| **Policy (PoNA)** | The activity bands, the low/zero rates, and the effective-reward decision |
+
+In short: **the pool is the wallet; the PoNA bands are the rule that decides how
+much comes out of it each block.**
+
+Splitting the policy into a **separate `x/pona` module** remains an option (it
+matches the original design note), but was **deferred**: the policy is a single
+pure function over one tier, so a second module would add app wiring and
+consensus surface for no functional gain. If split later, the boundary is:
 
 | Module | Owns | Does not own |
 |---|---|---|
-| **`x/runerewards`** | The 1B `validator_reward_pool` (genesis funding, balance, top-up), the **base emission schedule** (`Tier` heights + `reward_per_block` full rates), and the coin-transfer plumbing to the proposer | The activity banding or how much of the base rate is actually paid |
-| **`x/pona`** | The **activity policy**: capturing the block tx count, classifying the band, and computing the **effective** reward from the tier's full/low/zero rates | The reserve, the payout transfer, or the tier boundaries |
+| **`x/runerewards`** | Pool funding/balance, tier heights, full rates, payout transfer | The activity banding |
+| **`x/pona`** | Block tx-count capture, banding, low/zero rates | The reserve or the payout |
 
-In short: **`runerewards` is the wallet; `pona` is the rule that decides how much
-comes out of it each block.**
+### 7.1 Where each parameter lives (implemented)
 
-### 7.1 Parameter placement
-
-| Parameter | Module | Meaning |
+| Field | Proto | Meaning |
 |---|---|---|
-| `tiers[].start_height` | `runerewards` | Tier boundary (block height) |
-| `tiers[].end_height` | `runerewards` | Tier boundary (`0` = open-ended) |
-| `tiers[].reward_per_block` | `runerewards` | **Full** rate for that tier |
-| `tiers[].tx_count_threshold` | `pona` | Txs at/above which the full rate is paid (default `10`) |
-| `tiers[].low_activity_reward` | `pona` | Rate when `0 < tx < threshold` |
-| `tiers[].zero_activity_reward` | `pona` | Rate when `tx == 0` |
+| `tiers[].start_height` | `Tier` | Tier boundary (block height) |
+| `tiers[].end_height` | `Tier` | Tier boundary (`0` = open-ended) |
+| `tiers[].reward_per_block` | `Tier` | **Full** rate for that tier |
+| `tiers[].tx_count_threshold` | `Tier` | Txs at/above which the full rate is paid (`10`); `0` disables PoNA |
+| `tiers[].low_activity_reward` | `Tier` | Rate when `0 < tx < threshold` |
+| `tiers[].zero_activity_reward` | `Tier` | Rate when `tx == 0` |
 
-> **Implementation note.** Because the three activity rates are properties of the
-> same tier, the fields may live on a single shared `Tier` proto message. If
-> `x/pona` is a separate module, `pona` holds its own `Params` carrying the
-> low/zero rates keyed by tier boundary, and `runerewards` keeps only the full
-> rate. The economic table in [§3](#3-per-tier-rates) is the contract between them.
+The tx count itself is **not** a parameter: it is captured per block from
+`len(req.Txs)` in the app's `PreBlocker` and stored under
+`runerewards/types.KeyBlockTxCount`.
+
+### 7.2 Code map
+
+| Piece | Location |
+|---|---|
+| Band selection | `Tier.RewardForTxCount` (`x/runerewards/types/schedule.go`) |
+| Height + tx count → reward | `Params.RewardForHeightAndTxCount` |
+| Tx-count capture | `app.Hoodium.PreBlocker` → `keeper.SetBlockTxCount` |
+| Reward payout | `Keeper.DistributeRuneBlockReward` (`keeper/rewards.go`) |
+| Consensus version | `runerewards/types.ConsensusVersion` = **2** |
 
 ## 8. Interaction with the fee market
 
@@ -218,12 +242,19 @@ PoNA must **not** key off gas used or fee revenue — only the **transaction cou
 
 ## 9. Open questions / follow-ups
 
-1. **Pseudo-tx exclusion** — confirm whether Hoodium's `PrepareProposal` injects a
-   pseudo-tx; if so, PoNA counts only the regular txs (see [§4.1](#41-which-transactions-are-counted)).
-2. **Threshold configurability** — should `TxCountThreshold = 10` be a governance
-   parameter, or a constant? (Currently designed as a parameter.)
-3. **Zero-band floor** — the `1 RUNE` zero-band reward sits below the legacy
-   5-RUNE fee-only floor; the floor must be removed or redefined so `1` is
-   expressible (see [`runerewards.md`](./runerewards.md)).
-4. **Genesis** — at the first block there is no meaningful tx count; the fallback
-   in [§4](#4-how-it-works--block-lifecycle) applies.
+1. **Pseudo-tx counting** — the capture currently uses `len(req.Txs)`, which
+   *includes* any app-level injected pseudo-transaction. Hoodium's
+   `app/abci/preblock.go` distinguishes an injected first tx from regular txs;
+   if that path is ever re-enabled, PoNA must exclude the injected tx so the
+   zero band stays reachable. **Not yet wired** (see [§4.1](#41-which-transactions-are-counted)).
+2. **Threshold configurability** — `TxCountThreshold` is a per-tier on-chain
+   field (mutable via params), default `10`. Governance-adjustable in practice;
+   no dedicated gov Msg exists yet.
+3. **Zero-band floor** — **resolved**: `min_reward_per_block` was removed so the
+   `1 RUNE` zero-activity reward is expressible. Emission now ends only when no
+   tier covers the height or the pool is empty.
+4. **Standalone `x/pona` module** — deferred. The policy is implemented inside
+   `x/runerewards`; splitting it later is a refactor, not a behaviour change
+   (see [§7](#7-module-boundary)).
+5. **Genesis / first block** — before any `PreBlocker` has run, the stored tx
+   count is absent and `BlockTxCount` returns `0` (the zero-activity band).
