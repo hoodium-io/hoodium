@@ -54,8 +54,11 @@ const (
 	// DefaultMaxTxGasWanted is the default gas wanted for each eth tx returned in ante handler in check tx mode
 	DefaultMaxTxGasWanted = 0
 
-	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas
-	DefaultGasCap uint64 = 25000000
+	// DefaultGasCap is the default cap on gas that can be used in eth_call/estimateGas.
+	//
+	// It is set to the block gas limit (10,000,000) so a single eth_call/estimateGas
+	// can never request more gas than a block can contain.
+	DefaultGasCap uint64 = 10_000_000
 
 	// DefaultFilterCap is the default cap for total number of filters that can be created
 	DefaultFilterCap int32 = 200
@@ -90,18 +93,18 @@ const (
 	// DefaultConnectOracleEnabled is the default value indicating whether the
 	// Connect price oracle client is enabled.
 	//
-	// Default is FALSE: Hoodium does not ship a Connect oracle sidecar yet. When
-	// the oracle is disabled, the client is a no-op — no sidecar connection is
+	// Default is FALSE: Hoodium does not ship a Connect oracle pricefeeder yet. When
+	// the oracle is disabled, the client is a no-op — no pricefeeder connection is
 	// attempted and no "connection refused" errors are logged. Enable it (and
-	// point `oracle.oracle_address` at a running sidecar) once the RUNE/USD price
+	// point `oracle.oracle_address` at a running pricefeeder) once the RUNE/USD price
 	// feed and any additional pairs are deployed.
 	DefaultConnectOracleEnabled = false
 
-	// DefaultConnectOracleAddress is the default address of the oracle sidecar.
+	// DefaultConnectOracleAddress is the default address of the oracle pricefeeder.
 	DefaultConnectOracleAddress = "localhost:8080"
 
 	// DefaultConnectOracleClientTimeout is the default time that the client is
-	// willing to wait for responses from the oracle sidecar before timing out.
+	// willing to wait for responses from the oracle pricefeeder before timing out.
 	DefaultConnectOracleClientTimeout = 2 * time.Second
 
 	// DefaultConnectOracleMetricsEnabled is the default value indicating

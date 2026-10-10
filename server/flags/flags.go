@@ -88,7 +88,7 @@ const (
 	TLSKeyPath  = "tls.key-path"
 )
 
-// Connect oracle sidecar flags
+// Connect oracle pricefeeder flags
 const (
 	ConnectOracleEnabled        = "oracle.enabled"
 	ConnectOracleAddress        = "oracle.oracle_address"

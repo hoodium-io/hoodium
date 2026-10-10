@@ -94,7 +94,7 @@ customize_configuration() {
   #
   runed toml set "$APP_CONFIG_FILE" \
     --home="${RUNED_HOME}" \
-    -v "oracle.oracle_address=${RUNED_ORACLE_ORACLE_ADDRESS:-connect-sidecar:8080}" \
+    -v "oracle.oracle_address=${RUNED_ORACLE_ORACLE_ADDRESS:-connect-pricefeeder:8080}" \
     -v "oracle.enabled=true" \
     -v "api.enable=true" \
     -v "api.address=tcp://0.0.0.0:1317" \

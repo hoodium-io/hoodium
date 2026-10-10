@@ -115,7 +115,7 @@ func (s *PublicAPI) Sidecars() map[string]SidecarInfos {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	resp, err := s.oracleClient.Version(ctx, &oracletypes.QueryVersionRequest{})
 	if err != nil {
-		s.logger.Error("couldn't reach Connect oracle sidecar", "error", err)
+		s.logger.Error("couldn't reach Connect oracle pricefeeder", "error", err)
 	} else {
 		connectVersion = resp.Version
 		connectStatus = true

@@ -374,6 +374,10 @@ func (a appCreator) appExport(
 func initTendermintConfig() *tmcfg.Config {
 	cfg := tmcfg.DefaultConfig()
 	cfg.Consensus.TimeoutCommit = time.Second * 3
+	// Allow empty blocks to be produced at most every 3 seconds. Combined with
+	// the 3s commit timeout this keeps the chain cadence uniform (a block every
+	// ~3s) instead of blocking on empty-block intervals of 0 (no interval).
+	cfg.Consensus.CreateEmptyBlocksInterval = time.Second * 3
 	// to put a higher strain on node memory, use these values:
 	// cfg.P2P.MaxNumInboundPeers = 100
 	// cfg.P2P.MaxNumOutboundPeers = 40

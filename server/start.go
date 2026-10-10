@@ -176,7 +176,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().String(srvflags.Address, "tcp://0.0.0.0:26658", "Listen address")
 	cmd.Flags().String(srvflags.Transport, "socket", "Transport protocol: socket, grpc")
 	cmd.Flags().String(srvflags.TraceStore, "", "Enable KVStore tracing to an output file")
-	cmd.Flags().String(srvflags.MinGasPrices, "", "Minimum gas prices to accept for transactions; Any fee in a tx must meet this minimum (e.g. 20000000000arune)") //nolint:lll
+	cmd.Flags().String(srvflags.MinGasPrices, "", "Minimum gas prices to accept for transactions; Any fee in a tx must meet this minimum (e.g. 0.0000025arune)") //nolint:lll
 	cmd.Flags().IntSlice(server.FlagUnsafeSkipUpgrades, []int{}, "Skip a set of upgrade heights to continue the old binary")
 	cmd.Flags().Uint64(server.FlagHaltHeight, 0, "Block height at which to gracefully halt the chain and shutdown the node")
 	cmd.Flags().Uint64(server.FlagHaltTime, 0, "Minimum block time (in Unix seconds) at which to gracefully halt the chain and shutdown the node")
@@ -203,7 +203,7 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().StringSlice(srvflags.JSONRPCAPI, config.GetDefaultAPINamespaces(), "Defines a list of JSON-RPC namespaces that should be enabled")
 	cmd.Flags().String(srvflags.JSONRPCAddress, config.DefaultJSONRPCAddress, "the JSON-RPC server address to listen on")
 	cmd.Flags().String(srvflags.JSONWsAddress, config.DefaultJSONRPCWsAddress, "the JSON-RPC WS server address to listen on")
-	cmd.Flags().Uint64(srvflags.JSONRPCGasCap, config.DefaultGasCap, "Sets a cap on gas that can be used in eth_call/estimateGas unit is arune (0=infinite)")     //nolint:lll
+	cmd.Flags().Uint64(srvflags.JSONRPCGasCap, config.DefaultGasCap, "Sets a cap on gas that can be used in eth_call/estimateGas (0=infinite)")                   //nolint:lll
 	cmd.Flags().Float64(srvflags.JSONRPCTxFeeCap, config.DefaultTxFeeCap, "Sets a cap on transaction fee that can be sent via the RPC APIs (1 = default 1 rune)") //nolint:lll
 	cmd.Flags().Int32(srvflags.JSONRPCFilterCap, config.DefaultFilterCap, "Sets the global cap for total number of filters that can be created")
 	cmd.Flags().Duration(srvflags.JSONRPCEVMTimeout, config.DefaultEVMTimeout, "Sets a timeout used for eth_call (0=infinite)")
@@ -230,8 +230,8 @@ which accepts a path for the resulting pprof file.
 	cmd.Flags().Uint32(server.FlagStateSyncSnapshotKeepRecent, 2, "State sync snapshot to keep")
 
 	cmd.Flags().Bool(srvflags.ConnectOracleEnabled, config.DefaultConnectOracleEnabled, "Enable the Connect oracle")
-	cmd.Flags().String(srvflags.ConnectOracleAddress, config.DefaultConnectOracleAddress, "Address of the Connect oracle sidecar")
-	cmd.Flags().Duration(srvflags.ConnectOracleClientTimeout, config.DefaultConnectOracleClientTimeout, "Time to wait for a response from the Connect oracle sidecar")
+	cmd.Flags().String(srvflags.ConnectOracleAddress, config.DefaultConnectOracleAddress, "Address of the Connect oracle pricefeeder")
+	cmd.Flags().Duration(srvflags.ConnectOracleClientTimeout, config.DefaultConnectOracleClientTimeout, "Time to wait for a response from the Connect oracle pricefeeder")
 	cmd.Flags().Bool(srvflags.ConnectOracleMetricsEnabled, config.DefaultConnectOracleMetricsEnabled, "Enable metrics for the Connect oracle")
 
 	// add support for all Tendermint-specific command line options

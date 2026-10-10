@@ -66,7 +66,7 @@ ws-address = "{{ .JSONRPC.WsAddress }}"
 # Example: "eth,txpool,personal,net,debug,web3"
 api = "{{range $index, $elmt := .JSONRPC.API}}{{if $index}},{{$elmt}}{{else}}{{$elmt}}{{end}}{{end}}"
 
-# GasCap sets a cap on gas that can be used in eth_call/estimateGas (0=infinite). Default: 25,000,000.
+# GasCap sets a cap on gas that can be used in eth_call/estimateGas (0=infinite). Default: 10,000,000.
 gas-cap = {{ .JSONRPC.GasCap }}
 
 # EVMTimeout is the global timeout for eth_call. Default: 5s.
