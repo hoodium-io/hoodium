@@ -145,4 +145,4 @@ if [[ $overwrite == "y" || $overwrite == "Y" ]]; then
 fi
 
 # Start the node (remove the --pruning=nothing flag if historical queries are not needed)
-runed start --metrics "$TRACE" --log_level $LOGLEVEL --minimum-gas-prices=0.0001arune --json-rpc.api eth,txpool,personal,net,debug,web3,rune --api.enable --enable-testbed-precompile --home "$HOMEDIR"
+runed start --metrics "$TRACE" --log_level $LOGLEVEL --min-gas-prices=0.0001arune --json-rpc.api eth,txpool,personal,net,debug,web3,rune --api.enable --enable-testbed-precompile --home "$HOMEDIR"

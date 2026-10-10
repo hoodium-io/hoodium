@@ -288,7 +288,7 @@ localnet-bin-init:
 	@if ! [ -d $(LOCALNET_DIR) ]; then \
 		echo "Initializing localnet configuration..."; \
 		./build/runed testnet init-files \
-		--v 4 \
+		--val 4 \
 		--output-dir $(LOCALNET_DIR) \
 		--home $(LOCALNET_DIR) \
 		--keyring-backend=test \

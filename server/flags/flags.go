@@ -101,6 +101,15 @@ const (
 	EnableTestbedPrecompile = "enable-testbed-precompile"
 )
 
+// MinGasPrices is the flag used to configure the node's minimum gas prices.
+//
+// NOTE: this is a Hoodium-specific flag name (`--min-gas-prices`). The Cosmos SDK
+// uses `--minimum-gas-prices`; Hoodium registers this command itself (see
+// server/start.go) so it can use the shorter, easier-to-remember spelling.
+const (
+	MinGasPrices = "min-gas-prices"
+)
+
 // AddTxFlags adds common flags for commands to post tx
 func AddTxFlags(cmd *cobra.Command) (*cobra.Command, error) {
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "Specify Chain ID for sending Tx")
