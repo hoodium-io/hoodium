@@ -17,7 +17,17 @@ const (
 const (
 	// prefixParams is the prefix under which module parameters are stored.
 	prefixParams = iota + 1
+
+	// prefixBlockTxCount is the prefix under which the transaction count of the
+	// block currently being finalised is stored (captured in PreBlock, read in
+	// EndBlock by Proof of Network Activity).
+	prefixBlockTxCount
 )
 
 // KeyPrefixParams is the KVStore prefix for module parameters.
 var KeyPrefixParams = []byte{prefixParams}
+
+// KeyBlockTxCount is the KVStore key under which the transaction count of the
+// current block is stored. It is a single key (not prefixed per height): the
+// value is overwritten at the start of every block and consumed at its end.
+var KeyBlockTxCount = []byte{prefixBlockTxCount}

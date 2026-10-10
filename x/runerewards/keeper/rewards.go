@@ -9,13 +9,16 @@ import (
 	"github.com/hoodium-io/hoodium/x/runerewards/types"
 )
 
-// DistributeRuneBlockReward pays the static block reward for the current block
-// from the validator reward pool to the block proposer.
+// DistributeRuneBlockReward pays the block reward for the current block from the
+// validator reward pool to the block proposer.
 //
 // Behaviour:
-//   - The static reward for the current height is looked up from the schedule
-//     (see types.Params.RewardForHeight). It is zero once the schedule reaches
-//     the fee-only floor.
+//   - The reward for the current height is looked up from the schedule with
+//     Proof of Network Activity applied (see
+//     types.Params.RewardForHeightAndTxCount): the tier's full rate is paid when
+//     the block contains at least the tier's transaction threshold, the low
+//     activity rate when it contains some but fewer, and the zero activity rate
+//     when it is empty.
 //   - The reward is paid to the proposer's operator address, taken from the
 //     proposer consensus address reported by the ABCI request.
 //   - If the pool cannot cover the reward (exhausted), emission simply stops for
@@ -31,9 +34,10 @@ func (k Keeper) DistributeRuneBlockReward(
 	params := k.GetParams(ctx)
 
 	height := uint64(ctx.BlockHeight()) //nolint:gosec // block height is always positive
-	reward := params.RewardForHeight(height)
+	txCount := k.BlockTxCount(ctx)
+	reward := params.RewardForHeightAndTxCount(height, txCount)
 	if reward.IsZero() {
-		// Fee-only: emission has ended (schedule floor reached).
+		// Fee-only: emission has ended (no tier covers this height).
 		return sdkmath.ZeroInt(), nil
 	}
 
@@ -73,6 +77,7 @@ func (k Keeper) DistributeRuneBlockReward(
 			sdk.NewAttribute(types.AttributeKeyHeight, fmt.Sprintf("%d", height)),
 			sdk.NewAttribute(types.AttributeKeyValidator, valAddr.String()),
 			sdk.NewAttribute(types.AttributeKeyAmount, reward.String()),
+			sdk.NewAttribute(types.AttributeKeyTxCount, fmt.Sprintf("%d", txCount)),
 		),
 	)
 

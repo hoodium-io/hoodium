@@ -16,35 +16,51 @@ const BlocksPerYearAt6s = uint64(5_259_600)
 // BlocksPerTwoYearsAt6s is two schedule-years, the length of the first tier.
 const BlocksPerTwoYearsAt6s = 2 * BlocksPerYearAt6s
 
-// DefaultTiers returns the Hoodium base emission schedule (user-confirmed):
+// DefaultTiers returns the Hoodium emission schedule (user-confirmed).
 //
-//	Y0-2 (2 years): 50 RUNE/block
-//	Y2-4 (2 years): 25 RUNE/block
-//	Y4+  (open)   : 10 RUNE/block
+// Each tier carries a full (base) reward plus its Proof of Network Activity
+// (PoNA) rates. The reward actually paid for a block depends on how many
+// transactions the block contains:
+//
+//	tx >= TxCountThreshold   -> RewardPerBlock    (full)
+//	0 < tx < TxCountThreshold -> LowActivityReward
+//	tx == 0                  -> ZeroActivityReward
+//
+// See docs/technologies/pona.md for the full description.
+//
+//	Y0-2 (2 years): full 50 | low 20 | zero 1 RUNE/block
+//	Y2-4 (2 years): full 25 | low 10 | zero 1 RUNE/block
+//	Y4+  (open)   : full 10 | low  5 | zero 1 RUNE/block
 //
 // expressed as block-height boundaries at a 6s target block time.
-//
-// NOTE: this is the *base* (full) reward. The PoNA mechanism (x/pona), once
-// implemented, may reduce the per-block reward based on the number of
-// transactions in the block.
 func DefaultTiers() []Tier {
 	oneRune := sdkmath.NewIntWithDecimal(1, 18)
+	runeAmount := func(n int64) sdkmath.Int { return oneRune.MulRaw(n) }
 
 	return []Tier{
 		{
-			StartHeight:    0,
-			EndHeight:      BlocksPerTwoYearsAt6s, // 10,519,200
-			RewardPerBlock: oneRune.MulRaw(50),
+			StartHeight:        0,
+			EndHeight:          BlocksPerTwoYearsAt6s, // 10,519,200
+			RewardPerBlock:     runeAmount(50),
+			TxCountThreshold:   DefaultTxCountThreshold,
+			LowActivityReward:  runeAmount(20),
+			ZeroActivityReward: runeAmount(1),
 		},
 		{
-			StartHeight:    BlocksPerTwoYearsAt6s,
-			EndHeight:      4 * BlocksPerYearAt6s, // 21,038,400
-			RewardPerBlock: oneRune.MulRaw(25),
+			StartHeight:        BlocksPerTwoYearsAt6s,
+			EndHeight:          4 * BlocksPerYearAt6s, // 21,038,400
+			RewardPerBlock:     runeAmount(25),
+			TxCountThreshold:   DefaultTxCountThreshold,
+			LowActivityReward:  runeAmount(10),
+			ZeroActivityReward: runeAmount(1),
 		},
 		{
-			StartHeight:    4 * BlocksPerYearAt6s, // 21,038,400
-			EndHeight:      0,                     // open-ended (effectively infinite)
-			RewardPerBlock: oneRune.MulRaw(10),
+			StartHeight:        4 * BlocksPerYearAt6s, // 21,038,400
+			EndHeight:          0,                     // open-ended (effectively infinite)
+			RewardPerBlock:     runeAmount(10),
+			TxCountThreshold:   DefaultTxCountThreshold,
+			LowActivityReward:  runeAmount(5),
+			ZeroActivityReward: runeAmount(1),
 		},
 	}
 }
@@ -52,9 +68,8 @@ func DefaultTiers() []Tier {
 // DefaultParams returns the default runerewards module parameters.
 func DefaultParams(runeDenom string) Params {
 	return Params{
-		Tiers:             DefaultTiers(),
-		Denom:             runeDenom,
-		MinRewardPerBlock: sdkmath.NewIntWithDecimal(5, 18), // 5 RUNE floor
+		Tiers: DefaultTiers(),
+		Denom: runeDenom,
 	}
 }
 
@@ -62,9 +77,6 @@ func DefaultParams(runeDenom string) Params {
 func (p Params) Validate() error {
 	if p.Denom == "" {
 		return fmt.Errorf("runerewards: denom must not be empty")
-	}
-	if p.MinRewardPerBlock.IsNil() || p.MinRewardPerBlock.IsNegative() {
-		return fmt.Errorf("runerewards: min reward per block must be non-negative")
 	}
 	if len(p.Tiers) == 0 {
 		return fmt.Errorf("runerewards: at least one tier is required")
@@ -76,6 +88,9 @@ func (p Params) Validate() error {
 	for i, t := range p.Tiers {
 		if t.RewardPerBlock.IsNil() || t.RewardPerBlock.IsNegative() {
 			return fmt.Errorf("runerewards: tier %d reward must be non-negative", i)
+		}
+		if err := t.validatePoNA(i); err != nil {
+			return err
 		}
 		if t.EndHeight != 0 && t.EndHeight <= t.StartHeight {
 			return fmt.Errorf(

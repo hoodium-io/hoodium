@@ -8,23 +8,20 @@ import (
 // given block height, or zero when emission has ended (rewards are fee-only).
 //
 // It walks the tier schedule to find the tier covering `height` and returns its
-// per-block reward. If no tier covers the height, or the applicable reward is
-// below Params.MinRewardPerBlock, it returns zero (fee-only).
+// per-block reward. If no tier covers the height, it returns zero (fee-only).
 //
 // This function is pure and deterministic: given the same params and height it
 // always returns the same reward on every node.
+//
+// It is the tx-count-agnostic view of the schedule (the tier's full base
+// reward). The reward actually paid for a block is
+// RewardForHeightAndTxCount (see pona.go), which applies Proof of Network
+// Activity.
 func (p Params) RewardForHeight(height uint64) sdkmath.Int {
 	tier, ok := p.tierForHeight(height)
 	if !ok {
 		return sdkmath.ZeroInt()
 	}
-
-	// Fee-only floor: once the tier reward is below the configured minimum,
-	// emission stops.
-	if tier.RewardPerBlock.LT(p.MinRewardPerBlock) {
-		return sdkmath.ZeroInt()
-	}
-
 	return tier.RewardPerBlock
 }
 

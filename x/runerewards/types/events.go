@@ -12,4 +12,7 @@ const (
 	AttributeKeyHeight    = "height"
 	AttributeKeyValidator = "validator"
 	AttributeKeyAmount    = "amount"
+	// AttributeKeyTxCount is the number of transactions in the rewarded block,
+	// which Proof of Network Activity used to select the reward.
+	AttributeKeyTxCount = "tx_count"
 )

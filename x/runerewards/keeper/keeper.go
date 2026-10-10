@@ -123,6 +123,33 @@ func (k Keeper) RewardPoolBalance(ctx sdk.Context) sdk.Coin {
 	return k.bankKeeper.GetBalance(ctx, addr, params.Denom)
 }
 
+// SetBlockTxCount records the number of transactions in the block currently
+// being finalised.
+//
+// It is called from the application's PreBlock hook (the only place the ABCI
+// request, and therefore the block's transaction list, is visible) and read
+// back in EndBlock by DistributeRuneBlockReward to apply Proof of Network
+// Activity. The value is overwritten at the start of every block.
+func (k Keeper) SetBlockTxCount(ctx sdk.Context, txCount uint64) {
+	store := ctx.KVStore(k.storeKey)
+	store.Set(types.KeyBlockTxCount, sdk.Uint64ToBigEndian(txCount))
+}
+
+// BlockTxCount returns the number of transactions in the block currently being
+// finalised, as recorded by SetBlockTxCount.
+//
+// It returns 0 when no count has been recorded for this block (e.g. genesis).
+// A zero count is the "quiet block" case under PoNA, which pays the tier's
+// zero-activity reward.
+func (k Keeper) BlockTxCount(ctx sdk.Context) uint64 {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.KeyBlockTxCount)
+	if len(bz) == 0 {
+		return 0
+	}
+	return sdk.BigEndianToUint64(bz)
+}
+
 // FundRewardPool mints `amount` of the module denom into the validator reward
 // pool. It is intended to be called once from genesis.
 func (k Keeper) FundRewardPool(ctx sdk.Context, amount sdkmath.Int) error {

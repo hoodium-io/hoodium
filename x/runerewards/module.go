@@ -40,8 +40,12 @@ func (AppModuleBasic) Name() string {
 func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
 
 // ConsensusVersion returns the consensus state-breaking version for the module.
+//
+// Bumped 1 -> 2 when the Tier proto gained the PoNA activity fields
+// (tx_count_threshold, low_activity_reward, zero_activity_reward) and
+// min_reward_per_block was removed: the on-disk Params encoding changed.
 func (AppModuleBasic) ConsensusVersion() uint64 {
-	return 1
+	return 2
 }
 
 // DefaultGenesis returns default genesis state as raw bytes for the runerewards module.
@@ -114,8 +118,12 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 // BeginBlock performs a no-op.
 func (AppModule) BeginBlock(_ context.Context) error { return nil }
 
-// EndBlock pays the static block reward for the closing block from the validator
+// EndBlock pays the block reward for the closing block from the validator
 // reward pool to the block proposer.
+//
+// The reward is scaled by Proof of Network Activity: the number of transactions
+// in this block, captured in the application's PreBlock hook (see
+// keeper.SetBlockTxCount), selects the tier's full, low, or zero activity rate.
 //
 // The proposer consensus address is taken from the ABCI request (FinalizeBlock) /
 // the configured proposer. Transaction fees are NOT handled here; they follow the

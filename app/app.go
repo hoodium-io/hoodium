@@ -658,10 +658,24 @@ func (app *Hoodium) setPostHandler() {
 	app.SetPostHandler(postHandler)
 }
 
+// PreBlocker runs before BeginBlock and transaction delivery. It is the only
+// application hook with access to the block's transaction list (the module-level
+// PreBlock hooks receive only an sdk.Context).
+//
+// It records the number of transactions in the block being finalised so that
+// x/runerewards can apply Proof of Network Activity when it pays the block
+// reward in EndBlock (see x/runerewards/keeper.SetBlockTxCount).
 func (app *Hoodium) PreBlocker(
 	ctx sdk.Context,
 	req *abci.RequestFinalizeBlock,
 ) (*sdk.ResponsePreBlock, error) {
+	// Count the transactions in this block for Proof of Network Activity.
+	// NOTE: req.Txs includes every entry in the proposal, including any
+	// app-level injected pseudo-transaction. PoNA counts what the proposer
+	// included, so this matches the "transactions included in the block"
+	// semantics documented in docs/technologies/pona.md.
+	app.RuneRewardsKeeper.SetBlockTxCount(ctx, uint64(len(req.Txs))) //nolint:gosec // tx count is bounded by the block
+
 	return app.preBlockHandler.PreBlocker(app.mm)(ctx, req)
 }
 
