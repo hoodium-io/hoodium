@@ -52,6 +52,11 @@ count:
   finalised** — *not* mempool size, and *not* a rolling average. This was
   confirmed as the intended semantics.
 
+> **Note on "threshold 0":** a tier whose `TxCountThreshold` is **0** has PoNA
+> *switched off* and always pays the full rate. Zero is a sentinel meaning
+> "disabled" — it is **not** a claim that the threshold is 0 transactions. The
+> live threshold is **10** (`DefaultTxCountThreshold`).
+
 The distinction between **Low** and **Zero** is deliberate: a block with a small
 number of real transactions is *some* activity and earns a meaningful reduced
 reward; a **completely empty** block earns only a nominal amount, so an idle

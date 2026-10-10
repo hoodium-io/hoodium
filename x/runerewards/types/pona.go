@@ -29,13 +29,21 @@ import (
 // DefaultTxCountThreshold is the default minimum number of transactions a block
 // must contain for the full (base) reward to be paid under PoNA.
 //
-//	tx_count >= DefaultTxCountThreshold    -> full reward
-//	0 < tx_count < DefaultTxCountThreshold -> low activity reward
-//	tx_count == 0                          -> zero activity reward
+// This is the value used by the default schedule (all three tiers). A block with
+// fewer transactions earns a reduced reward:
+//
+//	tx_count >= DefaultTxCountThreshold    -> full reward      (>= 10)
+//	0 < tx_count < DefaultTxCountThreshold -> low activity      (1..9)
+//	tx_count == 0                          -> zero activity     (0)
 const DefaultTxCountThreshold = uint64(10)
 
 // PoNAEnabled reports whether the tier scales its reward by block activity.
-// A threshold of zero disables PoNA for the tier (the full reward is always paid).
+//
+// A TxCountThreshold of 0 is the "PoNA off" sentinel: it disables the activity
+// scaling for that tier, so the full RewardPerBlock is always paid. This is NOT
+// the threshold value — the schedule's live threshold is DefaultTxCountThreshold
+// (10). Zero is used as the sentinel because a tier that required zero
+// transactions to pay full would be meaningless.
 func (t Tier) PoNAEnabled() bool {
 	return t.TxCountThreshold > 0
 }
