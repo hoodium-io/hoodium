@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -827,8 +828,9 @@ func (suite *KeeperTestSuite) TestEstimateGas_FloorDataGas_PrePrague() {
 
 // TestEstimateGas_ClampsGasCap pins that an oversized caller gas cap is
 // clamped to the server-side limit, so the binary-search ceiling cannot be
-// driven past it: a ~28.8M-gas call is reported as exceeding the clamped 25M
-// allowance rather than being estimated against the caller's 1e9 cap.
+// driven past it: a very high-gas call is reported as exceeding the clamped
+// server cap (config.DefaultGasCap, currently the block gas limit) rather than
+// being estimated against the caller's 1e9 cap.
 func (suite *KeeperTestSuite) TestEstimateGas_ClampsGasCap() {
 	suite.SetupTest()
 	suite.app.EvmKeeper.SetEthCallGasCap(config.DefaultGasCap)
@@ -853,7 +855,9 @@ func (suite *KeeperTestSuite) TestEstimateGas_ClampsGasCap() {
 		StateOverride: overrideBytes,
 	})
 	suite.Require().Error(err)
-	suite.Require().Contains(err.Error(), "25000000")
+	// The clamp is config.DefaultGasCap; assert against the constant so the
+	// test cannot silently go stale if the default is retuned again.
+	suite.Require().Contains(err.Error(), strconv.FormatUint(config.DefaultGasCap, 10))
 }
 
 // TestEstimateGas_NoDeadlineUsesServerTimeout pins that a direct query with no

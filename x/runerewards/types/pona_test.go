@@ -101,6 +101,11 @@ func TestPoNADisabledWhenThresholdZero(t *testing.T) {
 
 // TestRewardForHeightAndTxCountNoTier verifies that a height with no covering
 // tier yields zero (fee-only, emission ended).
+//
+// NOTE: a *valid* schedule always covers every height (it starts at 0 and its
+// last tier is open-ended), so this defensive branch is only reachable with an
+// explicit end height on the final tier — which Validate() rejects. The schedule
+// is therefore left unvalidated on purpose, and the zero result must still hold.
 func TestRewardForHeightAndTxCountNoTier(t *testing.T) {
 	params := types.Params{
 		Denom: "arune",
@@ -108,8 +113,10 @@ func TestRewardForHeightAndTxCountNoTier(t *testing.T) {
 			{StartHeight: 0, EndHeight: 100, RewardPerBlock: rune(50)},
 		},
 	}
-	require.NoError(t, params.Validate())
+	// Deliberately NOT calling params.Validate(): the point is that a height
+	// past the last tier is fee-only rather than panicking or paying.
 	require.True(t, params.RewardForHeightAndTxCount(150, 20).IsZero())
+	require.True(t, params.RewardForHeight(150).IsZero())
 }
 
 // TestParamsValidateRejectsBadPoNA verifies that an enabled tier with a missing
