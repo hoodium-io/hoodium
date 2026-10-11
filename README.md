@@ -71,6 +71,7 @@ Custom features built for Hoodium (i.e. beyond stock Cosmos SDK / EVM behaviour)
 | **Two-gas-price model** | Separate minimum gas prices for **regular** vs **deployment** transactions, both **governance-adjustable**. |
 | **Standard staking** (replacing PoA) | Permissionless Cosmos staking: **101** max validators, **500,000 RUNE** min self-delegation, **5%** min commission. |
 | **Staking from EVM** | A staking precompile lets EVM accounts delegate / undelegate / query without leaving the EVM toolchain. |
+| **Guided first-run setup (`runed setup`)** | A single guided entry point for bootstrapping a node, with **automated** and **manual** modes. It walks you through mode → network (`mainnet`/`testnet`/`devnet`) → node type (`validator`/`seed`) → moniker → wallet key, then runs (or prints) `init`, `keys add` and `gentx`. Most Cosmos/EVM chains make you wire those together by hand. See [`node-setup.md`](./docs/node-setup.md). |
 | **Dual-chain architecture** | **L1 Mainchain (EVM)** + **L2 Yieldchain (POX)** as one unified network — the Yieldchain depends on the Mainchain for execution, and a Bitcoin security layer covers both. *(Yieldchain is a later track.)* |
 
 ## Technologies
@@ -113,7 +114,9 @@ Full documentation lives in [`docs/`](./docs/):
 | [Features](./docs/features/README.md) | User-facing Hoodium features |
 | [Development](./docs/development.md) | Running the client locally |
 | [Networks](./docs/networks.md) | Mainnet / Testnet / Devnet identities and ports |
-| [Validator setup](./docs/validator-setup.md) | `runed setup` and joining as a validator |
+| [Node setup](./docs/node-setup.md) | `runed setup` — guided first-run bootstrap |
+| [Validator setup](./docs/validator.md) | Joining an official network as a validator |
+| [Genesis init (team)](./docs/team/mainchain/genesis-init.md) | Generating the official Mainchain genesis |
 | [Precompile](./docs/precompile.md) | The EVM precompile set |
 | [Upgrades](./docs/upgrades.md) | Scheduling chain-software upgrades |
 

@@ -39,7 +39,7 @@ A Hoodium node exposes the following services:
 ## Joining a network
 
 To join an existing network as a validator or a seed node, use the guided
-first-run setup — see [validator setup](./validator-setup.md).
+first-run setup — see [Node Setup](./node-setup.md).
 
 ```bash
 runed setup

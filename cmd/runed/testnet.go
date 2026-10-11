@@ -94,20 +94,6 @@ type initArgs struct {
 	startingIPAddress string
 }
 
-type startArgs struct {
-	algo           string
-	apiAddress     string
-	chainID        string
-	grpcAddress    string
-	minGasPrices   string
-	outputDir      string
-	rpcAddress     string
-	jsonrpcAddress string
-	numValidators  int
-	enableLogging  bool
-	printMnemonic  bool
-}
-
 func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().Int(flagNumValidators, 1, "Number of validators to initialize the testnet with")
 	cmd.Flags().StringP(flagOutputDir, "o", "./.testnets", "Directory to store initialization data for the testnet")
@@ -116,30 +102,32 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().String(flags.FlagKeyType, string(hd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
 }
 
-// NewTestnetCmd creates a root testnet command with subcommands to run an in-process testnet or initialize
-// validator configuration files for running a multi-validator testnet in a separate process
-func NewTestnetCmd(mbm module.BasicManager) *cobra.Command {
-	testnetCmd := &cobra.Command{
-		Use:                        "testnet",
-		Short:                      "subcommands for starting or configuring local testnets",
-		DisableFlagParsing:         true,
-		SuggestionsMinimumDistance: 2,
-		RunE:                       client.ValidateCmd,
-	}
-
-	testnetCmd.AddCommand(testnetStartCmd())
-	testnetCmd.AddCommand(testnetInitFilesCmd(mbm))
-
-	return testnetCmd
+// NewGenesisInitCmd creates the `runed genesis init-files` command that
+// initializes validator configuration files for a multi-node network running in
+// separate processes (e.g. Docker Compose or similar).
+//
+// NOTE: this is a TEAM-ONLY tool. It IS the official Hoodium genesis generator:
+// it assembles the full production genesis (RUNE premine, validator reward
+// reserve, bonded pool, staking and EVM/fee-market params). It is deliberately
+// NOT exposed as a `testnet`/`mainnet`/`devnet` subcommand so that operators
+// never mistake it for the way to join a network — joining is done with
+// `runed setup`. See docs/team/mainchain/genesis-init.md.
+func NewGenesisInitCmd(mbm module.BasicManager) *cobra.Command {
+	return testnetInitFilesCmd(mbm)
 }
 
-// get cmd to initialize all files for tendermint testnet and application
+// testnetInitFilesCmd builds the genesis generator command. The internal name is
+// kept for historical reasons; it is registered as `runed genesis init-files`.
 func testnetInitFilesCmd(mbm module.BasicManager) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init-files",
-		Short: "Initialize config directories & files for a multi-validator testnet running locally via separate processes (e.g. Docker Compose or similar)",
+		Short: "Initialize genesis and config files for a multi-node network (TEAM ONLY)",
 		Long: `init-files will setup "val" number of directories and populate each with
 necessary files (private validator, genesis, config, etc.) for running "val" validator nodes.
+
+This is the official Hoodium genesis generator and is intended for use by the
+Hoodium team when launching a network (mainnet, testnet or devnet). It is NOT the
+way to join an existing network - use "runed setup" for that.
 
 Booting up a network with these validator folders is intended to be used with Docker Compose,
 or a similar setup where each node has a manually configurable IP address.
@@ -178,46 +166,6 @@ Example:
 	cmd.Flags().String(flagStartingIPAddress, "192.168.0.1", "Starting IP address (192.168.0.1 results in persistent peers list ID0@192.168.0.1:46656, ID1@192.168.0.2:46656, ...). Setting this flag to localhost results in configuration generation for binary-based localnet")
 	cmd.Flags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend (os|file|test)")
 
-	return cmd
-}
-
-// get cmd to start multi validator in-process testnet
-func testnetStartCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Launch an in-process multi-validator testnet",
-		Long: `testnet will launch an in-process multi-validator testnet,
-and generate "val" directories, populated with necessary validator configuration files
-(private validator, genesis, config, etc.).
-
-Example:
-	runed testnet --val 4 --output-dir ./.testnets
-	`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			args := startArgs{}
-			args.outputDir, _ = cmd.Flags().GetString(flagOutputDir)
-			args.chainID, _ = cmd.Flags().GetString(flags.FlagChainID)
-			args.minGasPrices, _ = cmd.Flags().GetString(srvflags.MinGasPrices)
-			args.numValidators, _ = cmd.Flags().GetInt(flagNumValidators)
-			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
-			args.enableLogging, _ = cmd.Flags().GetBool(flagEnableLogging)
-			args.rpcAddress, _ = cmd.Flags().GetString(flagRPCAddress)
-			args.apiAddress, _ = cmd.Flags().GetString(flagAPIAddress)
-			args.grpcAddress, _ = cmd.Flags().GetString(srvflags.GRPCAddress)
-			args.jsonrpcAddress, _ = cmd.Flags().GetString(srvflags.JSONRPCAddress)
-			args.printMnemonic, _ = cmd.Flags().GetBool(flagPrintMnemonic)
-
-			return startTestnet(cmd, args)
-		},
-	}
-
-	addTestnetFlagsToCmd(cmd)
-	cmd.Flags().Bool(flagEnableLogging, false, "Enable INFO logging of tendermint validator nodes")
-	cmd.Flags().String(flagRPCAddress, "tcp://0.0.0.0:26657", "the RPC address to listen on")
-	cmd.Flags().String(flagAPIAddress, "tcp://0.0.0.0:1317", "the address to listen on for REST API")
-	cmd.Flags().String(srvflags.GRPCAddress, config.DefaultGRPCAddress, "the gRPC server address to listen on")
-	cmd.Flags().String(srvflags.JSONRPCAddress, config.DefaultJSONRPCAddress, "the JSON-RPC server address to listen on")
-	cmd.Flags().Bool(flagPrintMnemonic, true, "print mnemonic of first validator to stdout for manual testing")
 	return cmd
 }
 
@@ -780,53 +728,6 @@ func calculateIP(ip string, i int) (string, error) {
 	}
 
 	return ipv4.String(), nil
-}
-
-// startTestnet starts an in-process testnet
-func startTestnet(cmd *cobra.Command, args startArgs) error {
-	networkConfig := network.DefaultConfig()
-
-	// Default networkConfig.ChainID is random, and we should only override it if chainID provided
-	// is non-empty
-	if args.chainID != "" {
-		networkConfig.ChainID = args.chainID
-	}
-	networkConfig.SigningAlgo = args.algo
-	networkConfig.MinGasPrices = args.minGasPrices
-	networkConfig.NumValidators = args.numValidators
-	networkConfig.EnableTMLogging = args.enableLogging
-	networkConfig.RPCAddress = args.rpcAddress
-	networkConfig.APIAddress = args.apiAddress
-	networkConfig.GRPCAddress = args.grpcAddress
-	networkConfig.JSONRPCAddress = args.jsonrpcAddress
-	networkConfig.PrintMnemonic = args.printMnemonic
-	networkLogger := network.NewCLILogger(cmd)
-
-	baseDir := fmt.Sprintf("%s/%s", args.outputDir, networkConfig.ChainID)
-	if _, err := os.Stat(baseDir); !os.IsNotExist(err) {
-		return fmt.Errorf(
-			"testnests directory already exists for chain-id '%s': %s, please remove or select a new --chain-id",
-			networkConfig.ChainID, baseDir)
-	}
-
-	testnet, err := network.New(networkLogger, baseDir, networkConfig)
-	if err != nil {
-		return err
-	}
-
-	_, err = testnet.WaitForHeight(1)
-	if err != nil {
-		return err
-	}
-
-	cmd.Println("press the Enter Key to terminate")
-	_, err = fmt.Scanln() // wait for Enter Key
-	if err != nil {
-		return err
-	}
-	testnet.Cleanup()
-
-	return nil
 }
 
 // clientConfigTemplate mirrors the Cosmos SDK's client.toml template so the file

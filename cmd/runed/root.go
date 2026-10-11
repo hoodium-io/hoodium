@@ -127,8 +127,17 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	cfg.Seal()
 
 	a := appCreator{encodingConfig}
+
+	// Build the genesis utilities command and attach the team-only genesis
+	// generator (`runed genesis init-files`) to it. It lives under `genesis`
+	// rather than as a `testnet`/`mainnet` subcommand so it is never confused
+	// with joining a network (`runed setup`). See
+	// docs/team/mainchain/genesis-init.md.
+	genesisCmd := genesis.NewCmd(app.ModuleBasics, encodingConfig.TxConfig, app.DefaultNodeHome)
+	genesisCmd.AddCommand(NewGenesisInitCmd(app.ModuleBasics))
+
 	rootCmd.AddCommand(
-		genesis.NewCmd(app.ModuleBasics, encodingConfig.TxConfig, app.DefaultNodeHome),
+		genesisCmd,
 		toml.NewCmd(),
 		NewInitCmd(app.ModuleBasics),
 		NewSetupCmd(setupDeps{
@@ -139,7 +148,6 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 			genBalancesIt: banktypes.GenesisBalancesIterator{},
 		}),
 		tmcli.NewCompletionCmd(rootCmd, true),
-		NewTestnetCmd(app.ModuleBasics),
 		confixcmd.ConfigCommand(),
 		pruning.Cmd(a.newApp, app.DefaultNodeHome),
 	)
