@@ -73,7 +73,6 @@ import (
 var (
 	flagNodeDirPrefix     = "node-dir-prefix"
 	flagNumValidators     = "val"
-	flagOutputDir         = "output-dir"
 	flagNodeDaemonHome    = "node-daemon-home"
 	flagStartingIPAddress = "starting-ip-address"
 )
@@ -86,12 +85,12 @@ type initArgs struct {
 	nodeDaemonHome    string
 	nodeDirPrefix     string
 	numValidators     int
-	outputDir         string
+	homeDir           string
 	startingIPAddress string
 }
 
 func addGenesisInitFlagsToCmd(cmd *cobra.Command, defaultNodeHome string) {
-	cmd.Flags().StringP(flagOutputDir, "o", defaultNodeHome, "Node home directory to initialize (single node by default)")
+	cmd.Flags().String(flags.FlagHome, defaultNodeHome, "Node home directory (the node's home; in single-node mode this IS the node home)")
 	cmd.Flags().Int(flagNumValidators, 1, "Number of nodes to generate. 1 (default) writes a single production node home; >1 generates a multi-node local network layout")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
 	cmd.Flags().String(srvflags.MinGasPrices, fmt.Sprintf("0.0000025%s", cmdcfg.BaseDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.0000025arune)") //nolint:lll
@@ -117,16 +116,16 @@ This is the official Hoodium genesis generator. It is intended for use by the
 Hoodium team when launching a network. It is NOT the way to join an existing
 network - use "runed setup" for that.
 
-By default it generates a SINGLE node home in --output-dir (default: the node's
+By default it generates a SINGLE node home in --home (default: the node's
 home directory), ready to run with "runed start":
 
   runed genesis init-files --chain-id rune_6590-1
 
 Passing --val N with N > 1 instead generates N separate node homes under
-<output-dir> (a local-network/Docker layout), which is NOT how a public network
+<home> (a local-network/Docker layout), which is NOT how a public network
 is launched:
 
-  runed genesis init-files --val 4 --output-dir ./.localnet --starting-ip-address 192.168.10.2
+  runed genesis init-files --val 4 --home ./.localnet --starting-ip-address 192.168.10.2
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -137,7 +136,7 @@ is launched:
 			serverCtx := sdkserver.GetServerContextFromCmd(cmd)
 
 			args := initArgs{}
-			args.outputDir, _ = cmd.Flags().GetString(flagOutputDir)
+			args.homeDir, _ = cmd.Flags().GetString(flags.FlagHome)
 			args.keyringBackend, _ = cmd.Flags().GetString(flags.FlagKeyringBackend)
 			args.chainID, _ = cmd.Flags().GetString(flags.FlagChainID)
 			args.minGasPrices, _ = cmd.Flags().GetString(srvflags.MinGasPrices)
@@ -172,13 +171,13 @@ const (
 // on failure would destroy operator state, so cleanup is SKIPPED in that case.
 // It only ever removes a directory that this command created itself, which is
 // the multi-node (val > 1) layout.
-func cleanupOnFailure(outputDir string, numValidators int) {
+func cleanupOnFailure(homeDir string, numValidators int) {
 	if numValidators <= 1 {
 		// Single-node: output dir is the (possibly pre-existing) node home.
 		// Never delete it.
 		return
 	}
-	_ = os.RemoveAll(outputDir)
+	_ = os.RemoveAll(homeDir)
 }
 
 // resolveNodeDir returns the home directory for node `i` of the network being
@@ -191,22 +190,22 @@ func cleanupOnFailure(outputDir string, numValidators int) {
 //     gets a ready-to-run node home (e.g. ~/.runed), with no wrapper folders.
 //
 //   - Multi node (val > 1): a local-network / Docker layout, where each node
-//     gets `<outputDir>/<prefix><i>/<daemonHome>` so several node homes can be
+//     gets `<home>/<prefix><i>/<daemonHome>` so several node homes can be
 //     generated side by side. This is NOT how a public network is launched.
-func resolveNodeDir(outputDir, nodeDirPrefix, nodeDaemonHome string, i, numValidators int) string {
+func resolveNodeDir(homeDir, nodeDirPrefix, nodeDaemonHome string, i, numValidators int) string {
 	if numValidators <= 1 {
-		return outputDir
+		return homeDir
 	}
 	nodeDirName := fmt.Sprintf("%s%d", nodeDirPrefix, i)
-	return filepath.Join(outputDir, nodeDirName, nodeDaemonHome)
+	return filepath.Join(homeDir, nodeDirName, nodeDaemonHome)
 }
 
 // nodeDirName returns the display name for node `i`. For a single node this is
 // the node's moniker-ish name derived from the home directory so the genesis
 // description is still meaningful.
-func nodeDirName(outputDir, nodeDirPrefix string, i, numValidators int) string {
+func nodeDirName(homeDir, nodeDirPrefix string, i, numValidators int) string {
 	if numValidators <= 1 {
-		return filepath.Base(outputDir)
+		return filepath.Base(homeDir)
 	}
 	return fmt.Sprintf("%s%d", nodeDirPrefix, i)
 }
@@ -241,30 +240,30 @@ func initGenesisFilesForNetwork(
 	inBuf := bufio.NewReader(cmd.InOrStdin())
 
 	for i := 0; i < args.numValidators; i++ {
-		nodeDirNames[i] = nodeDirName(args.outputDir, args.nodeDirPrefix, i, args.numValidators)
+		nodeDirNames[i] = nodeDirName(args.homeDir, args.nodeDirPrefix, i, args.numValidators)
 
 		nodeDir := resolveNodeDir(
-			args.outputDir, args.nodeDirPrefix, args.nodeDaemonHome, i, args.numValidators,
+			args.homeDir, args.nodeDirPrefix, args.nodeDaemonHome, i, args.numValidators,
 		)
 		nodeDirs[i] = nodeDir
 
 		nodeConfig.SetRoot(nodeDir)
 
 		if err := os.MkdirAll(filepath.Join(nodeDir, "config"), nodeDirPerm); err != nil {
-			cleanupOnFailure(args.outputDir, args.numValidators)
+			cleanupOnFailure(args.homeDir, args.numValidators)
 			return err
 		}
 
 		var err error
 		nodeIDs[i], valPubKeys[i], err = genutil.InitializeNodeValidatorFiles(nodeConfig)
 		if err != nil {
-			cleanupOnFailure(args.outputDir, args.numValidators)
+			cleanupOnFailure(args.homeDir, args.numValidators)
 			return err
 		}
 
 		memo, err := getMemo(nodeIDs[i], i, args.startingIPAddress)
 		if err != nil {
-			cleanupOnFailure(args.outputDir, args.numValidators)
+			cleanupOnFailure(args.homeDir, args.numValidators)
 			return err
 		}
 
@@ -298,7 +297,7 @@ func initGenesisFilesForNetwork(
 			algo,
 		)
 		if err != nil {
-			cleanupOnFailure(args.outputDir, args.numValidators)
+			cleanupOnFailure(args.homeDir, args.numValidators)
 			return err
 		}
 
@@ -502,12 +501,12 @@ func initGenesisFilesForNetwork(
 	if args.numValidators <= 1 {
 		cmd.PrintErrf(
 			"Successfully initialized genesis and node config in %s\n",
-			args.outputDir,
+			args.homeDir,
 		)
 	} else {
 		cmd.PrintErrf(
 			"Successfully initialized %d node directories under %s\n",
-			args.numValidators, args.outputDir,
+			args.numValidators, args.homeDir,
 		)
 	}
 

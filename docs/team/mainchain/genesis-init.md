@@ -23,10 +23,10 @@ step — you can run `runed start` immediately afterwards.
 **Multi-node (local network only):**
 
 ```
-runed genesis init-files --val 4 --output-dir ./.localnet --starting-ip-address 192.168.10.2
+runed genesis init-files --val 4 --home ./.localnet --starting-ip-address 192.168.10.2
 ```
 
-Only `--val N` with `N > 1` switches to the `<output-dir>/node0/runed/` layout, for
+Only `--val N` with `N > 1` switches to the `<home>/node0/runed/` layout, for
 spinning up several nodes side by side on one host (Docker / localnet). **This is
 not how a public network is launched.**
 
@@ -35,7 +35,7 @@ not how a public network is launched.**
 | Flag | Default | Needed? | Purpose |
 |---|---|---|---|
 | `--chain-id` | *random* | **Yes, effectively** | Selects the network (`rune_6590-1` / `rune_6591-1` / `rune_6592-1`). If omitted you get a **random** chain ID, which is only useful for throwaway localnets. |
-| `--output-dir` (`-o`) | **the node home** (`~/.runed`) | Optional | Where the node home is written. In single-node mode this **is** the node home. |
+| `--home` | the node home (`~/.runed`) | Optional | The node home directory. In single-node mode this **is** the node home — same flag name and meaning as every other Cosmos command. |
 | `--val` | `1` | Optional | `1` = a single production node home (default). `N > 1` = N node homes in a local-network layout. |
 | `--starting-ip-address` | `localhost` | Only for `--val > 1` | Pre-wires each node's P2P/RPC/API/JSON-RPC addresses for a multi-node local network. |
 | `--node-dir-prefix` | `node` | Only for `--val > 1` | Folder prefix for each node in the multi-node layout. |
