@@ -135,7 +135,11 @@ or a similar setup where each node has a manually configurable IP address.
 Note, strict routability for addresses is turned off in the config file.
 
 Example:
-	runed testnet init-files --val 4 --output-dir ./.testnets --starting-ip-address 192.168.10.2
+	# Single bootstrap node (all flags optional):
+	runed genesis init-files --chain-id rune_6592-1
+
+	# Four nodes with Docker-style pre-wired addressing:
+	runed genesis init-files --val 4 --output-dir ./.testnets --starting-ip-address 192.168.10.2
 	`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
