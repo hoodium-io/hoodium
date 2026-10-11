@@ -2,13 +2,13 @@
 
 **The Unified Dual-Layer Blockchain Network built on top of Bitcoin** — *in active development.*
 
-A combination of **L1 (Mainchain EVM)** + **L2 (Sidechain POX)**.
+A combination of **L1 (Mainchain EVM)** + **L2 (Yieldchain POX)**.
 
 > 🚧 **Development status: Mainchain Devnet.**
 > Hoodium is building toward **Mainchain Mainnet launch**. A public **Mainchain devnet**
 > will be live so the community can watch the network evolve in real development —
-> from devnet, through testnet, to Mainnet final. The **YieldChain (L2 / POX)** is a
-> separate track and is **not** part of the Mainchain devnet.
+> from devnet, through testnet, to Mainnet final. The **Yieldchain** is a later track
+> and is **not** part of this Mainchain devnet.
 
 ---
 
@@ -17,10 +17,9 @@ A combination of **L1 (Mainchain EVM)** + **L2 (Sidechain POX)**.
 Progress toward **Mainchain Mainnet**. Items are checked as they land.
 
 ### Phase 1 — Foundation
-- [x] Codebase forked and rebranded to `hoodium-io/hoodium` (module path, binary `runed`, home `~/.runed`)
-- [x] Bridge / tBTC / sidecar / pseudo-tx removal (out-of-scope legacy surface)
+- [x] Codebase fondation build `hoodium-io/hoodium` (module path, binary `runed`, home `~/.runed`)
 - [x] Chain identity: chain-IDs `6590`/`6591`, denom `arune`, precompile prefix
-- [x] `x/poa` removed → **standard Cosmos staking** (101 validators, 500,000 RUNE self-delegation, 5% commission)
+- [x] Staking → **standard Cosmos staking** (101 validators, 500,000 RUNE self-delegation, 5% commission)
 - [x] EVM (`x/evm`) + fee market (`x/feemarket`) wired and green
 - [x] Two-gas-price model, governance-adjustable
 - [x] RUNE genesis allocation: **9B premine + 1B reward reserve = 10B cap**
@@ -52,9 +51,9 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 - [ ] Mainnet genesis ceremony
 - [ ] Mainnet launch
 
-### Phase 6 — YieldChain (L2 / POX) — *separate track*
-- [ ] POX Yieldchain engine
-- [ ] Bitcoin-hash secured consensus
+### Phase 6 — Yieldchain (POX) — *later track*
+- [ ] POX Yieldchain engine — depends entirely on the Mainchain for execution
+- [ ] BTC hash security layer covering Yieldchain
 - [ ] Dual-chain bridge
 
 ---
@@ -72,7 +71,7 @@ Custom features built for Hoodium (i.e. beyond stock Cosmos SDK / EVM behaviour)
 | **Two-gas-price model** | Separate minimum gas prices for **regular** vs **deployment** transactions, both **governance-adjustable**. |
 | **Standard staking** (replacing PoA) | Permissionless Cosmos staking: **101** max validators, **500,000 RUNE** min self-delegation, **5%** min commission. |
 | **Staking from EVM** | A staking precompile lets EVM accounts delegate / undelegate / query without leaving the EVM toolchain. |
-| **Dual-chain architecture** | **L1 Mainchain (EVM)** + **L2 YieldChain (POX)** as one unified network. *(YieldChain is a separate, later track.)* |
+| **Dual-chain architecture** | **L1 Mainchain (EVM)** + **L2 Yieldchain (POX)** as one unified network — the Yieldchain depends on the Mainchain for execution, and a Bitcoin security layer covers both. *(Yieldchain is a later track.)* |
 
 ## Technologies
 
@@ -87,19 +86,22 @@ in [`docs/technologies/`](./docs/technologies/README.md).
 | **Two-gas-price model** | `x/feemarket` extension adding `MinRegularGasPrice` / `MinDeploymentGasPrice` on top of the EIP-1559 base fee. | [`tx-fees.md`](./docs/features/tx-fees.md) |
 | **EVM + fee market** | Full EVM execution (`x/evm`, forked from Cosmos EVM) with a working EIP-1559 fee market (`x/feemarket`). | [`evm-compatibility.md`](./docs/evm-compatibility.md) |
 | **Custom chain identity** | Chain-IDs `6590`/`6591`, `arune` denom, `rune` bech32 prefix, precompile address space prefixed `0x19be` (derived from the chain ID). | — |
-| **RUNE genesis model** | 9B premine + 1B reward reserve, both derived at runtime — no hardcoded addresses. | [`testnet.md`](./docs/testnet.md) |
+| **RUNE genesis model** | 9B premine + 1B reward reserve, both derived at runtime — no hardcoded addresses. | [`networks.md`](./docs/networks.md) |
 
 ## Overview
 
-Hoodium is a unified dual-layer network:
+Hoodium is one unified dual-layer network, not two independent chains:
 
 - **L1 — Mainchain:** an EVM-compatible application chain (Cosmos SDK) secured by its own
   validator set. RUNE is the gas, governance and reward token. This is what the devnet runs.
-- **L2 — YieldChain (POX):** a sidechain targetting Bitcoin-mining-hash security. *Separate,
-  later track — not part of the Mainchain devnet.*
+- **L2 — Yieldchain (POX):** a yield layer that **runs alongside the Mainchain**. It relies
+  on the Mainchain for **contract execution**, **HOODI transfers and staking**, and the rest
+  of its state.
+- **BTC hash security layer:** the same Bitcoin network secures the **POX Yieldchain** — as a
+  base security layer.
 
-Both layers share one network identity. Development proceeds Mainchain-first: the Mainchain
-must be solid before the YieldChain is layered on.
+Development proceeds Mainchain-first: the Mainchain must be solid before the Yieldchain is
+layered on. The devnet is Mainchain-only.
 
 ## Documentation
 
@@ -110,9 +112,10 @@ Full documentation lives in [`docs/`](./docs/):
 | [Technologies](./docs/technologies/README.md) | How Hoodium's custom mechanisms work (PoNA, rewards, …) |
 | [Features](./docs/features/README.md) | User-facing Hoodium features |
 | [Development](./docs/development.md) | Running the client locally |
+| [Networks](./docs/networks.md) | Mainnet / Testnet / Devnet identities and ports |
 | [Validator setup](./docs/validator-setup.md) | `runed setup` and joining as a validator |
-| [Testnet](./docs/testnet.md) | The public test/dev network |
 | [Precompile](./docs/precompile.md) | The EVM precompile set |
+| [Upgrades](./docs/upgrades.md) | Scheduling chain-software upgrades |
 
 Also see the [documentation site](https://hoodium.dev/).
 
@@ -130,9 +133,9 @@ to contribute to the codebase.
 
 The project has the [security policy](./SECURITY.md) available.
 
-## Testnet
+## Networks
 
-The Hoodium testnet is a public network that can be used for testing and
-experimentation. To learn more, please consult the [testnet](./docs/testnet.md)
-documentation.
+Hoodium runs three network identities: **Mainnet** (`rune_6590`), **Testnet**
+(`rune_6591`) and **Devnet** (`rune_6592`). To learn more, please consult the
+[networks](./docs/networks.md) documentation.
 ---

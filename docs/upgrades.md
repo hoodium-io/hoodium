@@ -1,188 +1,56 @@
 # Upgrades
 
-This document describes the process for breaking chain upgrades.
+This document describes how chain-software upgrades will be scheduled on
+Hoodium.
 
-## The process
+> **Fresh chain:** Hoodium has no prior chain state to migrate, so there are
+> **no upgrade handlers or forks registered yet**. See
+> [`app/upgrades.go`](../app/upgrades.go).
 
-Hoodium chain client defines two basic primitives for breaking upgrades. They are  
-both part of the `app/upgrades` module:
+## The upgrade module
 
-- `Fork`: This component represents a hard fork upgrade that executes a one-time
-  code block upon a programmatically enforced block. A `Fork` can schedule an
-  `Upgrade` or activate state/logic changes at a specific height, using the
-  feature flag approach. `Fork` changes are executed on a running chain.
-- `Upgrade`: This component typically defines state changes that require migrations
-  of the store schema. Moreover, it can be used to roll out complex logic changes
-  that cannot be applied using a feature flag. `Upgrade` changes require
-  a coordinated chain halt to be executed. An `Upgrade` can be scheduled either
-  through a `Fork` or through the `Upgrade` precompile. The store migrations are
-  executed using the built-in
-  [Cosmos In-Place Store Migrations mechanism](https://docs.cosmos.network/v0.52/learn/advanced/upgrade).
+Hoodium uses the Cosmos SDK **`x/upgrade`** module. It is wired into the app so
+that future software upgrades can be scheduled without changing the chain's
+architecture. Two primitives are available:
 
-Those two primitives can be combined to perform different upgrade procedures
-depending on the requirements of the upgrade. Each procedure assumes
-all Hoodium chain clients run on version `v1.0.0` initially.
+- **Upgrade handler** — a named handler that runs state migrations when the
+  chain halts at a scheduled height. Used for store-schema or complex logic
+  changes.
+- **Height-gated fork** — a one-time code block executed at a programmatic
+  height, for changes that do not need a coordinated halt.
 
-### Hard fork upgrade without chain halt
+Both are currently **empty** for Hoodium:
 
-This procedure is suitable for upgrades that do not require any store migrations
-nor complex logic changes. A good example is an upgrade of consensus parameters.
-
-The procedure is as follows:
-
-1. Create a package for the new upgrade: `app/upgrades/v2`.
-2. Define a new `v2.Fork` in the `app/upgrades/v2/constants.go` file and the
-   fork logic in the `app/upgrades/v2/forks.go` file.
-3. Register the `v2.Fork` in the `app.Forks` list, in the `app/upgrades.go` file.
-4. Release version `v2.0.0` of the Hoodium chain client and ask validators to upgrade.
-5. Once validators reach the fork block, the fork code will be executed.
-
-After the upgrade, the `v2.0.0` clients are still able to validate past blocks produced
-by `v1.0.0` clients. New nodes can sync from the genesis block using `v2.0.0` directly.
-
-### Hard fork upgrade with chain halt
-
-This procedure is suitable for urgent upgrades that require store migrations
-or complex logic changes. A good example is adding/removing a module or changing
-the store schema as response to a critical vulnerability.
-
-The procedure is as follows:
-
-1. Create a package for the new upgrade: `app/upgrades/v2`.
-2. Define a new `v2.Fork` in the `app/upgrades/v2/constants.go` file and the
-   fork logic in the `app/upgrades/v2/forks.go` file. The fork logic
-   should schedule the `v2` upgrade plan in the `x/upgrade` module. The plan
-   should have the same height as the fork block.
-3. Define a new `v2.Upgrade` in the `app/upgrades/v2/constants.go` file and the
-   upgrade handler in the `app/upgrades/v2/upgrades.go` file. The upgrade handler
-   should perform all necessary store migrations.
-4. Register the `v2.Fork` in the `app.Forks` list, in the `app/upgrades.go` file.
-5. Register the `v2.Upgrade` in the `app.Upgrades` list, in the `app/upgrades.go` file.
-6. Release version `v2.0.0` of the Hoodium chain client.
-7. Backport the `v2.Fork` to `v1.0.0` and release version `v1.0.1` of the Hoodium
-   chain client. Ask validators to upgrade to `v1.0.1` first. It is important
-   to NOT BACKPORT the `v2.Upgrade` to `v1.0.0` as it will break the
-   Cosmos In-Place Store Migrations mechanism.
-8. Once validators reach the fork block, the fork code will be executed and the
-   chain will halt due to the `v2` upgrade plan.
-9. After the halt, validators should upgrade to `v2.0.0` and restart their nodes.
-
-After the upgrade, the `v2.0.0` clients are no longer able to validate past blocks
-produced by `v1.0.0` clients. New nodes must sync from the genesis block using
-`v1.0.1` first and then upgrade to `v2.0.0` once the fork block is reached.
-This process can be automated using Cosmovisor. Alternatively, nodes can
-use the state sync process that starts syncing from a snapshot block
-compatible with the latest version.
-
-### Planned upgrade with chain halt
-
-This procedure is suitable for planned upgrades that require store migrations
-or complex logic changes. A good example is adding/removing a module or changing
-the store schema as part of a planned feature.
-
-The procedure is as follows:
-
-1. Create a package for the new upgrade: `app/upgrades/v2`.
-2. Define a new `v2.Upgrade` in the `app/upgrades/v2/constants.go` file and the
-   upgrade handler in the `app/upgrades/v2/upgrades.go` file. The upgrade handler
-   should perform all necessary store migrations.
-3. Register the `v2.Upgrade` in the `app.Upgrades` list, in the `app/upgrades.go` file.
-4. Release version `v2.0.0` of the Hoodium chain client.
-5. The governance schedules the `v2` upgrade plan through the `Upgrade` precompile.
-6. Once validators reach the upgrade block, the chain will halt due to the `v2` upgrade plan.
-7. After the halt, validators should upgrade to `v2.0.0` and restart their nodes.
-
-After the upgrade, the `v2.0.0` clients are no longer able to validate past blocks
-produced by `v1.0.0` clients. New nodes must sync from the genesis block using
-`v1.0.0` first and then upgrade to `v2.0.0` once the fork block is reached.
-This process can be automated using Cosmovisor. Alternatively, nodes can
-use the state sync process that starts syncing from a snapshot block
-compatible with the latest version.
-
-### Recovery release after a chain lockdown
-
-This procedure is suitable for the recovery from a chain lockdown, which is
-level 4 of the emergency controls. `setChainLockdown` halts the chain with an
-upgrade plan under the name the caller passes. The call rejects a name that a
-registered handler claims or that a completed upgrade carries, so the plan
-always halts the chain. See
-[Emergency controls](./emergency-controls.md#the-plan-name).
-
-The recovery is a planned upgrade with one extra requirement: the release must
-register an upgrade handler under EXACTLY the plan name. The `x/upgrade`
-`PreBlocker` matches the handler by the plan name, so a release named `v14.1.0`
-does not resolve a halt on `v14.0.0`.
-
-The procedure is as follows:
-
-1. Read the plan name from the `ChainLockdownSet` event of the lockdown
-   transaction, or from the `UPGRADE "<name>" NEEDED` line in the node log.
-   This example assumes the plan name `v14.0.0`.
-2. Create a package for the new upgrade: `app/upgrades/v14_0`.
-3. Define a new `v14_0.Upgrade` in the `app/upgrades/v14_0/constants.go` file,
-   with `UpgradeName` set to the plan name `v14.0.0`. Define the upgrade handler
-   in the `app/upgrades/v14_0/upgrades.go` file. The handler should perform all
-   necessary store migrations and the fix for the incident.
-4. Register the `v14_0.Upgrade` in the `app.Upgrades` list, in the
-   `app/upgrades.go` file.
-5. Release version `v14.0.0` of the Hoodium chain client.
-6. Validators install the release and restart their nodes. Nobody schedules the
-   plan again, because the lockdown already wrote it to the store, and the
-   halted chain accepts no transaction anyway.
-7. Once the nodes restart, the `PreBlocker` finds the handler at the halt height
-   and the chain continues.
-
-The fallback recovery needs no release. Validators restart the same binary with
-`runed start --unsafe-skip-upgrades <HALT_HEIGHT>`, which clears the plan and
-resumes the chain unchanged. Use the fallback when the incident needs no code
-change.
-
-## The Upgrade precompile
-
-The `Upgrade` precompile (`precompile/upgrade`), serves as an EVM interface to the
-[x/upgrade module](https://docs.cosmos.network/main/build/modules/upgrade) and is used by
-the [Planned upgrade with chain halt](#planned-upgrade-with-chain-halt) scenario described above.
-
-### Upgrade Plan
-
-The `x/upgrade` module defines a `Plan` type in which a live upgrade is scheduled to occur.
-A `Plan` can be scheduled at a specific block `Height`. A `Plan` is submitted via the `Upgrade`
-precompile after a Hoodium chain client release with an appropriate upgrade handler.
-
-An upgrade `Plan` has the following values:
-
-- `Name`: The upgrade name (corresponds to the handler name)
-- `Height`: The block height old clients should halt at to prevent state corruption
-- `Info`: Any metadata about the upgrade (e.g. urls to updated binaries or git commit hash)
-
-### Upgrade precompile API
-
-- Address: `0x7b7c000000000000000000000000000000000014`
-- ABI: `precompile/upgrade/abi.json`
-- Interface: `precompile/upgrade/IUpgrade.sol`
-
-The `Upgrade` precompile provides 3 methods:
-
-- `plan`: Returns the latest upgrade plan
-- `submitPlan`: Submits a new upgrade plan (restricted to the validator pool owner)
-- `cancelPlan`: Cancels an upgrade plan (restricted to the validator pool owner)
-
-And emits 2 events:
-
-- `PlanSubmitted`: Emitted when a new upgrade plan is submitted
-- `PlanCanceled`: Emitted when an upgrade plan is canceled
-
-### Interaction via the Hardhat toolbox
-
-Hardhat tasks are used to simplify interacting with Rune precompiles. More information,
-including setup steps and usage can be found in `precompile/hardhat/README.md`
-
-After the hardhat environment and accounts have been configured, interaction with the
-`Upgrade` precompile is possible with the following commands:
-
-```
-npx hardhat upgrade:submitPlan --signer OWNER --name NAME --height HEIGHT --info "{}"
-npx hardhat upgrade:plan
-npx hardhat upgrade:cancelPlan --signer OWNER
+```go
+// app/upgrades.go
+var (
+    Upgrades = []UpgradeHandler{}  // no upgrades registered yet
+    Forks    = []ForkHandler{}     // no forks registered yet
+)
 ```
 
+## Adding an upgrade later
+
+1. Define the state-migration logic for the target consensus version.
+2. Register an upgrade handler via `app.UpgradeKeeper.SetUpgradeHandler`.
+3. Populate the `Upgrades` (or `Forks`) slice in `app/upgrades.go`.
+4. Schedule the upgrade (a governance `MsgSoftwareUpgrade`, or a height-gated
+   fork).
+
+Store migrations use the Cosmos SDK in-place store migration mechanism.
+
+## Module consensus versions
+
+Each module carries a `ConsensusVersion`. Bumping one signals that the module's
+on-disk state changed, and a migration must be registered for it:
+
+| Module | ConsensusVersion |
+|---|---|
+| `x/evm` | 1 |
+| `x/feemarket` | 1 |
+| `x/runerewards` | **2** |
+
+> ⚠️ `x/runerewards` is at version **2** — it gained the PoNA activity fields and
+> dropped `min_reward_per_block`. A chain started on version 1 state would expect
+> a 1→2 migration. **Generate genesis fresh** (or register a migration) before
+> booting from an old home directory.

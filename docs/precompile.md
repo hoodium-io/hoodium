@@ -9,9 +9,9 @@ Solidity-based contracts.
 ## Implementation
 
 The precompile framework extends the CosmosSDK-based EVM implementation by
-introducing built-in smart contracts executed natively by the chain. These
-precompiles provide various functionalities, such as asset bridging, price
-oracles, and maintenance operations.
+introducing built-in smart contracts executed natively by the chain. Hoodium's
+precompiles provide token interfaces (RUNE, HOODI), price oracles, EVM access to
+staking, and test helpers.
 
 ### Main Components
 
@@ -42,18 +42,18 @@ oracles, and maintenance operations.
 Follow these steps to add a new precompile:
 
 1. **Define the Solidity interface:** Create a Solidity interface. See example
-   for [BTC Token](https://github.com/hoodium-io/runed/tree/main/precompile/btctoken).
+   for [RUNE Token](https://github.com/hoodium-io/runed/tree/main/precompile/runetoken).
 
 2. **Implement the Solidity caller contract:** Create a contract that calls the
    precompile. See example for
-   [BTC Token](https://github.com/hoodium-io/runed/blob/main/precompile/hardhat/contracts/BTCCaller.sol).
+   [PriceOracleCaller](https://github.com/hoodium-io/runed/blob/main/precompile/hardhat/contracts/PriceOracleCaller.sol).
 
 3. **Generate ABI and bytecode:** Use Hardhat to compile the contract and
    extract the `deployedBytecode` and `abi` from the artifacts.
 
 4. **Implement the precompile logic:** Create a new package for the new
    precompile. Implement methods and register them. See example for
-   [BTC Token](https://github.com/hoodium-io/runed/tree/main/precompile/btctoken).
+   [RUNE Token](https://github.com/hoodium-io/runed/tree/main/precompile/runetoken).
 
 5. **Register the Precompile in the Chain:** Create an instance of the new precompile
    in the [Rune app](https://github.com/hoodium-io/runed/blob/main/app/app.go#L898)
@@ -63,39 +63,31 @@ Follow these steps to add a new precompile:
 
 ## Available Precompiles
 
-The following precompiles are available in the Hoodium blockchain:
+The following precompiles are registered in the Hoodium Mainchain. Addresses are
+listed in their canonical order, which is **consensus-critical** — see
+`DefaultPrecompilesVersions` in `x/evm/types/precompile.go`.
 
-### BTC Token Precompile
-
-#### Overview
-
-The BTC Token precompile provides an interface for interacting with Rune's
-native BTC token. It enables standard ERC-20 token operations such as balance
-queries, transfers, approvals.
-
-#### Address
-
-```
-0x7b7c000000000000000000000000000000000000
-```
-
-#### Methods
-
-See [IBTC](https://github.com/hoodium-io/runed/blob/main/precompile/btctoken/IBTC.sol)
-interface for a list of methods.
+| Precompile | Address |
+|---|---|
+| RUNE Token | `0x19be000000000000000000000000000000000000` |
+| HOODI Token | `0x19be000000000000000000000000000000000001` |
+| Price Oracle | `0x19be000000000000000000000000000000000002` |
+| Staking | `0x19be000000000000000000000000000000000003` |
+| TestBed | `0x19BE100000000000000000000000000000000000` |
 
 ### RUNE Token Precompile
 
 #### Overview
 
-The RUNE Token precompile provides an interface for interacting with Rune's
-ERC20 RUNE token. It enables standard ERC-20 token operations such as balance
-queries, transfers, approvals.
+The RUNE Token precompile provides an interface for interacting with Hoodium's
+native ERC-20 RUNE token — the chain's gas, governance and reward token. It
+enables standard ERC-20 token operations such as balance queries, transfers and
+approvals.
 
 #### Address
 
 ```
-0x7b7c000000000000000000000000000000000001
+0x19be000000000000000000000000000000000000
 ```
 
 #### Methods
@@ -104,85 +96,19 @@ queries, transfers, approvals.
 See [IRUNE](https://github.com/hoodium-io/runed/blob/main/precompile/runetoken/IRUNE.sol)
 interface for a list of methods.
 
-### Validator Pool Precompile
+### HOODI Token Precompile
 
 #### Overview
 
-The Validator Pool precompile provides an interface for managing validators on
-the Hoodium blockchain. It allows submitting and approving validator applications,
-modifying privileges, and handling validator ownership transfers.
+The HOODI Token precompile provides an interface for interacting with the HOODI
+ERC-20 token (denom `ahoodi`), reserved for the Yieldchain. It enables standard
+ERC-20 token operations such as balance queries, transfers and approvals.
 
 #### Address
 
 ```
-0x7b7c000000000000000000000000000000000011
+0x19be000000000000000000000000000000000001
 ```
-
-#### Methods
-
-See [IValidatorPool](https://github.com/hoodium-io/runed/blob/main/precompile/validatorpool/IValidatorPool.sol)
-interface for a list of methods.
-
-### Assets Bridge Precompile
-
-#### Overview
-
-The Assets Bridge precompile enables observability of pseudo-transactions,
-allowing the Hoodium blockchain explorer to decipher these transactions. It also
-provides limited asset bridging functionalities, such as ERC-20 token mapping.
-
-#### Address
-
-```
-0x7b7c000000000000000000000000000000000012
-```
-
-#### Methods
-
-See [IAssetsBridge](https://github.com/hoodium-io/runed/blob/main/precompile/assetsbridge/IAssetsBridge.sol)
-interface for a list of methods.
-
-### Maintenance Precompile
-
-#### Overview
-
-The Maintenance precompile provides administrative functions for managing
-certain blockchain settings, such as enabling or disabling non-EIP155
-transactions and modifying precompile bytecode.
-
-It is also the single emergency surface of the chain. It carries the Emergency
-Team role management and the lockdown levels, described in
-[`docs/emergency-controls.md`](./emergency-controls.md).
-
-#### Address
-
-```
-0x7b7c000000000000000000000000000000000013
-```
-
-#### Methods
-
-See [IMaintenance](https://github.com/hoodium-io/runed/blob/main/precompile/maintenance/IMaintenance.sol)
-interface for a list of methods.
-
-### Upgrade Precompile
-
-#### Overview
-
-The Upgrade precompile provides an interface for managing blockchain upgrade plans.
-It allows for scheduling, retrieving, and canceling upgrade plans, ensuring
-a controlled upgrade process for the Hoodium blockchain.
-
-#### Address
-
-```
-0x7b7c000000000000000000000000000000000014
-```
-
-#### Methods
-
-See [IUpgrade](https://github.com/hoodium-io/runed/blob/main/precompile/upgrade/IUpgrade.sol)
-interface for a list of methods.
 
 ### Price Oracle Precompile
 
@@ -195,10 +121,37 @@ retrieving asset price information with a predefined level of precision.
 #### Address
 
 ```
-0x7b7c000000000000000000000000000000000015
+0x19be000000000000000000000000000000000002
 ```
 
 #### Methods
 
 See [IPriceOracle](https://github.com/hoodium-io/runed/blob/main/precompile/priceoracle/IPriceOracle.sol)
 interface for a list of methods.
+
+### Staking Precompile
+
+#### Overview
+
+The Staking precompile exposes Cosmos staking operations to the EVM, letting
+EVM accounts create validators, delegate, undelegate and query staking state
+without leaving the EVM toolchain.
+
+#### Address
+
+```
+0x19be000000000000000000000000000000000003
+```
+
+### TestBed Precompile
+
+#### Overview
+
+The TestBed precompile provides Hoodium-specific test helpers used for
+development and integration testing.
+
+#### Address
+
+```
+0x19BE100000000000000000000000000000000000
+```
