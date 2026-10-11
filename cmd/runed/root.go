@@ -134,7 +134,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	// with joining a network (`runed setup`). See
 	// docs/team/mainchain/genesis-init.md.
 	genesisCmd := genesis.NewCmd(app.ModuleBasics, encodingConfig.TxConfig, app.DefaultNodeHome)
-	genesisCmd.AddCommand(NewGenesisInitCmd(app.ModuleBasics))
+	genesisCmd.AddCommand(NewGenesisInitCmd(app.ModuleBasics, app.DefaultNodeHome))
 
 	rootCmd.AddCommand(
 		genesisCmd,

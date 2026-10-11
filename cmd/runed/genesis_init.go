@@ -76,10 +76,6 @@ var (
 	flagOutputDir         = "output-dir"
 	flagNodeDaemonHome    = "node-daemon-home"
 	flagStartingIPAddress = "starting-ip-address"
-	flagEnableLogging     = "enable-logging"
-	flagRPCAddress        = "rpc.address"
-	flagAPIAddress        = "api.address"
-	flagPrintMnemonic     = "print-mnemonic"
 )
 
 type initArgs struct {
@@ -94,53 +90,44 @@ type initArgs struct {
 	startingIPAddress string
 }
 
-func addTestnetFlagsToCmd(cmd *cobra.Command) {
-	cmd.Flags().Int(flagNumValidators, 1, "Number of validators to initialize the testnet with")
-	cmd.Flags().StringP(flagOutputDir, "o", "./.testnets", "Directory to store initialization data for the testnet")
+func addGenesisInitFlagsToCmd(cmd *cobra.Command, defaultNodeHome string) {
+	cmd.Flags().StringP(flagOutputDir, "o", defaultNodeHome, "Node home directory to initialize (single node by default)")
+	cmd.Flags().Int(flagNumValidators, 1, "Number of nodes to generate. 1 (default) writes a single production node home; >1 generates a multi-node local network layout")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
 	cmd.Flags().String(srvflags.MinGasPrices, fmt.Sprintf("0.0000025%s", cmdcfg.BaseDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.0000025arune)") //nolint:lll
 	cmd.Flags().String(flags.FlagKeyType, string(hd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
 }
 
-// NewGenesisInitCmd creates the `runed genesis init-files` command that
-// initializes validator configuration files for a multi-node network running in
-// separate processes (e.g. Docker Compose or similar).
+// NewGenesisInitCmd creates the `runed genesis init-files` command: the official
+// Hoodium genesis generator.
 //
-// NOTE: this is a TEAM-ONLY tool. It IS the official Hoodium genesis generator:
-// it assembles the full production genesis (RUNE premine, validator reward
-// reserve, bonded pool, staking and EVM/fee-market params). It is deliberately
-// NOT exposed as a `testnet`/`mainnet`/`devnet` subcommand so that operators
-// never mistake it for the way to join a network — joining is done with
-// `runed setup`. See docs/team/mainchain/genesis-init.md.
-func NewGenesisInitCmd(mbm module.BasicManager) *cobra.Command {
-	return testnetInitFilesCmd(mbm)
-}
-
-// testnetInitFilesCmd builds the genesis generator command. The internal name is
-// kept for historical reasons; it is registered as `runed genesis init-files`.
-func testnetInitFilesCmd(mbm module.BasicManager) *cobra.Command {
+// NOTE: this is a TEAM-ONLY tool. It assembles the full production genesis (RUNE
+// premine, validator reward reserve, bonded pool, staking and EVM/fee-market
+// params). It is deliberately NOT exposed as a `testnet`/`mainnet`/`devnet`
+// subcommand so that operators never mistake it for the way to join a network —
+// joining is done with `runed setup`. See docs/team/mainchain/genesis-init.md.
+func NewGenesisInitCmd(mbm module.BasicManager, defaultNodeHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init-files",
-		Short: "Initialize genesis and config files for a multi-node network (TEAM ONLY)",
-		Long: `init-files will setup "val" number of directories and populate each with
-necessary files (private validator, genesis, config, etc.) for running "val" validator nodes.
+		Short: "Generate the genesis and node config for a Hoodium network (TEAM ONLY)",
+		Long: `init-files generates a complete, production-shaped genesis and node home for a
+Hoodium network (mainnet, testnet or devnet), selected by --chain-id.
 
-This is the official Hoodium genesis generator and is intended for use by the
-Hoodium team when launching a network (mainnet, testnet or devnet). It is NOT the
-way to join an existing network - use "runed setup" for that.
+This is the official Hoodium genesis generator. It is intended for use by the
+Hoodium team when launching a network. It is NOT the way to join an existing
+network - use "runed setup" for that.
 
-Booting up a network with these validator folders is intended to be used with Docker Compose,
-or a similar setup where each node has a manually configurable IP address.
+By default it generates a SINGLE node home in --output-dir (default: the node's
+home directory), ready to run with "runed start":
 
-Note, strict routability for addresses is turned off in the config file.
+  runed genesis init-files --chain-id rune_6590-1
 
-Example:
-	# Single bootstrap node (all flags optional):
-	runed genesis init-files --chain-id rune_6592-1
+Passing --val N with N > 1 instead generates N separate node homes under
+<output-dir> (a local-network/Docker layout), which is NOT how a public network
+is launched:
 
-	# Four nodes with Docker-style pre-wired addressing:
-	runed genesis init-files --val 4 --output-dir ./.testnets --starting-ip-address 192.168.10.2
-	`,
+  runed genesis init-files --val 4 --output-dir ./.localnet --starting-ip-address 192.168.10.2
+`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
@@ -160,14 +147,14 @@ Example:
 			args.numValidators, _ = cmd.Flags().GetInt(flagNumValidators)
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
 
-			return initTestnetFiles(clientCtx, cmd, serverCtx.Config, mbm, args)
+			return initGenesisFilesForNetwork(clientCtx, cmd, serverCtx.Config, mbm, args)
 		},
 	}
 
-	addTestnetFlagsToCmd(cmd)
-	cmd.Flags().String(flagNodeDirPrefix, "node", "Prefix the directory name for each node with (node results in node0, node1, ...)")
-	cmd.Flags().String(flagNodeDaemonHome, "runed", "Home directory of the node's daemon configuration")
-	cmd.Flags().String(flagStartingIPAddress, "192.168.0.1", "Starting IP address (192.168.0.1 results in persistent peers list ID0@192.168.0.1:46656, ID1@192.168.0.2:46656, ...). Setting this flag to localhost results in configuration generation for binary-based localnet")
+	addGenesisInitFlagsToCmd(cmd, defaultNodeHome)
+	cmd.Flags().String(flagNodeDirPrefix, "node", "Node directory prefix, used only when --val > 1 (node results in node0, node1, ...)")
+	cmd.Flags().String(flagNodeDaemonHome, "runed", "Node daemon home directory name, used only when --val > 1")
+	cmd.Flags().String(flagStartingIPAddress, localhost, "Starting IP address for the generated peer list; used only when --val > 1. Pass \"localhost\" for a single-host local network")
 	cmd.Flags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend (os|file|test)")
 
 	return cmd
@@ -178,8 +165,56 @@ const (
 	localhost   = "localhost"
 )
 
-// initTestnetFiles initializes testnet files for a testnet to be run in a separate process
-func initTestnetFiles(
+// cleanupOnFailure removes partially generated output when generation fails.
+//
+// SAFETY: in single-node mode (the default) the output directory is the node's
+// own home (often ~/.runed), which may already contain a live node. Removing it
+// on failure would destroy operator state, so cleanup is SKIPPED in that case.
+// It only ever removes a directory that this command created itself, which is
+// the multi-node (val > 1) layout.
+func cleanupOnFailure(outputDir string, numValidators int) {
+	if numValidators <= 1 {
+		// Single-node: output dir is the (possibly pre-existing) node home.
+		// Never delete it.
+		return
+	}
+	_ = os.RemoveAll(outputDir)
+}
+
+// resolveNodeDir returns the home directory for node `i` of the network being
+// generated.
+//
+// Two layouts are supported:
+//
+//   - Single node (default, val == 1): the node home IS the output directory.
+//     This is the production case - a team member generating a real network
+//     gets a ready-to-run node home (e.g. ~/.runed), with no wrapper folders.
+//
+//   - Multi node (val > 1): a local-network / Docker layout, where each node
+//     gets `<outputDir>/<prefix><i>/<daemonHome>` so several node homes can be
+//     generated side by side. This is NOT how a public network is launched.
+func resolveNodeDir(outputDir, nodeDirPrefix, nodeDaemonHome string, i, numValidators int) string {
+	if numValidators <= 1 {
+		return outputDir
+	}
+	nodeDirName := fmt.Sprintf("%s%d", nodeDirPrefix, i)
+	return filepath.Join(outputDir, nodeDirName, nodeDaemonHome)
+}
+
+// nodeDirName returns the display name for node `i`. For a single node this is
+// the node's moniker-ish name derived from the home directory so the genesis
+// description is still meaningful.
+func nodeDirName(outputDir, nodeDirPrefix string, i, numValidators int) string {
+	if numValidators <= 1 {
+		return filepath.Base(outputDir)
+	}
+	return fmt.Sprintf("%s%d", nodeDirPrefix, i)
+}
+
+// initGenesisFilesForNetwork initializes the genesis and configuration files for
+// the network being generated. It is the single entry point for the team-only
+// `runed genesis init-files` command.
+func initGenesisFilesForNetwork(
 	clientCtx client.Context,
 	cmd *cobra.Command,
 	nodeConfig *tmconfig.Config,
@@ -206,29 +241,30 @@ func initTestnetFiles(
 	inBuf := bufio.NewReader(cmd.InOrStdin())
 
 	for i := 0; i < args.numValidators; i++ {
-		nodeDirName := fmt.Sprintf("%s%d", args.nodeDirPrefix, i)
-		nodeDirNames[i] = nodeDirName
+		nodeDirNames[i] = nodeDirName(args.outputDir, args.nodeDirPrefix, i, args.numValidators)
 
-		nodeDir := filepath.Join(args.outputDir, nodeDirName, args.nodeDaemonHome)
+		nodeDir := resolveNodeDir(
+			args.outputDir, args.nodeDirPrefix, args.nodeDaemonHome, i, args.numValidators,
+		)
 		nodeDirs[i] = nodeDir
 
 		nodeConfig.SetRoot(nodeDir)
 
 		if err := os.MkdirAll(filepath.Join(nodeDir, "config"), nodeDirPerm); err != nil {
-			_ = os.RemoveAll(args.outputDir)
+			cleanupOnFailure(args.outputDir, args.numValidators)
 			return err
 		}
 
 		var err error
 		nodeIDs[i], valPubKeys[i], err = genutil.InitializeNodeValidatorFiles(nodeConfig)
 		if err != nil {
-			_ = os.RemoveAll(args.outputDir)
+			cleanupOnFailure(args.outputDir, args.numValidators)
 			return err
 		}
 
 		memo, err := getMemo(nodeIDs[i], i, args.startingIPAddress)
 		if err != nil {
-			_ = os.RemoveAll(args.outputDir)
+			cleanupOnFailure(args.outputDir, args.numValidators)
 			return err
 		}
 
@@ -262,7 +298,7 @@ func initTestnetFiles(
 			algo,
 		)
 		if err != nil {
-			_ = os.RemoveAll(args.outputDir)
+			cleanupOnFailure(args.outputDir, args.numValidators)
 			return err
 		}
 
@@ -372,7 +408,7 @@ func initTestnetFiles(
 	// derived at runtime, so no source edit or recompile is needed.
 	//
 	//   * genAccounts[0] is the first account created by `keys add` during
-	//     `runed testnet init-files`, so the premine lands on the operator's own
+	//     `runed genesis init-files`, so the premine lands on the operator's own
 	//     key automatically.
 	//
 	//   * validator_reward_pool is a Cosmos *module account*: its address is
@@ -394,7 +430,7 @@ func initTestnetFiles(
 	//
 	// Both premines (RUNE and HOODI) are placed on the first account created by
 	// `keys add` / `init` (see genAccounts below), so the operator running
-	// `runed testnet init-files` controls the premine by definition. Additional
+	// `runed genesis init-files` controls the premine by definition. Additional
 	// validators join later and self-fund their stake from their own accounts.
 	//
 	// To control the premine from an EVM wallet, the operator copies the wallet's
@@ -462,7 +498,18 @@ func initTestnetFiles(
 		return err
 	}
 
-	cmd.PrintErrf("Successfully initialized %d node directories\n", args.numValidators)
+	// Report what was generated, tailored to the layout.
+	if args.numValidators <= 1 {
+		cmd.PrintErrf(
+			"Successfully initialized genesis and node config in %s\n",
+			args.outputDir,
+		)
+	} else {
+		cmd.PrintErrf(
+			"Successfully initialized %d node directories under %s\n",
+			args.numValidators, args.outputDir,
+		)
+	}
 
 	return nil
 }

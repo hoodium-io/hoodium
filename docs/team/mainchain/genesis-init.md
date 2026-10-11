@@ -10,69 +10,66 @@
 
 ## The command
 
-**Minimal form — every flag is optional:**
+**Single node (the default — production case):**
 
 ```
-runed genesis init-files --chain-id rune_6592-1
+runed genesis init-files --chain-id rune_6590-1
 ```
 
-That generates **one** bootstrap validator into `./.testnets/`. Full form:
+This writes the genesis and a ready-to-run node home **directly into the node home
+directory** (default: `~/.runed`). There is **no wrapper folder and no `node0/`**
+step — you can run `runed start` immediately afterwards.
+
+**Multi-node (local network only):**
 
 ```
-runed genesis init-files --val <N> \
-  --output-dir <dir> \
-  --chain-id <chain-id> \
-  --starting-ip-address <ip>
+runed genesis init-files --val 4 --output-dir ./.localnet --starting-ip-address 192.168.10.2
 ```
 
-### What each flag does (and whether you need it)
+Only `--val N` with `N > 1` switches to the `<output-dir>/node0/runed/` layout, for
+spinning up several nodes side by side on one host (Docker / localnet). **This is
+not how a public network is launched.**
+
+### What each flag does
 
 | Flag | Default | Needed? | Purpose |
 |---|---|---|---|
 | `--chain-id` | *random* | **Yes, effectively** | Selects the network (`rune_6590-1` / `rune_6591-1` / `rune_6592-1`). If omitted you get a **random** chain ID, which is only useful for throwaway localnets. |
-| `--val` | `1` | Optional | How many **validator node folders** to generate. Use your real count for a launch, or omit for a single bootstrap node. |
-| `--output-dir` | `./.testnets` | Optional | Where to write the generated node folders. |
-| `--starting-ip-address` | `192.168.0.1` | Optional | Pre-wires each node's P2P/RPC/API/JSON-RPC addresses to consecutive IPs (`.1`, `.2`, `.3`…). Only useful for Docker/multi-host setups; pass `localhost` for a single machine. |
+| `--output-dir` (`-o`) | **the node home** (`~/.runed`) | Optional | Where the node home is written. In single-node mode this **is** the node home. |
+| `--val` | `1` | Optional | `1` = a single production node home (default). `N > 1` = N node homes in a local-network layout. |
+| `--starting-ip-address` | `localhost` | Only for `--val > 1` | Pre-wires each node's P2P/RPC/API/JSON-RPC addresses for a multi-node local network. |
+| `--node-dir-prefix` | `node` | Only for `--val > 1` | Folder prefix for each node in the multi-node layout. |
+| `--node-daemon-home` | `runed` | Only for `--val > 1` | Inner home folder name in the multi-node layout. |
 
-### Why `--output-dir` is **not** `~/.runed`
+### Where files go
 
-This command generates **N separate node homes at once**, not one:
-
-```
-./.testnets/
-  node0/runed/     ← validator 0's home (config/, data/, keyring/)
-  node1/runed/     ← validator 1's home
-  node2/runed/     ← ...
-```
-
-`~/.runed` can only ever be **one** home, so it cannot hold a whole network's
-worth of bootstrap material — that is why `--output-dir` exists separately from
-`--home`.
-
-There is also a **safety** reason: on any error the command **deletes the entire
-output directory** (`os.RemoveAll(args.outputDir)`). Pointing that at `~/.runed`
-would wipe your live node home on a failed run. Keeping it a scratch directory
-is intentional.
-
-After generation you move each `node<N>/` folder to wherever that node actually
-runs (or Docker-mount it) — hence the Docker-Compose framing in the help.
-
-### Is `--output-dir` different per network?
-
-**No.** There is exactly one default — `./.testnets` — and the command **never
-branches on the network**. `--chain-id` only changes the chain ID written into
-genesis; it does not change where anything is written or what it is called.
-
-The default directory name is simply **legacy** (from when this command only made
-local testnets). For a real launch, treat it as a scratch workspace and name it
-yourself:
+**Single node (default)** — straight into the node home:
 
 ```
-runed genesis init-files --chain-id rune_6590-1 --output-dir ./.mainnet-genesis
-runed genesis init-files --chain-id rune_6592-1 --output-dir ./.devnet-genesis
+~/.runed/
+  config/
+    genesis.json
+    config.toml
+    app.toml
+    client.toml
+    priv_validator_key.json
+    node_key.json
+  data/
 ```
 
-Nothing depends on the directory name; it is never recorded in genesis.
+**Multi node (`--val N`, N > 1)** — one folder per node:
+
+```
+./.localnet/
+  node0/runed/   ← validator 0's home (config/, data/)
+  node1/runed/   ← validator 1's home
+  node2/runed/   ← ...
+```
+
+> ⚠️ **Cleanup safety.** On failure the generator removes the output directory —
+> but **only in multi-node mode**, where the directory is something the command
+> just created. In single-node mode (the default) the output directory is a real
+> node home that may already hold a live node, so it is **never deleted**.
 
 This is the **official genesis generator**. Running it produces the complete,
 production-shaped genesis for a new Hoodium network, including:
