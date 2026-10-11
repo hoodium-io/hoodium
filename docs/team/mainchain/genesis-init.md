@@ -57,6 +57,23 @@ is intentional.
 After generation you move each `node<N>/` folder to wherever that node actually
 runs (or Docker-mount it) — hence the Docker-Compose framing in the help.
 
+### Is `--output-dir` different per network?
+
+**No.** There is exactly one default — `./.testnets` — and the command **never
+branches on the network**. `--chain-id` only changes the chain ID written into
+genesis; it does not change where anything is written or what it is called.
+
+The default directory name is simply **legacy** (from when this command only made
+local testnets). For a real launch, treat it as a scratch workspace and name it
+yourself:
+
+```
+runed genesis init-files --chain-id rune_6590-1 --output-dir ./.mainnet-genesis
+runed genesis init-files --chain-id rune_6592-1 --output-dir ./.devnet-genesis
+```
+
+Nothing depends on the directory name; it is never recorded in genesis.
+
 This is the **official genesis generator**. Running it produces the complete,
 production-shaped genesis for a new Hoodium network, including:
 
@@ -84,6 +101,53 @@ The network is selected entirely by `--chain-id`:
 | Mainnet | `rune_6590-1` |
 | Testnet | `rune_6591-1` |
 | Devnet  | `rune_6592-1` |
+
+## What lands in each node's `config.toml`
+
+This is important to understand before distributing nodes across real servers,
+because **the generated IP addresses are baked into every node's config**.
+
+At generation the command writes, for **each** node `i`:
+
+```go
+nodeConfig.P2P.PersistentPeers = persistentPeers   // ALL nodes, pre-wired
+nodeConfig.RPC.ListenAddress   = getRPCAddress(i, args.startingIPAddress)
+nodeConfig.P2P.ListenAddress   = getP2PAddress(i, args.startingIPAddress)
+nodeConfig.RPC.PprofListenAddress = getPprofAddress(i, args.startingIPAddress)
+nodeConfig.P2P.AddrBookStrict  = getAddrBookStrict(args.startingIPAddress)
+nodeConfig.P2P.AllowDuplicateIP = getAllowDuplicateIP(args.startingIPAddress)
+
+appConfig.API.Address        = getAPIAddress(i, args.startingIPAddress)
+appConfig.GRPC.Address       = getGRPCAddress(i, args.startingIPAddress)
+appConfig.JSONRPC.Address    = getJSONRPCAddress(i, args.startingIPAddress)
+appConfig.JSONRPC.WsAddress  = getJSONRPCWsAddress(i, args.startingIPAddress)
+```
+
+So **yes — there is a built-in node-IP helper**, and it works like this:
+
+- Each node's `config.toml` gets a **`persistent_peers` list containing *every*
+  generated node**, built from each validator's memo
+  (`nodeID@<ip>:26656`, comma-joined and sorted).
+- Each node's listen addresses are offset by index `i`, so nodes do not collide
+  on one host.
+- With `--starting-ip-address localhost`, the peers become
+  `nodeID@localhost:<26656 + 2*i>` — the "many nodes on one machine" variant.
+- With a real IP base, node `i` is assigned `<base+i>`.
+
+**What this means in practice:** the generated configs are a complete, consistent,
+mutually-wired set — correct as-is **only if** the nodes genuinely keep those IPs.
+
+| Scenario | What to do |
+|---|---|
+| All nodes run at the generated IPs (Docker, same subnet) | **Use as generated.** Nothing to edit. |
+| Nodes deployed to real/different servers | The baked IPs will be wrong. Either pass the correct base IP at generation time, **or** edit each node's `config.toml` `persistent_peers` / `listen-address` after generating. |
+
+> ⚠️ **No IP summary is printed.** The command's only output is
+> `Successfully initialized N node directories`. It does **not** print a
+> node-ID → IP table. To build one, read each generated node's
+> `config/config.toml` (`persistent_peers` already contains every node's
+> `nodeID@ip:26656`), or run `runed tendermint show-node-id --home <nodeHome>`
+> per node.
 
 ## What the bootstrap sequence does
 
