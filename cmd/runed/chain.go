@@ -291,7 +291,7 @@ func initGenesisFilesForNetwork(
 
 		address, secret, err := testutil.GenerateSaveCoinKey(
 			kr,
-			nodeDirName,
+			nodeDirNames[i],
 			"",
 			true,
 			algo,
@@ -337,7 +337,7 @@ func initGenesisFilesForNetwork(
 			sdk.ValAddress(address).String(),
 			valPubKeys[i],
 			stakingtypes.Description{
-				Moniker: nodeDirName,
+				Moniker: nodeDirNames[i],
 			},
 		)
 		if err != nil {
