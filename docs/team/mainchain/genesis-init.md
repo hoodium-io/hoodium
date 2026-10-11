@@ -10,12 +10,52 @@
 
 ## The command
 
+**Minimal form — every flag is optional:**
+
+```
+runed genesis init-files --chain-id rune_6592-1
+```
+
+That generates **one** bootstrap validator into `./.testnets/`. Full form:
+
 ```
 runed genesis init-files --val <N> \
   --output-dir <dir> \
   --chain-id <chain-id> \
   --starting-ip-address <ip>
 ```
+
+### What each flag does (and whether you need it)
+
+| Flag | Default | Needed? | Purpose |
+|---|---|---|---|
+| `--chain-id` | *random* | **Yes, effectively** | Selects the network (`rune_6590-1` / `rune_6591-1` / `rune_6592-1`). If omitted you get a **random** chain ID, which is only useful for throwaway localnets. |
+| `--val` | `1` | Optional | How many **validator node folders** to generate. Use your real count for a launch, or omit for a single bootstrap node. |
+| `--output-dir` | `./.testnets` | Optional | Where to write the generated node folders. |
+| `--starting-ip-address` | `192.168.0.1` | Optional | Pre-wires each node's P2P/RPC/API/JSON-RPC addresses to consecutive IPs (`.1`, `.2`, `.3`…). Only useful for Docker/multi-host setups; pass `localhost` for a single machine. |
+
+### Why `--output-dir` is **not** `~/.runed`
+
+This command generates **N separate node homes at once**, not one:
+
+```
+./.testnets/
+  node0/runed/     ← validator 0's home (config/, data/, keyring/)
+  node1/runed/     ← validator 1's home
+  node2/runed/     ← ...
+```
+
+`~/.runed` can only ever be **one** home, so it cannot hold a whole network's
+worth of bootstrap material — that is why `--output-dir` exists separately from
+`--home`.
+
+There is also a **safety** reason: on any error the command **deletes the entire
+output directory** (`os.RemoveAll(args.outputDir)`). Pointing that at `~/.runed`
+would wipe your live node home on a failed run. Keeping it a scratch directory
+is intentional.
+
+After generation you move each `node<N>/` folder to wherever that node actually
+runs (or Docker-mount it) — hence the Docker-Compose framing in the help.
 
 This is the **official genesis generator**. Running it produces the complete,
 production-shaped genesis for a new Hoodium network, including:
@@ -61,6 +101,81 @@ runed start --home <home>
   and, for the bootstrap validator, receives the genesis premine.
 - `gentx` records your intent to become a validator; it is collected into genesis
   on a fresh network, or replaced by `tx staking create-validator` on a live one.
+
+## How the module-account pools work
+
+`validator_reward_pool` and `bonded_tokens_pool` are **Cosmos module accounts**,
+not contracts or EOAs. Understanding this answers most of the usual confusion.
+
+### Are they smart contracts? Do they need deploying?
+
+**No — and no.** They are not Solidity contracts and there is **nothing to
+deploy**. They are ordinary Cosmos *accounts*, created and owned by the chain
+itself, whose addresses are **pure functions of their name**:
+
+```
+address = ripemd160(sha256(moduleName))
+```
+
+- `validator_reward_pool` → `0x4967715BC2Ba5CC2A262054A5a893e2E90FCD3f9`
+- `bonded_tokens_pool`     → `0xD99070859237f882b18EAabFDD0849a386aB42cF`
+
+Because the input is a **compile-time constant**, the address is **fixed for all
+time** — it is the same on devnet, testnet and mainnet, and it was never
+"generated" per launch. What varies per install is only the **premine owner's**
+address (your own `keys add` account), which *is* generated at genesis time.
+
+### Do they have private keys?
+
+**No.** A module account has **no private key and no mnemonic** — nobody can sign
+for it. It is not a wallet. Instead, **modules move funds out of it** through the
+bank keeper, and `maccPerms` in `app/app.go` decides which module is allowed to
+do what:
+
+```go
+maccPerms = map[string][]string{
+    stakingtypes.BondedPoolName:              {authtypes.Burner, authtypes.Staking},
+    stakingtypes.NotBondedPoolName:           {authtypes.Burner, authtypes.Staking},
+    runerewardstypes.ValidatorRewardPoolName: nil,          // no extra perms
+    runerewardstypes.ModuleName:              {authtypes.Minter},
+    ...
+}
+```
+
+So `validator_reward_pool` is money that **only `x/runerewards` can spend**, via
+`DistributeRuneBlockReward` — and it needs no key to do so. That is the security
+property: the reward reserve is unspendable by any human.
+
+### When are they created?
+
+**Automatically at chain start (`InitGenesis`), by the auth module** — not by this
+command, and not manually. The SDK creates a module account lazily the first time
+it is addressed:
+
+```go
+// cosmos-sdk/x/auth/keeper/keeper.go
+acc := ak.GetAccount(ctx, addr)
+if acc != nil { return ... }              // exists already
+macc := types.NewEmptyModuleAccount(moduleName, perms...)  // else create it
+```
+
+### What this command actually does for them
+
+It only **writes a bank balance into genesis** for the pool address:
+
+```go
+rewardPoolAddr := authtypes.NewModuleAddress(runerewardstypes.ValidatorRewardPoolName)
+banktypes.Balance{
+    Address: rewardPoolAddr.String(),
+    Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, runeReserveAmount)),
+}
+```
+
+At `InitGenesis` the bank module credits that balance, and the auth module creates
+the matching module account. From the first block onward, `x/runerewards` pays
+block rewards out of it. The same pattern funds the bonded pool, which is why the
+staking module does not panic at `InitChain` with
+*"bonded pool balance is different from bonded coins"*.
 
 ## Bootstrap validator & the genesis premine
 
