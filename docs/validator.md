@@ -40,6 +40,22 @@ You need three things:
 2. The **chain ID** (e.g. `rune_6590-1`).
 3. The **seed / persistent peer** addresses.
 
+**Get the official genesis** by cloning the chains repository:
+
+```bash
+git clone https://github.com/hoodium-io/chains.git
+```
+
+The Mainchain genesis lives at:
+
+```
+chains/mainchain/genesis.json
+```
+
+> The `hoodium-io/chains` repository publishes the canonical genesis file per
+> network. **Never** use the default genesis that `runed init` generates — it has
+> no premine and no validators, and will not connect you to the network.
+
 ### Step 1 — initialise the node with the official genesis
 
 ```bash
@@ -49,12 +65,13 @@ runed init <your-moniker> --chain-id rune_6590-1 --home ~/.runed
 Then **replace** the generated default genesis with the official one:
 
 ```bash
-cp /path/to/official/genesis.json ~/.runed/config/genesis.json
+cp chains/mainchain/genesis.json ~/.runed/config/genesis.json
 ```
 
-> 💡 `runed init` writes a *default* genesis (no premine, no validators). That is
-> expected when joining — the real one comes from the network. **Verify its hash**
-> against the published value before continuing.
+(Adjust the source path to wherever you cloned `hoodium-io/chains`.)
+
+**Verify the genesis hash** against the value published by the team before
+continuing — if it does not match, you are on the wrong network.
 
 ### Step 2 — configure peers
 
@@ -150,9 +167,27 @@ make your validator live on an existing network.**
 | Max validators | 101 |
 | Min self-delegation | 500,000 RUNE |
 | Min commission rate | 5% |
+| **Unbonding time** | **14 days** |
 
 > A minimum **delegation** of 0.1 RUNE is enforced at the message/precompile level
 > (not a staking param).
+
+### About the unbonding time
+
+Hoodium sets **14 days**, applied explicitly in the genesis (rather than
+inheriting the Cosmos default of 21 days).
+
+**This single value covers both:**
+- a **validator** unbonding (de-registering / losing bonded status), and
+- a **delegator** undelegating their stake.
+
+> ⚠️ Cosmos staking exposes **one** unbonding parameter. There is **no separate
+> delegator timeframe** — the SDK applies the same period to delegations. So a
+> delegator cannot have a shorter window than a validator without forking the
+> staking module.
+
+During the unbonding period the tokens are **locked and still slashable**; they
+return to the account once the period elapses.
 
 ## Operating notes
 

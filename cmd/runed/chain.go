@@ -29,6 +29,7 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/cosmos/cosmos-sdk/x/genutil/types"
 
@@ -162,6 +163,16 @@ is launched:
 const (
 	nodeDirPerm = 0o755
 	localhost   = "localhost"
+
+	// UnbondingTime is the Hoodium staking unbonding period (user-confirmed):
+	// 14 days. It is written explicitly into the staking genesis params so the
+	// value is a deliberate chain decision rather than an SDK default (the SDK
+	// default is 21 days).
+	//
+	// NOTE: Cosmos staking has a SINGLE unbonding param. It applies to BOTH
+	// validator unbonding and delegator undelegation - the SDK offers no
+	// separate delegator timeframe.
+	UnbondingTime = 14 * 24 * time.Hour
 )
 
 // cleanupOnFailure removes partially generated output when generation fails.
@@ -566,15 +577,23 @@ func initGenesisFiles(
 	stakingGenState := stakingtypes.DefaultGenesisState()
 	stakingGenState.Params.BondDenom = coinDenom
 
-	// Hoodium staking thresholds (user-confirmed 2026-10-03):
-	//   - MaxValidators = 101 (fresh start; raise later via governance)
-	//   - MinCommissionRate = 5%
+	// Hoodium staking parameters (user-confirmed).
+	//
+	//   - UnbondingTime = 14 days. Set EXPLICITLY so the value is a deliberate
+	//     chain decision rather than an inherited SDK default (the SDK default is
+	//     21 days). NOTE: Cosmos staking has a single `UnbondingTime` param that
+	//     applies to BOTH validator unbonding and delegator undelegation - there
+	//     is no separate delegator timeframe at the params level.
+	//   - MaxValidators = 101 (fresh start; raise later via governance).
+	//   - MinCommissionRate = 5%.
+	//
 	// NOTE: the SDK has NO global "min self-delegation" or "min delegation"
 	// params. MinSelfDelegation is a PER-VALIDATOR field (set below on each
 	// validator); the Hoodium 0.1 RUNE minimum delegation is enforced at the
 	// msg/precompile level (separate task).
 	oneRune := sdkmath.NewIntWithDecimal(1, 18)
 	minSelfDelegation := oneRune.MulRaw(500_000) // 500,000 RUNE
+	stakingGenState.Params.UnbondingTime = UnbondingTime
 	stakingGenState.Params.MaxValidators = 101
 	stakingGenState.Params.MinCommissionRate = sdkmath.LegacyMustNewDecFromStr("0.05")
 

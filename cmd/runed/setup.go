@@ -183,7 +183,9 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 			}
 
 			// Automated mode: run the bootstrap commands.
-			return runSetupAutomated(deps, cmd, home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount)
+			return runSetupAutomated(
+				deps, cmd, home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount, network,
+			)
 		},
 	}
 
@@ -286,7 +288,7 @@ func addSetupFlags(cmd *cobra.Command, defaultNodeHome string) {
 func runSetupAutomated(
 	deps setupDeps,
 	parent *cobra.Command,
-	home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount string,
+	home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount, network string,
 ) error {
 	inBuf := bufio.NewReader(parent.InOrStdin())
 
@@ -340,11 +342,39 @@ func runSetupAutomated(
 		}
 	}
 
-	// 4. Next step --------------------------------------------------------------
+	// 4. Next steps ------------------------------------------------------------
+	//
+	// The guidance depends on whether the node is joining an ALREADY-RUNNING
+	// network or contributing to a NOT-YET-LAUNCHED genesis. The gentx produced
+	// above is only meaningful for the latter (it is a genesis-time artifact).
 	fmt.Println()
 	fmt.Println("──────────────────────────────────────────────────────────────")
 	fmt.Println("✅ Setup complete.")
-	fmt.Printf("Next: start your node with:\n  runed start --home %s\n", home)
+	fmt.Println()
+
+	switch {
+	case nodeType == nodeTypeValidator && network != "":
+		// Validator joining a live network: the gentx is NOT what they need.
+		fmt.Println("  ⚠️  JOINING THE " + strings.ToUpper(network) + " NETWORK?")
+		fmt.Println()
+		fmt.Println("  The gentx created above is only used when a chain has NOT yet")
+		fmt.Println("  launched. If the " + network + " network is already running, you must:")
+		fmt.Println()
+		fmt.Println("    1. Replace the default genesis with the official one:")
+		fmt.Printf("         cp <downloaded>/mainchain/genesis.json %s/config/genesis.json\n", home)
+		fmt.Println("       (official genesis: https://github.com/hoodium-io/chains)")
+		fmt.Println("    2. Set the published seeds / persistent_peers in config.toml.")
+		fmt.Println("    3. Fund your wallet (>= 500,000 RUNE self-delegation).")
+		fmt.Println("    4. Start the node and let it FULLY sync.")
+		fmt.Printf("         runed start --home %s\n", home)
+		fmt.Println("    5. In another terminal, create your validator:")
+		fmt.Println("         runed tx staking create-validator ... --from " + keyName)
+		fmt.Println()
+		fmt.Println("  Full guide: docs/validator.md")
+	default:
+		fmt.Println("Next: start your node with:")
+		fmt.Printf("  runed start --home %s\n", home)
+	}
 	fmt.Println("──────────────────────────────────────────────────────────────")
 	return nil
 }
