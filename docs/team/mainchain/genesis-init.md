@@ -146,22 +146,114 @@ mutually-wired set — correct as-is **only if** the nodes genuinely keep those 
 > `nodeID@ip:26656`), or run `runed tendermint show-node-id --home <nodeHome>`
 > per node.
 
-## What the bootstrap sequence does
+## Full bootstrap-validator walkthrough
+
+> **This is the only flow a bootstrap validator needs.** `init-files` does
+> everything — it is **not** a first step that you then follow with `init`,
+> `keys add` and `gentx`. Those are the *joining* flow for a different command
+> (`runed init`), and are explained at the end of this section so you can see
+> why they are **not** part of this flow.
+
+### Why no moniker on the command line?
+
+You **do** get a moniker — it is **derived from the home directory name** rather
+than typed as a flag. With `--home ~/.runed` the moniker becomes `runed`; with
+`--home ./mynode` it becomes `mynode`.
+
+The reason there is no `--moniker` flag is that a single-node generation writes
+**one** home, so there is exactly one name to derive, and deriving it keeps the
+command short. (In multi-node mode each node is named `node0`, `node1`, … — see
+`nodeDirName()` in `cmd/runed/chain.go`.)
+
+If you want a specific moniker, just name the home directory:
 
 ```
-runed init <moniker> --chain-id <chain-id> --home <home>
+runed genesis init-files --chain-id rune_6590-1 --home ~/.runed-hoodium-mainnet
+# → moniker "runed-hoodium-mainnet"
+```
+
+### Step 1 — generate the node home
+
+```bash
+runed genesis init-files --chain-id rune_6590-1
+```
+
+This one command does **all** of the following:
+
+| What | Result |
+|---|---|
+| Creates the node home | `~/.runed/` (config/, data/) |
+| Node identity keys | `config/priv_validator_key.json`, `config/node_key.json` |
+| Node config | `config/config.toml`, `config/app.toml`, `config/client.toml` |
+| **Wallet key** | created in the keyring, **mnemonic saved to `config/key_seed.json`** |
+| **Premine** | 9B RUNE + 10M HOODI → that wallet; 1B RUNE → `validator_reward_pool` |
+| **The validator** | written **directly into the staking genesis** (self-delegated 500,000 RUNE) |
+| Consensus params | `MaxGas = 10,000,000`, vote extensions enabled from block 1 |
+| `config/genesis.json` | complete and ready to run |
+
+> 🔑 **The wallet key is created for you.** Its mnemonic is written to
+> **`~/.runed/config/key_seed.json`** — back this file up immediately and keep it
+> secret; it controls the premine.
+>
+> 💡 **There is NO gentx step.** Because this is the chain's *birth*, the
+> generated validator is written straight into the staking genesis
+> (`staking.validators`, `delegations`, `last_validator_powers`). There is no
+> `gentxs/` directory and nothing to `collect-gentxs`. Gentx is only used when
+> *joining an existing* chain via `runed init`.
+
+### Step 2 — start the chain
+
+```bash
+runed start --home ~/.runed
+```
+
+That is it — the chain is producing blocks from a single validator.
+
+### Step 3 (optional) — confirm it is running
+
+```bash
+runed status --home ~/.runed
+runed query staking validators --home ~/.runed
+runed query bank balances <your-rune1-address> --home ~/.runed
+```
+
+Get your address with `runed keys list --home ~/.runed`, and see
+[Accessing the premine from an EVM wallet](#accessing-the-premine-from-an-evm-wallet).
+
+### ⛔ Why `runed init` / `keys add` / `gentx` are NOT part of this flow
+
+You will see this sequence in other Cosmos docs (and it was, incorrectly, in an
+earlier version of this page):
+
+```bash
+runed init <moniker> --chain-id <chain-id> --home <home>     # ← do NOT run after init-files
 runed keys add <key-name> --keyring-backend file --home <home>
-runed genesis gentx <key-name> <amount> --pubkey "$(runed tendermint show-validator)" \
-  --chain-id <chain-id> --home <home>
-runed start --home <home>
+runed genesis gentx <key-name> <amount> --pubkey "$(runed tendermint show-validator)" ...
 ```
 
-- `init` writes `genesis.json`, `app.toml`, `client.toml`, `config.toml` and the
-  node's **consensus key** (`priv_validator_key.json`) and **p2p key**.
-- `keys add` creates your **wallet key** (eth_secp256k1). This account holds RUNE
-  and, for the bootstrap validator, receives the genesis premine.
-- `gentx` records your intent to become a validator; it is collected into genesis
-  on a fresh network, or replaced by `tx staking create-validator` on a live one.
+**Those three commands are the wrong tool here, for three reasons:**
+
+1. **`runed init` only writes a *default* genesis.** It has **no premine logic** —
+   no 9B RUNE, no `validator_reward_pool`, no bonded-pool funding. Running it
+   after `init-files` would **overwrite your real genesis** with an empty one.
+   (`runed init` refuses if `genesis.json` exists unless you pass
+   `--overwrite` — do not pass it.)
+2. **`runed keys add` would create a *second* wallet.** `init-files` already
+   created one and funded it with the premine. A fresh key would hold nothing.
+3. **`gentx` is unnecessary** (see the note above): the validator is already in
+   the staking genesis.
+
+They exist for **joining an existing network**, where there is no premine to
+allocate and no genesis to author — the joiner only contributes a gentx (or a
+`create-validator` tx). That flow is documented in
+[Node Setup](../../node-setup.md) and [Validator Setup](../../validator.md).
+
+### Quick reference
+
+| Need | Command |
+|---|---|
+| Launch a brand-new chain (team) | `runed genesis init-files --chain-id <id>` → `runed start` |
+| Join an existing chain (validator) | `runed setup` (see [Validator Setup](../../validator.md)) |
 
 ## How the module-account pools work
 

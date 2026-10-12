@@ -53,9 +53,28 @@ runed setup \
 Flags: `--mode`, `--network`, `--node-type`, `--moniker`, `--key-name`,
 `--stake-amount`, `--home`, `--chain-id`, `--keyring-backend`.
 
+## ⚠️ What `runed setup` does and does not do
+
+`runed setup` prepares the **node files** (init, wallet key, and — for a
+validator — a gentx). It does **not** by itself make you a live validator on an
+already-running network.
+
+| Mode | What it runs | Good for |
+|---|---|---|
+| **Manual** | *Prints* `init` + `keys add` + `gentx` for you to run yourself | Either case — you stay in control |
+| **Automated** | *Runs* `init` + `keys add` + `gentx` for you | Contributing to a **not-yet-launched** genesis |
+
+> 🚫 **Joining a live network?** The `gentx` step is **not** what you want — a
+> gentx only makes sense *before* block 1. On a running chain you join by
+> broadcasting a `create-validator` transaction instead. Use **manual** mode, or
+> follow [Validator Setup](./validator.md) directly.
+
+**In both modes, you still must:** use the official `genesis.json` (not the
+default one `init` writes), set your peers, and fund your wallet.
+
 ## Next steps
 
-- **Joining an official network as a validator** → see
-  [Validator Setup](./validator.md).
+- **Joining an official network as a validator** → [Validator Setup](./validator.md)
+  (full guide: init → official genesis → peers → wallet → sync → `create-validator`).
 - **Launching a new network's genesis** (Hoodium team only) → see
   [Mainchain Genesis Initialization](./team/mainchain/genesis-init.md).
