@@ -72,7 +72,7 @@ Custom features built for Hoodium (i.e. beyond stock Cosmos SDK / EVM behaviour)
 | **Standard staking** (replacing PoA) | Permissionless Cosmos staking: **101** max validators, **500,000 RUNE** min self-delegation, **5%** min commission. |
 | **Staking from EVM** | A staking precompile lets EVM accounts delegate / undelegate / query without leaving the EVM toolchain. |
 | **Guided first-run setup (`runed setup`)** | A single guided entry point for bootstrapping a node, with **automated** and **manual** modes. It walks you through mode → network (`mainnet`/`testnet`/`devnet`) → node type (`validator`/`seed`) → moniker → wallet key, then runs (or prints) `init`, `keys add` and `gentx`. Most Cosmos/EVM chains make you wire those together by hand. See [`node-setup.md`](./docs/node-setup.md). |
-| **Dual-chain architecture** | **L1 Mainchain (EVM)** + **L2 Yieldchain (POX)** as one unified network — the Yieldchain depends on the Mainchain for execution, and a Bitcoin security layer covers both. *(Yieldchain is a later track.)* |
+| **Dual-chain architecture** | **L1 Mainchain (EVM)** + **L2 Yieldchain (POX)** as one unified network — the Yieldchain depends on the Mainchain for execution, and a Bitcoin security layer covers the Yieldchain. *(Yieldchain is a later track.)* |
 
 ## Technologies
 
