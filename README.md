@@ -54,7 +54,7 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 ### Phase 6 — Yieldchain (POX) — *later track*
 - [ ] POX Yieldchain engine — depends entirely on the Mainchain for execution
 - [ ] BTC hash security layer covering Yieldchain
-- [ ] Dual-chain bridge
+- [ ] Dual-chain connection through internal IBC tunnel.
 
 ---
 
