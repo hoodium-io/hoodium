@@ -163,7 +163,7 @@ than typed as a flag. With `--home ~/.runed` the moniker becomes `runed`; with
 The reason there is no `--moniker` flag is that a single-node generation writes
 **one** home, so there is exactly one name to derive, and deriving it keeps the
 command short. (In multi-node mode each node is named `node0`, `node1`, … — see
-`nodeDirName()` in `cmd/runed/chain.go`.)
+`nodeDirName()` in `cmd/runed/mainchain.go`.)
 
 If you want a specific moniker, just name the home directory:
 
