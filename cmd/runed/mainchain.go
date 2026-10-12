@@ -56,6 +56,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/hoodium-io/hoodium/crypto/hd"
 	"github.com/hoodium-io/hoodium/server/config"
@@ -173,6 +174,12 @@ const (
 	// validator unbonding and delegator undelegation - the SDK offers no
 	// separate delegator timeframe.
 	UnbondingTime = 14 * 24 * time.Hour
+
+	// DowntimeJailDuration is how long a validator stays jailed after missing
+	// too many blocks (user-confirmed: 24 hours). The SDK default is 10 minutes,
+	// which is far too short for a real chain. This is the MAINNET value; the
+	// official genesis.json is authoritative for devnet and mainnet alike.
+	DowntimeJailDuration = 24 * time.Hour
 )
 
 // cleanupOnFailure removes partially generated output when generation fails.
@@ -567,6 +574,33 @@ func initGenesisFiles(
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[crisistypes.ModuleName], &crisisGenState)
 	crisisGenState.ConstantFee.Denom = coinDenom
 	appGenState[crisistypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&crisisGenState)
+
+	var slashingGenState slashingtypes.GenesisState
+	clientCtx.Codec.MustUnmarshalJSON(appGenState[slashingtypes.ModuleName], &slashingGenState)
+	// Hoodium slashing parameters (user-confirmed). Set EXPLICITLY rather than
+	// relying on the SDK defaults, which are tuned for a 1s-block chain.
+	//
+	//   - SlashFractionDoubleSign = 10% (SDK default 5%): deliberate hardening -
+	//     equivocation is the one unrecoverable fault, so the penalty is doubled.
+	//   - DowntimeJailDuration = 24h (SDK default 10 min): long enough to matter,
+	//     short enough that a failed restart is recoverable within a day.
+	//   - SignedBlocksWindow / MinSignedPerWindow = 10000 / 0.50:
+	//     ~16.7h window at 6s blocks, requiring 50% liveness,
+	//     i.e. ~8.3h of downtime tolerated before jailing. The window is PER
+	//     VALIDATOR (each tracks its own signed-block bitmap).
+	//   - SlashFractionDowntime = 1% (SDK default): small, since the real
+	//     deterrent for downtime is the jail itself.
+	//
+	// NOTE: slashed funds are BURNED (removed from supply), the SDK default.
+	// See docs/features/slashing.md for the supply implications.
+	slashingGenState.Params = slashingtypes.Params{
+		SignedBlocksWindow:      10_000,
+		MinSignedPerWindow:      sdkmath.LegacyMustNewDecFromStr("0.50"),
+		DowntimeJailDuration:    DowntimeJailDuration,
+		SlashFractionDoubleSign: sdkmath.LegacyMustNewDecFromStr("0.10"),
+		SlashFractionDowntime:   sdkmath.LegacyMustNewDecFromStr("0.01"),
+	}
+	appGenState[slashingtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&slashingGenState)
 
 	var evmGenState evmtypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[evmtypes.ModuleName], &evmGenState)

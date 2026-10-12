@@ -74,14 +74,17 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/crisis"
 	crisiskeeper "github.com/cosmos/cosmos-sdk/x/crisis/keeper"
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
-	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
-	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	distr "github.com/cosmos/cosmos-sdk/x/distribution"
+	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	paramskeeper "github.com/cosmos/cosmos-sdk/x/params/keeper"
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
+	"github.com/cosmos/cosmos-sdk/x/slashing"
+	slashingkeeper "github.com/cosmos/cosmos-sdk/x/slashing/keeper"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -97,14 +100,14 @@ import (
 
 	appabci "github.com/hoodium-io/hoodium/app/abci"
 	ethante "github.com/hoodium-io/hoodium/app/ante/evm"
-	"github.com/hoodium-io/hoodium/encoding"
-	"github.com/hoodium-io/hoodium/evm/eip712"
 	"github.com/hoodium-io/hoodium/core"
-	"github.com/hoodium-io/hoodium/core/runetoken"
 	"github.com/hoodium-io/hoodium/core/hooditoken"
 	"github.com/hoodium-io/hoodium/core/priceoracle"
+	"github.com/hoodium-io/hoodium/core/runetoken"
 	stakingprecompile "github.com/hoodium-io/hoodium/core/staking"
 	"github.com/hoodium-io/hoodium/core/testbed"
+	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/evm/eip712"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
 	runetypes "github.com/hoodium-io/hoodium/types"
 
@@ -170,6 +173,7 @@ var (
 		oracle.AppModuleBasic{},
 		staking.AppModuleBasic{},
 		distr.AppModuleBasic{},
+		slashing.AppModuleBasic{},
 		runerewards.AppModuleBasic{},
 		genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
 	)
@@ -221,6 +225,7 @@ type Hoodium struct {
 	BankKeeper            bankkeeper.Keeper
 	StakingKeeper         *stakingkeeper.Keeper
 	DistributionKeeper    distrkeeper.Keeper
+	SlashingKeeper        slashingkeeper.Keeper
 	CrisisKeeper          *crisiskeeper.Keeper
 	UpgradeKeeper         *upgradekeeper.Keeper
 	ParamsKeeper          paramskeeper.Keeper
@@ -291,6 +296,7 @@ func NewHoodium(
 		oracletypes.StoreKey,
 		stakingtypes.StoreKey,
 		distrtypes.StoreKey,
+		slashingtypes.StoreKey,
 		runerewardstypes.StoreKey,
 	)
 
@@ -389,11 +395,26 @@ func NewHoodium(
 		authtypes.FeeCollectorName,
 		authority.String(),
 	)
-	// Wire distribution's reward-tracking hooks into staking. This handles
-	// validator-creation/delegation reward accounting. NOTE: reward allocation
-	// (proposer/block rewards) is NOT wired here — that is handled by the custom
-	// x/runerewards module later (Stage 4).
-	app.StakingKeeper.SetHooks(stakingtypes.NewMultiStakingHooks(app.DistributionKeeper.Hooks()))
+	app.SlashingKeeper = slashingkeeper.NewKeeper(
+		appCodec,
+		app.cdc,
+		runtime.NewKVStoreService(keys[slashingtypes.StoreKey]),
+		app.StakingKeeper,
+		authority.String(),
+	)
+	// Wire distribution's reward-tracking hooks AND slashing's hooks into staking.
+	//
+	//   - distribution: validator-creation/delegation reward accounting. NOTE:
+	//     reward allocation (proposer/block rewards) is handled by the custom
+	//     x/runerewards module, not here.
+	//   - slashing: downtime jailing (liveness) and double-sign slashing. Without
+	//     this hook staking has no economic penalty for misbehaviour.
+	app.StakingKeeper.SetHooks(
+		stakingtypes.NewMultiStakingHooks(
+			app.DistributionKeeper.Hooks(),
+			app.SlashingKeeper.Hooks(),
+		),
+	)
 	app.CrisisKeeper = crisiskeeper.NewKeeper(
 		appCodec,
 		runtime.NewKVStoreService(keys[crisistypes.StoreKey]),
@@ -506,6 +527,7 @@ func NewHoodium(
 		oracle.NewAppModule(appCodec, app.OracleKeeper),
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(stakingtypes.ModuleName)),
 		distr.NewAppModule(appCodec, app.DistributionKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(distrtypes.ModuleName)),
+		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(slashingtypes.ModuleName), app.interfaceRegistry),
 		runerewards.NewAppModule(app.RuneRewardsKeeper),
 		genutil.NewAppModule(app.AccountKeeper, app.StakingKeeper, app.BaseApp, encodingConfig.TxConfig),
 	)
@@ -520,6 +542,7 @@ func NewHoodium(
 		evmtypes.ModuleName,
 		stakingtypes.ModuleName,
 		distrtypes.ModuleName,
+		slashingtypes.ModuleName,
 		oracletypes.ModuleName,
 		// no-op modules
 		authtypes.ModuleName,
@@ -560,6 +583,7 @@ func NewHoodium(
 		genutiltypes.ModuleName,
 		stakingtypes.ModuleName,
 		distrtypes.ModuleName,
+		slashingtypes.ModuleName,
 		evmtypes.ModuleName,
 		feemarkettypes.ModuleName,
 		runerewardstypes.ModuleName,

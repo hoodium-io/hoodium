@@ -6,6 +6,7 @@ things Hoodium does differently from a stock Cosmos/EVM chain.
 | Feature | Doc |
 |---|---|
 | Two-gas-price model | [`tx-fees.md`](./tx-fees.md) |
+| Slashing & validator accountability | [`slashing.md`](./slashing.md) |
 | Guided first-run setup (`runed setup`) | [`../node-setup.md`](../node-setup.md) |
 | `x/runerewards` block rewards | [`../technologies/runerewards.md`](../technologies/runerewards.md) |
 | `x/pona` (Proof of Network Activity) | [`../technologies/pona.md`](../technologies/pona.md) |
