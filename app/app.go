@@ -399,7 +399,9 @@ func NewHoodium(
 		appCodec,
 		app.cdc,
 		runtime.NewKVStoreService(keys[slashingtypes.StoreKey]),
-		app.StakingKeeper,
+		// RunE staking keeper adapter: intercepts slashes and redirects the
+		// slashed funds to the fee collector instead of burning them.
+		newRuneStakingKeeper(app.StakingKeeper, app.BankKeeper),
 		authority.String(),
 	)
 	// Wire distribution's reward-tracking hooks AND slashing's hooks into staking.

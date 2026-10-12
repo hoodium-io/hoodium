@@ -71,6 +71,7 @@ Custom features built for Hoodium (i.e. beyond stock Cosmos SDK / EVM behaviour)
 | **Two-gas-price model** | Separate minimum gas prices for **regular** vs **deployment** transactions, both **governance-adjustable**. |
 | **Standard staking** (replacing PoA) | Permissionless Cosmos staking: **101** max validators, **500,000 RUNE** min self-delegation, **5%** min commission. |
 | **Staking from EVM** | A staking precompile lets EVM accounts delegate / undelegate / query without leaving the EVM toolchain. |
+| **Slashing & validator accountability** | Economic security via Cosmos `x/slashing`: downtime jailing and 10% double-sign slashing. Hoodium **redirects slashed funds to the fee pool** (distributed to the active validator set) instead of burning them. See [`slashing.md`](./docs/features/slashing.md). |
 | **Guided first-run setup (`runed setup`)** | A single guided entry point for bootstrapping a node, with **automated** and **manual** modes. It walks you through mode → network (`mainnet`/`testnet`/`devnet`) → node type (`validator`/`seed`) → moniker → wallet key, then runs (or prints) `init`, `keys add` and `gentx`. Most Cosmos/EVM chains make you wire those together by hand. See [`node-setup.md`](./docs/node-setup.md). |
 | **Dual-chain architecture** | **L1 Mainchain (EVM)** + **L2 Yieldchain (POX)** as one unified network — the Yieldchain depends on the Mainchain for execution, and a Bitcoin security layer covers the Yieldchain. *(Yieldchain is a later track.)* |
 
@@ -82,7 +83,6 @@ in [`docs/technologies/`](./docs/technologies/README.md).
 | Technology | Description | Doc |
 |---|---|---|
 | **`x/runerewards`** | Custom module owning the 1B RUNE validator reward pool and the emission schedule: funds the reserve, computes the block reward, and pays the proposer. | [`runerewards.md`](./docs/technologies/runerewards.md) |
-| **Slashing (`x/slashing`)** | Economic security: downtime jailing and 10% double-sign slashing. Slashed funds are **burned**. | [`slashing.md`](./docs/features/slashing.md) |
 | **PoNA (Proof of Network Activity)** | Activity-scaled reward engine. Captures the block's transaction count in the app's `PreBlock` hook, stores it, and selects the tier's full / low / zero rate in `EndBlock`. Pure and deterministic. | [`pona.md`](./docs/technologies/pona.md) |
 | **EVM precompiles** (5 registered) | Native Go precompiles exposed at fixed addresses: **RUNE token** `0x19be...0000`, **HOODI token** `0x19be...0001`, **PriceOracle** `0x19be...0002`, **Staking** `0x19be...0003`, **TestBed** `0x19BE10...0000`. | [`precompile.md`](./docs/precompile.md) |
 | **Two-gas-price model** | `x/feemarket` extension adding `MinRegularGasPrice` / `MinDeploymentGasPrice` on top of the EIP-1559 base fee. | [`tx-fees.md`](./docs/features/tx-fees.md) |
