@@ -5,8 +5,8 @@ How to join an **official, already-running** Hoodium network as a validator.
 > Running a node for the first time? Start with [Node Setup](./node-setup.md),
 > which covers `runed setup` and its two modes.
 >
-> Launching a brand-new chain's genesis? That is a **team-only** action — see
-> [Mainchain Genesis Initialization](./team/mainchain/genesis-init.md).
+> Launching a brand-new chain's genesis is a **team-only** action and is not
+> covered by the public docs.
 
 ## ⚠️ First, the one thing that decides everything
 

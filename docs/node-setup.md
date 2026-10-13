@@ -76,5 +76,5 @@ default one `init` writes), set your peers, and fund your wallet.
 
 - **Joining an official network as a validator** → [Validator Setup](./validator.md)
   (full guide: init → official genesis → peers → wallet → sync → `create-validator`).
-- **Launching a new network's genesis** (Hoodium team only) → see
-  [Mainchain Genesis Initialization](./team/mainchain/genesis-init.md).
+- **Launching a new network's genesis** (Hoodium team only) → not covered by the
+  public docs.
