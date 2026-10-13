@@ -23,6 +23,12 @@ type BankKeeper interface {
 	SendCoinsFromModuleToAccount(
 		ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins,
 	) error
+	// SendCoinsFromModuleToModule transfers coins between module accounts. Used
+	// to forward the block reward to the distribution fee collector for splitting
+	// across the active validator set.
+	SendCoinsFromModuleToModule(
+		ctx context.Context, senderModule, recipientModule string, amt sdk.Coins,
+	) error
 	// MintCoins mints new coins from a module account.
 	MintCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
 }

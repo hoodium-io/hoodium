@@ -5,12 +5,13 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/hoodium-io/hoodium/x/runerewards/types"
 )
 
 // DistributeRuneBlockReward pays the block reward for the current block from the
-// validator reward pool to the block proposer.
+// validator reward pool into the distribution fee pool.
 //
 // Behaviour:
 //   - The reward for the current height is looked up from the schedule with
@@ -19,13 +20,21 @@ import (
 //     the block contains at least the tier's transaction threshold, the low
 //     activity rate when it contains some but fewer, and the zero activity rate
 //     when it is empty.
-//   - The reward is paid to the proposer's operator address, taken from the
-//     proposer consensus address reported by the ABCI request.
+//   - The reward is transferred from the validator reward pool to the
+//     distribution FEE COLLECTOR. x/distribution sweeps the fee collector every
+//     block (AllocateTokens) and splits the funds across the ACTIVE validator set
+//     by voting power — the same path transaction fees take. Delegators receive
+//     their share through the validator's commission.
 //   - If the pool cannot cover the reward (exhausted), emission simply stops for
 //     this block (fee-only). The pool is never overdrawn.
 //
-// Transaction fees are NOT handled here: they follow the standard x/distribution
-// flow and are split across the active validator set by voting power.
+// NOTE: the reward is deliberately NOT sent proposer-only. Paying only the
+// proposer would concentrate reward on whoever produces the block and risk
+// block-skipping / MEV centralisation; routing through x/distribution keeps the
+// incentive aligned across the whole active set.
+//
+// The proposer consensus address is still used to identify the block and is
+// recorded in the emitted event.
 //
 // It returns the amount actually paid (zero if nothing was paid).
 func (k Keeper) DistributeRuneBlockReward(
@@ -53,33 +62,40 @@ func (k Keeper) DistributeRuneBlockReward(
 		return sdkmath.ZeroInt(), nil
 	}
 
-	// Resolve the proposer's operator address from its consensus address.
-	validator, err := k.stakingKeeper.GetValidatorByConsAddr(ctx, proposerConsAddr)
-	if err != nil {
-		return sdkmath.ZeroInt(), err
-	}
-
-	valAddr, err := sdk.ValAddressFromBech32(validator.OperatorAddress)
-	if err != nil {
-		return sdkmath.ZeroInt(), err
-	}
-
+	// Forward the reward to the distribution fee collector. x/distribution picks
+	// it up in its BeginBlock and allocates it across the active validator set by
+	// voting power.
 	coins := sdk.NewCoins(sdk.NewCoin(params.Denom, reward))
-	if err := k.bankKeeper.SendCoinsFromModuleToAccount(
-		ctx, types.ValidatorRewardPoolName, valAddr.Bytes(), coins,
+	if err := k.bankKeeper.SendCoinsFromModuleToModule(
+		ctx, types.ValidatorRewardPoolName, authtypes.FeeCollectorName, coins,
 	); err != nil {
 		return sdkmath.ZeroInt(), err
 	}
 
-	ctx.EventManager().EmitEvent(
-		sdk.NewEvent(
-			types.EventTypeRuneBlockReward,
-			sdk.NewAttribute(types.AttributeKeyHeight, fmt.Sprintf("%d", height)),
-			sdk.NewAttribute(types.AttributeKeyValidator, valAddr.String()),
-			sdk.NewAttribute(types.AttributeKeyAmount, reward.String()),
-			sdk.NewAttribute(types.AttributeKeyTxCount, fmt.Sprintf("%d", txCount)),
-		),
+	// Record the proposer for observability. The payout is network-wide, so this
+	// is informational only.
+	proposer, err := k.stakingKeeper.GetValidatorByConsAddr(ctx, proposerConsAddr)
+	if err != nil {
+		// Non-fatal: the reward has already been routed correctly.
+		k.Logger(ctx).Debug(
+			"could not resolve proposer for reward event",
+			"height", height,
+			"error", err.Error(),
+		)
+	}
+
+	event := sdk.NewEvent(
+		types.EventTypeRuneBlockReward,
+		sdk.NewAttribute(types.AttributeKeyHeight, fmt.Sprintf("%d", height)),
+		sdk.NewAttribute(types.AttributeKeyAmount, reward.String()),
+		sdk.NewAttribute(types.AttributeKeyTxCount, fmt.Sprintf("%d", txCount)),
 	)
+	if proposer.OperatorAddress != "" {
+		event = event.AppendAttributes(
+			sdk.NewAttribute(types.AttributeKeyValidator, proposer.OperatorAddress),
+		)
+	}
+	ctx.EventManager().EmitEvent(event)
 
 	return reward, nil
 }

@@ -119,16 +119,18 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 func (AppModule) BeginBlock(_ context.Context) error { return nil }
 
 // EndBlock pays the block reward for the closing block from the validator
-// reward pool to the block proposer.
+// reward pool into the distribution fee pool.
 //
 // The reward is scaled by Proof of Network Activity: the number of transactions
 // in this block, captured in the application's PreBlock hook (see
 // keeper.SetBlockTxCount), selects the tier's full, low, or zero activity rate.
 //
-// The proposer consensus address is taken from the ABCI request (FinalizeBlock) /
-// the configured proposer. Transaction fees are NOT handled here; they follow the
-// standard x/distribution flow (fee pool split across the active validator set by
-// voting power).
+// The funds are forwarded to the x/distribution fee collector, which allocates
+// them across the ACTIVE validator set by voting power on the next block —
+// delegators receive their share via the validator's commission. Transaction
+// fees take the same path, so rewards and fees are distributed consistently.
+//
+// The proposer consensus address is used only for the emitted event.
 func (am AppModule) EndBlock(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
