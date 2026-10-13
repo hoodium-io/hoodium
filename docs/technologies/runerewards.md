@@ -13,12 +13,12 @@ Hoodium pays validators a **static RUNE block reward** funded from a pre-funded
   at genesis, balance queries, top-up.
 - The **base emission schedule**: which full reward applies at a given block
   height.
-- **Payment plumbing**: transferring the reward from the pool to the block
-  proposer's operator address.
+- **Payment plumbing**: transferring the reward from the pool into the
+  `x/distribution` fee pool, which splits it across the active validator set.
 
-Transaction fees are **not** handled here — they follow the standard
-`x/distribution` flow (fee pool split across the active validator set by voting
-power). See [`pona.md` §8](./pona.md#8-interaction-with-the-fee-market).
+Transaction fees take the **same path** — both end up in the distribution fee
+pool and are split across the active validator set by voting power. See
+[`pona.md` §8](./pona.md#8-interaction-with-the-fee-market).
 
 ## 2. The reward pool
 
@@ -38,18 +38,23 @@ and the chain runs on fees permanently.
 ```
 EndBlock
   └─ x/runerewards: DistributeRuneBlockReward(ctx, proposerConsAddr)
-       1. reward  = RewardForHeight(height)        ── base schedule lookup
+       1. reward  = RewardForHeightAndTxCount(height, txCount)   ── PoNA lookup
        2. if pool < reward  → stop (fee-only), never overdraw
-       3. resolve proposer consensus addr → operator addr
-       4. send reward from validator_reward_pool → operator
-       5. emit rune_block_reward event
+       3. send reward from validator_reward_pool → fee_collector
+       4. emit rune_block_reward event (records the proposer)
+
+Next block, x/distribution BeginBlock:
+       5. sweep the fee collector → split across the ACTIVE validator set
+          by voting power → delegators receive their share via commission
 ```
 
-- The proposer is taken from `ctx.BlockHeader().ProposerAddress`.
-- The reward is paid to the proposer **only**; delegators receive their share via
-  the proposer's commission through `x/distribution`.
-- When PoNA is implemented, the reward in step 1 is the **effective** (activity-
-  scaled) amount rather than the full base rate.
+- **The reward is not sent proposer-only.** It goes to the distribution fee
+  pool, exactly like transaction fees. Paying only the proposer would
+  concentrate reward on whichever validator produces the block and risk
+  block-skipping / MEV centralisation.
+- The proposer (`ctx.BlockHeader().ProposerAddress`) is used **only for the
+  emitted event**, for observability.
+- The reward amount is the **PoNA** (activity-scaled) amount.
 
 ## 4. Emission schedule
 

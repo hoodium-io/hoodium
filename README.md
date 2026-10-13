@@ -32,7 +32,7 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 - [x] **Min-delegation (0.1 RUNE)** enforced at the staking precompile
 - [x] Slashing wired — downtime jailing + 10% double-sign, slashed funds redirected to the fee pool
 - [x] **Unbonding time** 14 days · **MaxEntries** 10 (explicit genesis values)
-- [ ] Validator reward payout routed through `x/distribution` commission split
+- [x] Validator reward payout routed through `x/distribution` (fee pool → active set by voting power)
 
 ### Phase 3 — Devnet launch
 - [x] Devnet boots end-to-end (genesis, staking, EVM, rewards)
