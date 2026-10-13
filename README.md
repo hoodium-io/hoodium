@@ -23,7 +23,6 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 - [x] EVM (`x/evm`) + fee market (`x/feemarket`) wired and green
 - [x] Two-gas-price model, governance-adjustable
 - [x] RUNE genesis allocation: **9B premine + 1B reward reserve = 10B cap**
-- [x] `make install` + `make test-unit` green
 
 ### Phase 2 — RUNE rewards (this cycle)
 - [x] `x/runerewards` module — 1B validator reward pool, tiered emission schedule
