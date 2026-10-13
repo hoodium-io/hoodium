@@ -131,8 +131,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	// Build the genesis utilities command and attach the team-only genesis
 	// generator (`runed genesis init-files`) to it. It lives under `genesis`
 	// rather than as a `testnet`/`mainnet` subcommand so it is never confused
-	// with joining a network (`runed setup`). See
-	// docs/team/mainchain/genesis-init.md.
+	// with joining a network (`runed setup`).
 	genesisCmd := genesis.NewCmd(app.ModuleBasics, encodingConfig.TxConfig, app.DefaultNodeHome)
 	genesisCmd.AddCommand(NewGenesisInitCmd(app.ModuleBasics, app.DefaultNodeHome))
 
