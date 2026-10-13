@@ -623,13 +623,20 @@ func initGenesisFiles(
 	//
 	// NOTE: the SDK has NO global "min self-delegation" or "min delegation"
 	// params. MinSelfDelegation is a PER-VALIDATOR field (set below on each
-	// validator); the Hoodium 0.1 RUNE minimum delegation is enforced at the
-	// msg/precompile level (separate task).
+	// validator); the Hoodium 0.1 RUNE minimum delegation is enforced in the
+	// staking precompile (core/staking), the entry point delegation flows through.
 	oneRune := sdkmath.NewIntWithDecimal(1, 18)
 	minSelfDelegation := oneRune.MulRaw(500_000) // 500,000 RUNE
 	stakingGenState.Params.UnbondingTime = UnbondingTime
 	stakingGenState.Params.MaxValidators = 101
 	stakingGenState.Params.MinCommissionRate = sdkmath.LegacyMustNewDecFromStr("0.05")
+	// MaxEntries caps the OUTSTANDING unbonding/redelegation entries per pair:
+	//   - (delegator, validator)              -> pending unbonding entries
+	//   - (delegator, srcVal, dstVal)         -> pending redelegation entries
+	// SDK default is 7; Hoodium uses 10 to leave headroom for programmatic
+	// delegators (dApps / wallets that undelegate in several chunks). Each entry
+	// is a queued record the chain must settle, so the cap still prevents spam.
+	stakingGenState.Params.MaxEntries = 10
 
 	var (
 		genDelegations []stakingtypes.Delegation

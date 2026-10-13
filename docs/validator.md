@@ -169,8 +169,9 @@ make your validator live on an existing network.**
 | Min commission rate | 5% |
 | **Unbonding time** | **14 days** |
 
-> A minimum **delegation** of 0.1 RUNE is enforced at the message/precompile level
-> (not a staking param).
+> A minimum **delegation** of 0.1 RUNE is enforced at the **staking precompile**
+> (`core/staking`). Cosmos staking has no min-delegation parameter, so Hoodium
+> checks it at the precompile, which is the entry point delegation flows through.
 
 ### About the unbonding time
 

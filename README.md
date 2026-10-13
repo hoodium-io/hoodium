@@ -29,6 +29,9 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 - [x] Emission schedule: **50 / 25 / 10 RUNE per block** (Y0–2 / Y2–4 / Y4+)
 - [x] **PoNA (Proof of Network Activity)** — block reward scaled by transactions per block
 - [x] Fee-only fallback when the reserve is exhausted
+- [x] **Min-delegation (0.1 RUNE)** enforced at the staking precompile
+- [x] Slashing wired — downtime jailing + 10% double-sign, slashed funds redirected to the fee pool
+- [x] **Unbonding time** 14 days · **MaxEntries** 10 (explicit genesis values)
 - [ ] Validator reward payout routed through `x/distribution` commission split
 
 ### Phase 3 — Devnet launch
@@ -42,7 +45,6 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 - [ ] Governance module wiring (RUNE as gov token)
 - [ ] `RUNE/USD` price oracle (pricefeeder)
 - [ ] Blockshield — dust-spam protection + airdrop guard
-- [ ] Min-delegation (0.1 RUNE) enforcement at msg/precompile level
 - [ ] Hardhat ABI regeneration for all precompiles
 
 ### Phase 5 — Mainchain Mainnet

@@ -24,6 +24,18 @@ var filesystem embed.FS
 // delegate RUNE to a validator without switching to a Cosmos wallet.
 const EvmAddress = evmtypes.StakingPrecompileAddress
 
+// MinDelegation is the minimum amount of RUNE that can be delegated in a single
+// `delegate` call, in arune (1 RUNE = 10^18 arune). It is 0.1 RUNE.
+//
+// Cosmos staking has NO minimum-delegation parameter (stakingtypes.Params has no
+// such field), so Hoodium enforces this at the entry point that delegation
+// actually flows through: the staking precompile. Adding a delegation affects a
+// validator's delegator count and index entries, so a dust floor prevents spam
+// delegations of 1 arune.
+//
+// NOTE: this is the ENFORCEMENT point for Hoodium's 0.1 RUNE minimum delegation.
+var MinDelegation = sdkmath.NewIntWithDecimal(1, 17) // 0.1 RUNE
+
 // StakingKeeper is the subset of the x/staking keeper used by this precompile.
 type StakingKeeper interface {
 	// GetValidator returns the concrete validator for the given operator address.
@@ -123,6 +135,16 @@ func (m *delegateMethod) Run(
 		return nil, nil, fmt.Errorf("amount argument must be *big.Int")
 	}
 
+	// Enforce Hoodium's minimum delegation (0.1 RUNE). Cosmos staking has no
+	// min-delegation param, so this precompile is the enforcement point.
+	delegationAmount := sdkmath.NewIntFromBigInt(amount)
+	if delegationAmount.LT(MinDelegation) {
+		return nil, nil, fmt.Errorf(
+			"delegation amount %s is below the minimum of %s arune (0.1 RUNE)",
+			delegationAmount, MinDelegation,
+		)
+	}
+
 	// The msg sender is the delegating EVM account.
 	delegator := core.TypesConverter.Address.ToSDK(runCtx.MsgSender())
 
@@ -134,7 +156,7 @@ func (m *delegateMethod) Run(
 	_, err = m.sk.Delegate(
 		runCtx.SdkCtx(),
 		delegator,
-		sdkmath.NewIntFromBigInt(amount),
+		delegationAmount,
 		stakingtypes.Unbonded,
 		validator,
 		false, // let the keeper subtract from the account
