@@ -106,7 +106,7 @@ func addGenesisInitFlagsToCmd(cmd *cobra.Command, defaultNodeHome string) {
 // premine, validator reward reserve, bonded pool, staking and EVM/fee-market
 // params). It is deliberately NOT exposed as a `testnet`/`mainnet`/`devnet`
 // subcommand so that operators never mistake it for the way to join a network —
-// joining is done with `runed setup`. See docs/team/mainchain/genesis-init.md.
+// joining is done with `runed setup`.
 func NewGenesisInitCmd(mbm module.BasicManager, defaultNodeHome string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init-files",
