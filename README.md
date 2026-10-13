@@ -117,7 +117,6 @@ Full documentation lives in [`docs/`](./docs/):
 | [Networks](./docs/networks.md) | Mainnet / Testnet / Devnet identities and ports |
 | [Node setup](./docs/node-setup.md) | `runed setup` — guided first-run bootstrap |
 | [Validator setup](./docs/validator.md) | Joining an official network as a validator |
-| [Genesis init (team)](./docs/team/mainchain/genesis-init.md) | Generating the official Mainchain genesis |
 | [Precompile](./docs/precompile.md) | The EVM precompile set |
 | [Upgrades](./docs/upgrades.md) | Scheduling chain-software upgrades |
 
