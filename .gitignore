@@ -89,3 +89,7 @@ tmp/
 
 # Ignore generated credentials from google-github-actions/auth
 gha-creds-*.json
+
+# Team-only documentation (genesis init and other internal runbooks).
+# Not published; the docs/ tree is public.
+docs/team/
