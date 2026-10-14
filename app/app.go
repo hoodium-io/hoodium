@@ -499,6 +499,7 @@ func NewHoodium(
 		*app.EvmKeeper,
 		*app.UpgradeKeeper,
 		app.StakingKeeper,
+		app.SlashingKeeper,
 		oraclekeeper.NewQueryServer(app.OracleKeeper),
 		app.FeeMarketKeeper,
 		bApp.ChainID(),
@@ -948,6 +949,7 @@ func customEvmPrecompiles(
 	evmKeeper evmkeeper.Keeper,
 	upgradeKeeper upgradekeeper.Keeper,
 	stakingKeeper *stakingkeeper.Keeper,
+	slashingKeeper slashingkeeper.Keeper,
 	oracleQueryServer oracletypes.QueryServer,
 	feemarketKeeper feemarketkeeper.Keeper,
 	chainID string,
@@ -982,8 +984,11 @@ func customEvmPrecompiles(
 		)
 	}
 
-	// Staking precompile — lets EVM wallets delegate RUNE to validators.
-	stakingVersionMap, err := stakingprecompile.NewPrecompileVersionMap(stakingKeeper)
+	// Staking precompile — lets EVM wallets delegate RUNE to validators and
+	// unjail a validator. `MsgUnjail` is a native Cosmos msg and is unreachable
+	// on Hoodium (the ante handler routes only EVM txs), so the precompile is the
+	// only recovery path for a jailed validator.
+	stakingVersionMap, err := stakingprecompile.NewPrecompileVersionMap(stakingKeeper, slashingKeeper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create staking precompile: [%w]", err)
 	}

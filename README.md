@@ -37,12 +37,12 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 ### Phase 3 — Devnet launch
 - [x] Devnet boots end-to-end (genesis, staking, EVM, rewards)
 - [x] RUNE token precompile (gas / gov / reward token)
-- [x] HOODI token precompile — **full 10M supply minted at genesis** to the bootstrap validator (same address as the 9B RUNE premine)
+- [x] HOODI token precompile (pox / yield reward token)
 - [ ] **Public Mainchain devnet** — genesis, seeds, faucet, explorer, docs
 - [ ] Public devnet monitoring + upgrade process
 
 ### Phase 4 — Mainchain feature build-out
-- [ ] Governance module wiring (RUNE as gov token) — **`x/gov` will be FORKED and customized for Hoodium**
+- [ ] Governance module wiring (RUNE as gov token) — **`x/gov` will be customized for Hoodium**
 - [ ] `RUNE/USD` price oracle (pricefeeder)
 - [ ] Blockshield — dust-spam protection + airdrop guard
 - [ ] Hardhat ABI regeneration for all precompiles

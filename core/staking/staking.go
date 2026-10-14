@@ -24,6 +24,17 @@ var filesystem embed.FS
 // delegate RUNE to a validator without switching to a Cosmos wallet.
 const EvmAddress = evmtypes.StakingPrecompileAddress
 
+// SlashingKeeper is the subset of the x/slashing keeper used by this precompile.
+//
+// It exists so EVM accounts can unjail a validator. `MsgUnjail` is a native
+// Cosmos message and is UNREACHABLE on Hoodium (the ante handler routes only EVM
+// transactions), so the precompile is the only path to recovery.
+type SlashingKeeper interface {
+	// Unjail unjails a validator if its jail period has elapsed. It errors if
+	// the validator is tombstoned, still jailed, or below min self-delegation.
+	Unjail(ctx context.Context, validatorAddr sdk.ValAddress) error
+}
+
 // MinDelegation is the minimum amount of RUNE that can be delegated in a single
 // `delegate` call, in arune (1 RUNE = 10^18 arune). It is 0.1 RUNE.
 //
@@ -60,8 +71,8 @@ type StakingKeeper interface {
 	GetDelegation(ctx context.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) (stakingtypes.Delegation, error)
 }
 
-func NewPrecompileVersionMap(sk StakingKeeper) (*core.VersionMap, error) {
-	contractV1, err := NewPrecompile(sk)
+func NewPrecompileVersionMap(sk StakingKeeper, slk SlashingKeeper) (*core.VersionMap, error) {
+	contractV1, err := NewPrecompile(sk, slk)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +87,7 @@ func NewPrecompileVersionMap(sk StakingKeeper) (*core.VersionMap, error) {
 // StakingCaller contract via `make precompile-gen`). Registering the ABI is what
 // makes the precompile register a genesis account so eth_getCode returns its
 // bytecode.
-func NewPrecompile(sk StakingKeeper) (*core.Contract, error) {
+func NewPrecompile(sk StakingKeeper, slk SlashingKeeper) (*core.Contract, error) {
 	contractAbi, err := core.LoadAbiFile(filesystem, "abi.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load abi file: [%w]", err)
@@ -93,6 +104,7 @@ func NewPrecompile(sk StakingKeeper) (*core.Contract, error) {
 		newDelegateMethod(sk),
 		newUndelegateMethod(sk),
 		newGetDelegationMethod(sk),
+		newUnjailMethod(slk),
 	)
 	return contract, nil
 }
@@ -276,4 +288,69 @@ func (m *getDelegationMethod) Run(
 	// truncate to an integer RUNE amount (base denomination).
 	tokens := validator.TokensFromShares(delegation.Shares)
 	return core.MethodOutputs{tokens.TruncateInt().BigInt()}, nil, nil
+}
+
+const UnjailMethodName = "unjail"
+
+type unjailMethod struct {
+	slk SlashingKeeper
+}
+
+func newUnjailMethod(slk SlashingKeeper) *unjailMethod {
+	return &unjailMethod{slk: slk}
+}
+
+func (m *unjailMethod) MethodName() string          { return UnjailMethodName }
+func (m *unjailMethod) MethodType() core.MethodType { return core.Write }
+func (m *unjailMethod) RequiredGas(_ []byte) (uint64, bool) {
+	return 0, false
+}
+func (m *unjailMethod) Payable() bool { return false }
+
+// Run implements unjail(address validator) → bool.
+//
+// Recovery path for a jailed validator. This exists because `MsgUnjail` is a
+// native Cosmos message and is unreachable on Hoodium — the ante handler routes
+// only EVM transactions — so without this method a jailed validator could never
+// be unjailed.
+//
+// The caller must be the validator's own operator account: only the operator may
+// unjail its validator. The keeper then enforces every real precondition:
+//
+//   - the validator must actually be jailed,
+//   - the jail period (`JailedUntil`) must have elapsed,
+//   - the validator must not be tombstoned (tombstoning is permanent — a
+//     double-sign cannot be undone), and
+//   - self-delegation must be at or above `MinSelfDelegation`.
+//
+// All of that lives in x/slashing's Unjail; this method only adds the
+// operator-only check so one account cannot unjail another's validator.
+func (m *unjailMethod) Run(
+	runCtx *core.RunContext,
+	inputs core.MethodInputs,
+) (core.MethodOutputs, []statedb.StateChange, error) {
+	if err := core.ValidateMethodInputsCount(inputs, 1); err != nil {
+		return nil, nil, err
+	}
+
+	validatorAddr, ok := inputs[0].(common.Address)
+	if !ok {
+		return nil, nil, fmt.Errorf("validator argument must be common.Address")
+	}
+
+	// The caller must be the validator's own operator. The signer is the EVM
+	// msg sender; a validator's operator address is the same 20 bytes, so
+	// comparing them is an exact identity check.
+	if runCtx.MsgSender() != validatorAddr {
+		return nil, nil, fmt.Errorf(
+			"only the validator's own operator may unjail it: caller %s, validator %s",
+			runCtx.MsgSender().Hex(), validatorAddr.Hex(),
+		)
+	}
+
+	if err := m.slk.Unjail(runCtx.SdkCtx(), sdk.ValAddress(validatorAddr.Bytes())); err != nil {
+		return nil, nil, fmt.Errorf("failed to unjail: %w", err)
+	}
+
+	return core.MethodOutputs{true}, nil, nil
 }
