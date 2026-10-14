@@ -67,9 +67,16 @@ func NewPrecompileVersionMap(
 
 // NewPrecompile creates a new HOODI token precompile.
 //
-// NOTE: HOODI is a base ERC-20 token with no minter and no minting path. It is
-// detached from any Mainchain module and reserved for the POX Yieldchain, where
-// its one-time full max-supply mint will be implemented in a later stage.
+// NOTE: HOODI is a base ERC-20 token with no minter and no minting path. The
+// ENTIRE 10,000,000 HOODI max supply is created at genesis as a bank balance to
+// the bootstrap validator address (see cmd/runed/mainchain.go), so the full
+// supply is minted and spendable from block 1 — the same mechanism RUNE uses.
+//
+// There is deliberately NO runtime mint: the supply is fixed at genesis and no
+// module can create more. This is what enforces the 10M cap.
+//
+// The Yieldchain consumes this already-minted HOODI; it does not require a new
+// mint path on the Mainchain.
 func NewPrecompile(
 	bankKeeper bankkeeper.Keeper,
 	authzkeeper authzkeeper.Keeper,
