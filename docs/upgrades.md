@@ -48,9 +48,9 @@ on-disk state changed, and a migration must be registered for it:
 |---|---|
 | `x/evm` | 1 |
 | `x/feemarket` | 1 |
-| `x/runerewards` | **2** |
+| `x/pona` | **2** |
 
-> ⚠️ `x/runerewards` is at version **2** — it gained the PoNA activity fields and
+> ⚠️ `x/pona` is at version **2** — it gained the PoNA activity fields and
 > dropped `min_reward_per_block`. A chain started on version 1 state would expect
 > a 1→2 migration. **Generate genesis fresh** (or register a migration) before
 > booting from an old home directory.

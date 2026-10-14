@@ -25,7 +25,7 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 - [x] RUNE genesis allocation: **9B premine + 1B reward reserve = 10B cap**
 
 ### Phase 2 — RUNE rewards (this cycle)
-- [x] `x/runerewards` module — 1B validator reward pool, tiered emission schedule
+- [x] `x/pona` module — 1B validator reward pool, tiered emission schedule
 - [x] Emission schedule: **50 / 25 / 10 RUNE per block** (Y0–2 / Y2–4 / Y4+)
 - [x] **PoNA (Proof of Network Activity)** — block reward scaled by transactions per block
 - [x] Fee-only fallback when the reserve is exhausted
@@ -83,7 +83,7 @@ in [`docs/technologies/`](./docs/technologies/README.md).
 
 | Technology | Description | Doc |
 |---|---|---|
-| **`x/runerewards`** | Custom module owning the 1B RUNE validator reward pool and the emission schedule: funds the reserve, computes the block reward, and pays the proposer. | [`runerewards.md`](./docs/technologies/runerewards.md) |
+| **`x/pona`** | Custom module owning the 1B RUNE validator reward pool, the emission schedule and the PoNA activity policy: funds the reserve, computes the block reward, and routes it to the fee pool. | [`pona.md`](./docs/technologies/pona.md) |
 | **PoNA (Proof of Network Activity)** | Activity-scaled reward engine. Captures the block's transaction count in the app's `PreBlock` hook, stores it, and selects the tier's full / low / zero rate in `EndBlock`. Pure and deterministic. | [`pona.md`](./docs/technologies/pona.md) |
 | **EVM precompiles** (5 registered) | Native Go precompiles exposed at fixed addresses: **RUNE token** `0x19be...0000`, **HOODI token** `0x19be...0001`, **PriceOracle** `0x19be...0002`, **Staking** `0x19be...0003`, **TestBed** `0x19BE10...0000`. | [`precompile.md`](./docs/precompile.md) |
 | **Two-gas-price model** | `x/feemarket` extension adding `MinRegularGasPrice` / `MinDeploymentGasPrice` on top of the EIP-1559 base fee. | [`tx-fees.md`](./docs/features/tx-fees.md) |

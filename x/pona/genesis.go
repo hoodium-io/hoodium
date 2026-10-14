@@ -1,4 +1,4 @@
-package runerewards
+package pona
 
 import (
 	"encoding/json"
@@ -6,11 +6,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/hoodium-io/hoodium/x/runerewards/keeper"
-	"github.com/hoodium-io/hoodium/x/runerewards/types"
+	"github.com/hoodium-io/hoodium/x/pona/keeper"
+	"github.com/hoodium-io/hoodium/x/pona/types"
 )
 
-// InitGenesis initializes the runerewards module's state.
+// InitGenesis initializes the pona module's state.
 //
 // NOTE: funding of the validator reward pool is done at genesis via the bank
 // genesis balances (9B premine + 1B reserve), NOT here. See cmd/runed/testnet.go
@@ -24,7 +24,7 @@ func InitGenesis(ctx sdk.Context, k keeper.Keeper, cdc codec.JSONCodec, data jso
 	}
 }
 
-// ExportGenesis returns the runerewards module's exported genesis state as raw
+// ExportGenesis returns the pona module's exported genesis state as raw
 // JSON bytes.
 func ExportGenesis(ctx sdk.Context, k keeper.Keeper, cdc codec.JSONCodec) json.RawMessage {
 	genesis := types.GenesisState{

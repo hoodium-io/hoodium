@@ -1,10 +1,10 @@
 package types
 
 const (
-	// ModuleName is the name of the runerewards module.
-	ModuleName = "runerewards"
+	// ModuleName is the name of the pona module.
+	ModuleName = "pona"
 
-	// StoreKey is the primary store key for the runerewards module.
+	// StoreKey is the primary store key for the pona module.
 	StoreKey = ModuleName
 
 	// ValidatorRewardPoolName is the name of the module account holding the
@@ -13,7 +13,7 @@ const (
 	ValidatorRewardPoolName = "validator_reward_pool"
 )
 
-// KVStore key prefixes for the runerewards persistent store.
+// KVStore key prefixes for the pona persistent store.
 const (
 	// prefixParams is the prefix under which module parameters are stored.
 	prefixParams = iota + 1

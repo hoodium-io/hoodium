@@ -5,7 +5,7 @@ import (
 )
 
 // GenesisState is defined in genesis.pb.go (generated from
-// proto/rune/runerewards/v1/genesis.proto).
+// proto/rune/pona/v1/genesis.proto).
 
 // DefaultGenesisState returns the default genesis state.
 func DefaultGenesisState() *GenesisState {
@@ -17,7 +17,7 @@ func DefaultGenesisState() *GenesisState {
 // Validate performs basic validation of the genesis state.
 func (gs GenesisState) Validate() error {
 	if err := gs.Params.Validate(); err != nil {
-		return fmt.Errorf("invalid runerewards params: %w", err)
+		return fmt.Errorf("invalid pona params: %w", err)
 	}
 	return nil
 }

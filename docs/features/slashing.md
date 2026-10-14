@@ -64,7 +64,7 @@ keeper — it calls the `StakingKeeper` **interface**
 reports as slashed. An attacker cannot inflate supply — causing a slash requires
 an offence that costs them more than they gain.
 
-> ✅ **Mints from the `runerewards` module account**, which already holds the
+> ✅ **Mints from the `pona` module account**, which already holds the
 > `Minter` permission (`maccPerms` in `app/app.go`). No new privileges are granted
 > to `staking` — its authority is unchanged from stock Cosmos.
 

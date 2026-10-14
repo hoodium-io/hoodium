@@ -6,7 +6,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/hoodium-io/hoodium/x/runerewards/types"
+	"github.com/hoodium-io/hoodium/x/pona/types"
 )
 
 // rune returns n RUNE expressed in arune.

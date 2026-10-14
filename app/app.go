@@ -117,9 +117,9 @@ import (
 	"github.com/hoodium-io/hoodium/x/feemarket"
 	feemarketkeeper "github.com/hoodium-io/hoodium/x/feemarket/keeper"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
-	"github.com/hoodium-io/hoodium/x/runerewards"
-	runerewardskeeper "github.com/hoodium-io/hoodium/x/runerewards/keeper"
-	runerewardstypes "github.com/hoodium-io/hoodium/x/runerewards/types"
+	"github.com/hoodium-io/hoodium/x/pona"
+	ponakeeper "github.com/hoodium-io/hoodium/x/pona/keeper"
+	ponatypes "github.com/hoodium-io/hoodium/x/pona/types"
 
 	"github.com/hoodium-io/hoodium/app/ante"
 
@@ -174,7 +174,7 @@ var (
 		staking.AppModuleBasic{},
 		distr.AppModuleBasic{},
 		slashing.AppModuleBasic{},
-		runerewards.AppModuleBasic{},
+		pona.AppModuleBasic{},
 		genutil.NewAppModuleBasic(genutiltypes.DefaultMessageValidator),
 	)
 
@@ -182,18 +182,18 @@ var (
 	//
 	// Notes:
 	//   - validator_reward_pool holds the pre-funded RUNE reserve that funds
-	//     validator block rewards (see x/runerewards). It sends RUNE out; no
+	//     validator block rewards (see x/pona). It sends RUNE out; no
 	//     mint/burn permissions.
-	//   - runerewards (the module account) needs Minter so it can fund the
+	//   - pona (the module account) needs Minter so it can fund the
 	//     validator reward pool at genesis.
 	maccPerms = map[string][]string{
-		authtypes.FeeCollectorName:               nil,
-		evmtypes.ModuleName:                      {authtypes.Minter, authtypes.Burner},
-		stakingtypes.BondedPoolName:              {authtypes.Burner, authtypes.Staking},
-		stakingtypes.NotBondedPoolName:           {authtypes.Burner, authtypes.Staking},
-		distrtypes.ModuleName:                    nil,
-		runerewardstypes.ValidatorRewardPoolName: nil,
-		runerewardstypes.ModuleName:              {authtypes.Minter},
+		authtypes.FeeCollectorName:        nil,
+		evmtypes.ModuleName:               {authtypes.Minter, authtypes.Burner},
+		stakingtypes.BondedPoolName:       {authtypes.Burner, authtypes.Staking},
+		stakingtypes.NotBondedPoolName:    {authtypes.Burner, authtypes.Staking},
+		distrtypes.ModuleName:             nil,
+		ponatypes.ValidatorRewardPoolName: nil,
+		ponatypes.ModuleName:              {authtypes.Minter},
 	}
 
 	// module accounts that are allowed to receive tokens
@@ -234,7 +234,7 @@ type Hoodium struct {
 	FeeMarketKeeper       feemarketkeeper.Keeper
 	OracleKeeper          oraclekeeper.Keeper
 	MarketMapKeeper       marketmapkeeper.Keeper
-	RuneRewardsKeeper     runerewardskeeper.Keeper
+	PonaKeeper            ponakeeper.Keeper
 
 	// the module manager
 	mm *module.Manager
@@ -297,7 +297,7 @@ func NewHoodium(
 		stakingtypes.StoreKey,
 		distrtypes.StoreKey,
 		slashingtypes.StoreKey,
-		runerewardstypes.StoreKey,
+		ponatypes.StoreKey,
 	)
 
 	tkeys := storetypes.NewTransientStoreKeys(
@@ -408,7 +408,7 @@ func NewHoodium(
 	//
 	//   - distribution: validator-creation/delegation reward accounting. NOTE:
 	//     reward allocation (proposer/block rewards) is handled by the custom
-	//     x/runerewards module, not here.
+	//     x/pona module, not here.
 	//   - slashing: downtime jailing (liveness) and double-sign slashing. Without
 	//     this hook staking has no economic penalty for misbehaviour.
 	app.StakingKeeper.SetHooks(
@@ -466,9 +466,9 @@ func NewHoodium(
 		authority,
 	)
 
-	app.RuneRewardsKeeper = runerewardskeeper.NewKeeper(
+	app.PonaKeeper = ponakeeper.NewKeeper(
 		appCodec,
-		keys[runerewardstypes.StoreKey],
+		keys[ponatypes.StoreKey],
 		app.BankKeeper,
 		app.StakingKeeper,
 		app.AccountKeeper,
@@ -531,7 +531,7 @@ func NewHoodium(
 		staking.NewAppModule(appCodec, app.StakingKeeper, app.AccountKeeper, app.BankKeeper, app.GetSubspace(stakingtypes.ModuleName)),
 		distr.NewAppModule(appCodec, app.DistributionKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(distrtypes.ModuleName)),
 		slashing.NewAppModule(appCodec, app.SlashingKeeper, app.AccountKeeper, app.BankKeeper, app.StakingKeeper, app.GetSubspace(slashingtypes.ModuleName), app.interfaceRegistry),
-		runerewards.NewAppModule(app.RuneRewardsKeeper),
+		pona.NewAppModule(app.PonaKeeper),
 		genutil.NewAppModule(app.AccountKeeper, app.StakingKeeper, app.BaseApp, encodingConfig.TxConfig),
 	)
 
@@ -556,8 +556,8 @@ func NewHoodium(
 		consensusparamstypes.ModuleName,
 		marketmaptypes.ModuleName,
 		genutiltypes.ModuleName,
-		// runerewards: no-op in BeginBlock (rewards are paid in EndBlock).
-		runerewardstypes.ModuleName,
+		// pona: no-op in BeginBlock (rewards are paid in EndBlock).
+		ponatypes.ModuleName,
 	)
 
 	// NOTE: fee market module must go last in order to retrieve the block gas used.
@@ -574,7 +574,7 @@ func NewHoodium(
 		consensusparamstypes.ModuleName,
 		marketmaptypes.ModuleName,
 		oracletypes.ModuleName,
-		runerewardstypes.ModuleName,
+		ponatypes.ModuleName,
 		feemarkettypes.ModuleName,
 		genutiltypes.ModuleName,
 	)
@@ -589,7 +589,7 @@ func NewHoodium(
 		slashingtypes.ModuleName,
 		evmtypes.ModuleName,
 		feemarkettypes.ModuleName,
-		runerewardstypes.ModuleName,
+		ponatypes.ModuleName,
 		authz.ModuleName,
 		paramstypes.ModuleName,
 		upgradetypes.ModuleName,
@@ -690,8 +690,8 @@ func (app *Hoodium) setPostHandler() {
 // PreBlock hooks receive only an sdk.Context).
 //
 // It records the number of transactions in the block being finalised so that
-// x/runerewards can apply Proof of Network Activity when it pays the block
-// reward in EndBlock (see x/runerewards/keeper.SetBlockTxCount).
+// x/pona can apply Proof of Network Activity when it pays the block
+// reward in EndBlock (see x/pona/keeper.SetBlockTxCount).
 func (app *Hoodium) PreBlocker(
 	ctx sdk.Context,
 	req *abci.RequestFinalizeBlock,
@@ -701,7 +701,7 @@ func (app *Hoodium) PreBlocker(
 	// app-level injected pseudo-transaction. PoNA counts what the proposer
 	// included, so this matches the "transactions included in the block"
 	// semantics documented in docs/technologies/pona.md.
-	app.RuneRewardsKeeper.SetBlockTxCount(ctx, uint64(len(req.Txs))) //nolint:gosec // tx count is bounded by the block
+	app.PonaKeeper.SetBlockTxCount(ctx, uint64(len(req.Txs))) //nolint:gosec // tx count is bounded by the block
 
 	return app.preBlockHandler.PreBlocker(app.mm)(ctx, req)
 }

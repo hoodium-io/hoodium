@@ -1,17 +1,79 @@
-# Proof of Network Activity (PoNA)
+# PoNA — Proof of Network Activity (RUNE rewards)
 
-> **Status:** Implemented in `x/runerewards` (see [§7.3](#73-file-layout) for the
-> code map). This document is the authoritative description of the mechanism and
-> its parameters.
+> **Status:** Implemented as **`x/pona`**. This is the authoritative document for
+> both the **mechanism** and the **module**.
 >
-> **Code:** `x/runerewards/types/pona.go` (bands, rates, validation),
-> `x/runerewards/keeper/rewards.go` (payout), `app/app.go` (tx-count capture).
-> No separate `x/pona` module — see [§7](#7-module-boundary).
+> **Code:** `x/pona/types/pona.go` (bands, rates, validation) ·
+> `x/pona/keeper/rewards.go` (payout) · `app/app.go` (tx-count capture).
+>
+> **Naming:** the module is **`x/pona`** — the whole RUNE reward system is
+> structured around Proof of Network Activity. In user-facing prose we still say
+> **"PoNA (RUNE rewards)"** so readers connect it to the RUNE token.
+
+## 0. The module at a glance
+
+`x/pona` owns the entire RUNE block-reward system:
+
+- The **validator reward pool** module account (`validator_reward_pool`): funding
+  at genesis, balance queries, top-up.
+- The **emission schedule**: which full reward applies at a given block height.
+- The **activity policy (PoNA)**: the block's transaction count selects the full,
+  low, or zero rate.
+- **Payment plumbing**: transferring the reward from the pool into the
+  `x/distribution` fee pool, which splits it across the active validator set.
+
+Transaction fees take the **same path** — both end up in the distribution fee
+pool and are split across the active validator set by voting power. See
+[§8](#8-interaction-with-the-fee-market).
+
+### The reward pool
+
+| Property | Value |
+|---|---|
+| Module account | `validator_reward_pool` |
+| Genesis funding | **1,000,000,000 RUNE** (bank genesis balance) |
+| Source of funds | Pre-mined, not inflated — part of the fixed 10B RUNE supply |
+| Supply split | 9B premine to the project owner + 1B to this reserve |
+| On exhaustion | Emission stops (fee-only); the pool is **never overdrawn** |
+
+The pool is a **one-way budget**: once it reaches zero, there is no static reward
+and the chain runs on fees permanently.
+
+### Block lifecycle
+
+```
+EndBlock
+  └─ x/pona: DistributeRuneBlockReward(ctx, proposerConsAddr)
+       1. reward  = RewardForHeightAndTxCount(height, txCount)   ── PoNA lookup
+       2. if pool < reward  → stop (fee-only), never overdraw
+       3. send reward from validator_reward_pool → fee_collector
+       4. emit rune_block_reward event (records the proposer)
+
+Next block, x/distribution BeginBlock:
+       5. sweep the fee collector → split across the ACTIVE validator set
+          by voting power → delegators receive their share via commission
+```
+
+- **The reward is not sent proposer-only.** It goes to the distribution fee pool,
+  exactly like transaction fees. Paying only the proposer would concentrate reward
+  on whichever validator produces the block and risk block-skipping / MEV
+  centralisation.
+- The proposer (`ctx.BlockHeader().ProposerAddress`) is used **only for the
+  emitted event**, for observability.
+- The reward amount is the **PoNA** (activity-scaled) amount.
+
+### Genesis wiring
+
+| Item | Value |
+|---|---|
+| `cmd/runed/mainchain.go` | Sets the 1B reserve balance for `validator_reward_pool` |
+| `app/app.go` `maccPerms` | `validator_reward_pool: nil`, `pona: {Minter}` |
+| EndBlockers order | `pona` **before** `feemarket` |
 
 ## 1. Why PoNA exists
 
 Hoodium pays a **static RUNE block reward** from a pre-funded 1B RUNE reserve
-(see [`runerewards.md`](./runerewards.md)). A naive static reward pays the same
+(see [§0](#0-the-module-at-a-glance)). A naive static reward pays the same
 amount whether the chain is processing 10,000 transactions per block or is
 completely idle.
 
@@ -66,7 +128,7 @@ proposer something for keeping the chain alive.
 ## 3. Per-tier rates
 
 PoNA rates are defined **per emission tier**. The full rate is the base tier
-rate owned by `x/runerewards`; the Low and Zero rates are PoNA policy.
+rate owned by `x/pona`; the Low and Zero rates are PoNA policy.
 
 | Tier | Epoch | Full (`tx >= 10`) | Low (`0 < tx < 10`) | Zero (`tx == 0`) |
 |---|---|---|---|---|
@@ -97,7 +159,7 @@ store:
 FinalizeBlock (ABCI)
 │
 ├─ PreBlock        ── app-level PreBlocker(ctx, req) captures len(req.Txs)
-│                     ──► x/runerewards keeper: store "current block tx count"
+│                     ──► x/pona keeper: store "current block tx count"
 │                     (req is visible ONLY here; module-level PreBlock(ctx)
 │                      hooks receive just an sdk.Context, and EndBlock cannot
 │                      see the block's transactions at all)
@@ -107,7 +169,7 @@ FinalizeBlock (ABCI)
 ├─ DeliverTx …     ── transactions execute as normal (PoNA does not interfere)
 │
 └─ EndBlock
-   ├─ x/runerewards ── reads the stored tx count, classifies the band,
+   ├─ x/pona ── reads the stored tx count, classifies the band,
    │                  pays the *effective* reward from validator_reward_pool
    │                  → to the block proposer's operator address
    └─ (emits rune_block_reward with the tx_count attribute)
@@ -186,28 +248,23 @@ continue to be split across the active validator set by voting power via
 `x/distribution`, forever. PoNA becomes inactive at that point — there is no
 reserve-funded reward left to scale.
 
-## 7. Module boundary
+## 7. Module structure
 
-PoNA is implemented **inside `x/runerewards`** for now, split along a
-**money / policy** line within the module:
+PoNA is implemented **inside the `x/pona` module**, split along a
+**money / policy** line:
 
 | Concern | Owns |
 |---|---|
-| **Money** | The 1B `validator_reward_pool` (genesis funding, balance, top-up) and the coin-transfer plumbing to the proposer |
+| **Money** | The 1B `validator_reward_pool` (genesis funding, balance, top-up) and the coin-transfer plumbing into the fee pool |
 | **Policy (PoNA)** | The activity bands, the low/zero rates, and the effective-reward decision |
 
 In short: **the pool is the wallet; the PoNA bands are the rule that decides how
 much comes out of it each block.**
 
-Splitting the policy into a **separate `x/pona` module** remains an option (it
-matches the original design note), but was **deferred**: the policy is a single
-pure function over one tier, so a second module would add app wiring and
-consensus surface for no functional gain. If split later, the boundary is:
-
-| Module | Owns | Does not own |
-|---|---|---|
-| **`x/runerewards`** | Pool funding/balance, tier heights, full rates, payout transfer | The activity banding |
-| **`x/pona`** | Block tx-count capture, banding, low/zero rates | The reserve or the payout |
+Historically these were two concepts (`x/runerewards` = money, a separate `x/pona`
+= policy). They are now one module — the whole RUNE reward system *is* PoNA — so
+the module, its proto package and its docs all use the **`pona`** name. Splitting
+it back into two modules is not planned.
 
 ### 7.1 Where each parameter lives (implemented)
 
@@ -222,22 +279,22 @@ consensus surface for no functional gain. If split later, the boundary is:
 
 The tx count itself is **not** a parameter: it is captured per block from
 `len(req.Txs)` in the app's `PreBlocker` and stored under
-`runerewards/types.KeyBlockTxCount`.
+`pona/types.KeyBlockTxCount`.
 
 ### 7.2 Code map
 
 | Piece | Location |
 |---|---|
-| PoNA bands, rates, validation | `x/runerewards/types/pona.go` |
+| PoNA bands, rates, validation | `x/pona/types/pona.go` |
 | Band selection | `Tier.RewardForTxCount` (`pona.go`) |
 | Height + tx count → reward | `Params.RewardForHeightAndTxCount` (`pona.go`) |
 | Tx-count capture | `app.Hoodium.PreBlocker` → `keeper.SetBlockTxCount` |
 | Reward payout | `Keeper.DistributeRuneBlockReward` (`keeper/rewards.go`) |
-| Consensus version | `runerewards/types.ConsensusVersion` = **2** |
+| Consensus version | `pona/types.ConsensusVersion` = **2** |
 
 ### 7.3 File layout
 
-PoNA lives in its own file, **`x/runerewards/types/pona.go`**, separate from the
+PoNA lives in its own file, **`x/pona/types/pona.go`**, separate from the
 generic schedule (`schedule.go`) and the default parameters (`params.go`). A
 dedicated `x/pona` **module** is not used, but the code is isolated so the
 mechanism has a single reference point:
@@ -257,7 +314,7 @@ The two-gas-price model ([`../features/tx-fees.md`](../features/tx-fees.md)) is
 
 | Flow | Source | Recipient | Shaped by PoNA? |
 |---|---|---|---|
-| Static block reward | 1B reserve (`x/runerewards`) | Proposer | **Yes** |
+| Static block reward | 1B reserve (`x/pona`) | Proposer | **Yes** |
 | Transaction fees | Fee pool (`x/distribution`) | All active validators by power | No |
 
 PoNA must **not** key off gas used or fee revenue — only the **transaction count**
@@ -277,7 +334,7 @@ PoNA must **not** key off gas used or fee revenue — only the **transaction cou
    `1 RUNE` zero-activity reward is expressible. Emission now ends only when no
    tier covers the height or the pool is empty.
 4. **Standalone `x/pona` module** — deferred. The policy is implemented inside
-   `x/runerewards`; splitting it later is a refactor, not a behaviour change
+   `x/pona`; splitting it later is a refactor, not a behaviour change
    (see [§7](#7-module-boundary)).
 5. **Genesis / first block** — before any `PreBlocker` has run, the stored tx
    count is absent and `BlockTxCount` returns `0` (the zero-activity band).

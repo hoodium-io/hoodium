@@ -1,9 +1,9 @@
 syntax = "proto3";
-package rune.runerewards.v1;
+package rune.pona.v1;
 
 import "gogoproto/gogo.proto";
 
-option go_package = "github.com/hoodium-io/hoodium/x/runerewards/types";
+option go_package = "github.com/hoodium-io/hoodium/x/pona/types";
 
 // Tier is one step of the RUNE emission schedule. A tier is active while the
 // current block height is in [start_height, end_height). end_height == 0 means

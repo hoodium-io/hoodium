@@ -10,7 +10,7 @@ import (
 	stakingslash "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	runerewardstypes "github.com/hoodium-io/hoodium/x/runerewards/types"
+	ponatypes "github.com/hoodium-io/hoodium/x/pona/types"
 )
 
 // runeStakingKeeper implements the x/slashing StakingKeeper interface on top of
@@ -135,14 +135,14 @@ func (k runeStakingKeeper) redirectToFeeCollector(ctx context.Context, amount sd
 
 	coins := sdk.NewCoins(sdk.NewCoin(denom, amount))
 
-	// Mint from the runerewards module account, which ALREADY holds the Minter
+	// Mint from the pona module account, which ALREADY holds the Minter
 	// permission (see maccPerms in app.go). Minting from the staking module
 	// instead would require granting staking an unnecessary new privilege.
-	if err := k.bankKeeper.MintCoins(ctx, runerewardstypes.ModuleName, coins); err != nil {
+	if err := k.bankKeeper.MintCoins(ctx, ponatypes.ModuleName, coins); err != nil {
 		return fmt.Errorf("minting slashed funds: %w", err)
 	}
 
 	return k.bankKeeper.SendCoinsFromModuleToModule(
-		ctx, runerewardstypes.ModuleName, authtypes.FeeCollectorName, coins,
+		ctx, ponatypes.ModuleName, authtypes.FeeCollectorName, coins,
 	)
 }

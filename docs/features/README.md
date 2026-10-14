@@ -8,7 +8,7 @@ things Hoodium does differently from a stock Cosmos/EVM chain.
 | Two-gas-price model | [`tx-fees.md`](./tx-fees.md) |
 | Slashing & validator accountability | [`slashing.md`](./slashing.md) |
 | Guided first-run setup (`runed setup`) | [`../node-setup.md`](../node-setup.md) |
-| `x/runerewards` block rewards | [`../technologies/runerewards.md`](../technologies/runerewards.md) |
+| PoNA (RUNE rewards) | [`../technologies/pona.md`](../technologies/pona.md) |
 | `x/pona` (Proof of Network Activity) | [`../technologies/pona.md`](../technologies/pona.md) |
 
 > Add a new `<feature>.md` here and link it in the table above when a Hoodium

@@ -95,19 +95,19 @@ func (t Tier) validatePoNA(idx int) error {
 		// PoNA disabled: the low/zero fields are ignored, but must not be
 		// negative if set.
 		if !t.LowActivityReward.IsNil() && t.LowActivityReward.IsNegative() {
-			return fmt.Errorf("runerewards: tier %d low activity reward must be non-negative", idx)
+			return fmt.Errorf("pona: tier %d low activity reward must be non-negative", idx)
 		}
 		if !t.ZeroActivityReward.IsNil() && t.ZeroActivityReward.IsNegative() {
-			return fmt.Errorf("runerewards: tier %d zero activity reward must be non-negative", idx)
+			return fmt.Errorf("pona: tier %d zero activity reward must be non-negative", idx)
 		}
 		return nil
 	}
 
 	if t.LowActivityReward.IsNil() || t.LowActivityReward.IsNegative() {
-		return fmt.Errorf("runerewards: tier %d low activity reward must be non-negative", idx)
+		return fmt.Errorf("pona: tier %d low activity reward must be non-negative", idx)
 	}
 	if t.ZeroActivityReward.IsNil() || t.ZeroActivityReward.IsNegative() {
-		return fmt.Errorf("runerewards: tier %d zero activity reward must be non-negative", idx)
+		return fmt.Errorf("pona: tier %d zero activity reward must be non-negative", idx)
 	}
 	return nil
 }

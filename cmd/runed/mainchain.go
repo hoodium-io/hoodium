@@ -65,7 +65,7 @@ import (
 
 	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
-	runerewardstypes "github.com/hoodium-io/hoodium/x/runerewards/types"
+	ponatypes "github.com/hoodium-io/hoodium/x/pona/types"
 
 	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 	runekr "github.com/hoodium-io/hoodium/crypto/keyring"
@@ -415,7 +415,7 @@ func initGenesisFilesForNetwork(
 	// Hoodium genesis allocation
 	//
 	//   RUNE:  9,000,000,000 premine  -> genAccounts[0] (the genesis validator)
-	//          1,000,000,000 reserve  -> validator_reward_pool (x/runerewards)
+	//          1,000,000,000 reserve  -> validator_reward_pool (x/pona)
 	//   HOODI: 10,000,000    premine  -> genAccounts[0] (the genesis validator)
 	//
 	// RUNE total  = 10,000,000,000 (== RUNE max supply cap)
@@ -464,7 +464,7 @@ func initGenesisFilesForNetwork(
 	runeReserveAmount := oneRuneGenesis.MulRaw(1_000_000_000)                        // 1B RUNE (validator_reward_pool)
 	hoodiPremineAmount := oneRuneGenesis.MulRaw(10_000_000)                          // 10M HOODI
 
-	rewardPoolAddr := authtypes.NewModuleAddress(runerewardstypes.ValidatorRewardPoolName)
+	rewardPoolAddr := authtypes.NewModuleAddress(ponatypes.ValidatorRewardPoolName)
 
 	genBalances = append(genBalances,
 		// RUNE premine + HOODI premine -> first genesis validator's wallet (the
@@ -482,7 +482,7 @@ func initGenesisFilesForNetwork(
 				sdk.NewCoin(utils.HoodiDenom, hoodiPremineAmount),
 			).Sort(),
 		},
-		// RUNE staking reserve -> validator_reward_pool (funds x/runerewards).
+		// RUNE staking reserve -> validator_reward_pool (funds x/pona).
 		banktypes.Balance{
 			Address: rewardPoolAddr.String(),
 			Coins:   sdk.NewCoins(sdk.NewCoin(cmdcfg.BaseDenom, runeReserveAmount)),

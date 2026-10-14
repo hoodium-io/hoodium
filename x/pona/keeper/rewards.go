@@ -7,7 +7,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
-	"github.com/hoodium-io/hoodium/x/runerewards/types"
+	"github.com/hoodium-io/hoodium/x/pona/types"
 )
 
 // DistributeRuneBlockReward pays the block reward for the current block from the

@@ -1,4 +1,4 @@
-package runerewards
+package pona
 
 import (
 	"context"
@@ -18,8 +18,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
-	"github.com/hoodium-io/hoodium/x/runerewards/keeper"
-	"github.com/hoodium-io/hoodium/x/runerewards/types"
+	"github.com/hoodium-io/hoodium/x/pona/keeper"
+	"github.com/hoodium-io/hoodium/x/pona/types"
 )
 
 var (
@@ -28,15 +28,15 @@ var (
 	_ appmodule.AppModule   = AppModule{}
 )
 
-// AppModuleBasic defines the basic application module used by the runerewards module.
+// AppModuleBasic defines the basic application module used by the pona module.
 type AppModuleBasic struct{}
 
-// Name returns the runerewards module's name.
+// Name returns the pona module's name.
 func (AppModuleBasic) Name() string {
 	return types.ModuleName
 }
 
-// RegisterLegacyAminoCodec performs a no-op as the runerewards module doesn't support amino.
+// RegisterLegacyAminoCodec performs a no-op as the pona module doesn't support amino.
 func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
 
 // ConsensusVersion returns the consensus state-breaking version for the module.
@@ -48,7 +48,7 @@ func (AppModuleBasic) ConsensusVersion() uint64 {
 	return 2
 }
 
-// DefaultGenesis returns default genesis state as raw bytes for the runerewards module.
+// DefaultGenesis returns default genesis state as raw bytes for the pona module.
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
 	return cdc.MustMarshalJSON(types.DefaultGenesisState())
 }
@@ -68,16 +68,16 @@ func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {}
 // RegisterGRPCGatewayRoutes performs a no-op as the module exposes no gRPC gateway routes yet.
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
 
-// GetTxCmd returns no root tx command for the runerewards module.
+// GetTxCmd returns no root tx command for the pona module.
 func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
 
-// GetQueryCmd returns no root query command for the runerewards module.
+// GetQueryCmd returns no root query command for the pona module.
 func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
 
-// RegisterInterfaces registers interfaces and implementations of the runerewards module.
+// RegisterInterfaces registers interfaces and implementations of the pona module.
 func (AppModuleBasic) RegisterInterfaces(_ codectypes.InterfaceRegistry) {}
 
-// AppModule implements an application module for the runerewards module.
+// AppModule implements an application module for the pona module.
 type AppModule struct {
 	AppModuleBasic
 
@@ -98,7 +98,7 @@ func (AppModule) IsOnePerModuleType() {}
 // IsAppModule implements the appmodule.AppModule interface.
 func (AppModule) IsAppModule() {}
 
-// RegisterInvariants performs a no-op as the runerewards module exposes no invariants.
+// RegisterInvariants performs a no-op as the pona module exposes no invariants.
 func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 // RegisterServices performs a no-op; the module exposes no Msg or Query services yet.

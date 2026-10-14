@@ -11,10 +11,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
-	"github.com/hoodium-io/hoodium/x/runerewards/types"
+	"github.com/hoodium-io/hoodium/x/pona/types"
 )
 
-// BankKeeper is the subset of the bank keeper used by the runerewards module.
+// BankKeeper is the subset of the bank keeper used by the pona module.
 type BankKeeper interface {
 	// GetBalance returns the balance of the given address for the denom.
 	GetBalance(ctx context.Context, addr sdk.AccAddress, denom string) sdk.Coin
@@ -33,19 +33,19 @@ type BankKeeper interface {
 	MintCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
 }
 
-// StakingKeeper is the subset of the staking keeper used by runerewards.
+// StakingKeeper is the subset of the staking keeper used by pona.
 type StakingKeeper interface {
 	// GetValidatorByConsAddr returns the validator for the given consensus
 	// address (the block proposer's consensus address).
 	GetValidatorByConsAddr(ctx context.Context, consAddr sdk.ConsAddress) (stakingtypes.Validator, error)
 }
 
-// AccountKeeper is the subset of the auth keeper used by runerewards.
+// AccountKeeper is the subset of the auth keeper used by pona.
 type AccountKeeper interface {
 	GetModuleAddress(moduleName string) sdk.AccAddress
 }
 
-// Keeper grants access to the runerewards module state.
+// Keeper grants access to the pona module state.
 type Keeper struct {
 	cdc      codec.BinaryCodec
 	storeKey storetypes.StoreKey
@@ -58,7 +58,7 @@ type Keeper struct {
 	authority string
 }
 
-// NewKeeper creates a new runerewards keeper. It panics if the authority address
+// NewKeeper creates a new pona keeper. It panics if the authority address
 // is not correctly formatted or the reward-pool module account is missing.
 func NewKeeper(
 	cdc codec.BinaryCodec,

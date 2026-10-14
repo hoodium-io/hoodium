@@ -65,7 +65,7 @@ func DefaultTiers() []Tier {
 	}
 }
 
-// DefaultParams returns the default runerewards module parameters.
+// DefaultParams returns the default pona module parameters.
 func DefaultParams(runeDenom string) Params {
 	return Params{
 		Tiers: DefaultTiers(),
@@ -76,25 +76,25 @@ func DefaultParams(runeDenom string) Params {
 // Validate performs basic validation of the parameters.
 func (p Params) Validate() error {
 	if p.Denom == "" {
-		return fmt.Errorf("runerewards: denom must not be empty")
+		return fmt.Errorf("pona: denom must not be empty")
 	}
 	if len(p.Tiers) == 0 {
-		return fmt.Errorf("runerewards: at least one tier is required")
+		return fmt.Errorf("pona: at least one tier is required")
 	}
 	if p.Tiers[0].StartHeight != 0 {
-		return fmt.Errorf("runerewards: first tier must start at height 0, got %d", p.Tiers[0].StartHeight)
+		return fmt.Errorf("pona: first tier must start at height 0, got %d", p.Tiers[0].StartHeight)
 	}
 
 	for i, t := range p.Tiers {
 		if t.RewardPerBlock.IsNil() || t.RewardPerBlock.IsNegative() {
-			return fmt.Errorf("runerewards: tier %d reward must be non-negative", i)
+			return fmt.Errorf("pona: tier %d reward must be non-negative", i)
 		}
 		if err := t.validatePoNA(i); err != nil {
 			return err
 		}
 		if t.EndHeight != 0 && t.EndHeight <= t.StartHeight {
 			return fmt.Errorf(
-				"runerewards: tier %d end height %d must be greater than start height %d",
+				"pona: tier %d end height %d must be greater than start height %d",
 				i, t.EndHeight, t.StartHeight,
 			)
 		}
@@ -104,7 +104,7 @@ func (p Params) Validate() error {
 			next := p.Tiers[i+1]
 			if t.EndHeight != next.StartHeight {
 				return fmt.Errorf(
-					"runerewards: tier %d end height %d must equal tier %d start height %d",
+					"pona: tier %d end height %d must equal tier %d start height %d",
 					i, t.EndHeight, i+1, next.StartHeight,
 				)
 			}
@@ -113,7 +113,7 @@ func (p Params) Validate() error {
 
 	// The last tier must be open-ended so every height maps to a tier.
 	if last := p.Tiers[len(p.Tiers)-1]; last.EndHeight != 0 {
-		return fmt.Errorf("runerewards: last tier must be open-ended (end height 0)")
+		return fmt.Errorf("pona: last tier must be open-ended (end height 0)")
 	}
 
 	return nil

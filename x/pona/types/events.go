@@ -1,13 +1,13 @@
 package types
 
-// Event types emitted by the runerewards module.
+// Event types emitted by the pona module.
 const (
 	// EventTypeRuneBlockReward is emitted when a static block reward is paid
 	// from the validator reward pool to the block proposer.
 	EventTypeRuneBlockReward = "rune_block_reward"
 )
 
-// Attribute keys for runerewards events.
+// Attribute keys for pona events.
 const (
 	AttributeKeyHeight    = "height"
 	AttributeKeyValidator = "validator"
