@@ -42,14 +42,13 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 - [ ] Public devnet monitoring + upgrade process
 
 ### Phase 4 — Mainchain feature build-out
-- [ ] Governance module wiring (RUNE as gov token) — **`x/gov` will be customized for Hoodium**
+- [ ] Governance module wiring (RUNE as gov token) — **customizd `x/gov`**
 - [ ] `RUNE/USD` price oracle (pricefeeder)
 - [ ] Blockshield — dust-spam protection + airdrop guard
 - [ ] Hardhat ABI regeneration for all precompiles
 
 ### Phase 5 — Mainchain Mainnet
-- [ ] External audits
-- [ ] Mainnet genesis ceremony
+- [ ] Mainnet genesis
 - [ ] Mainnet launch
 
 ### Phase 6 — Yieldchain (POX) — *later track*
