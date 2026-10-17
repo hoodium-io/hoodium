@@ -11,10 +11,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
-
-	"cosmossdk.io/core/address"
 
 	runeclient "github.com/hoodium-io/hoodium/client"
 	"github.com/hoodium-io/hoodium/utils"
@@ -55,11 +51,14 @@ This command walks you through the whole bootstrap interactively:
   3. Choose the node type     (validator | seed)
   4. Initialize the node      (genesis + config + node keys)
   5. Create your wallet key   (the account that holds/stakes RUNE)
-  6. For validators only:     create the genesis transaction (gentx)
 
 Modes:
-  * automated - runs init, keys add and gentx for you (with prompts).
+  * automated - runs init and keys add for you (with prompts).
   * manual    - prints the exact commands for you to copy-paste and run yourself.
+
+There is NO gentx step: Hoodium's genesis is generated in one pass by the team
+via "runed genesis init-files", which writes validators straight into the staking
+genesis. To join an already-running network, use create-validator instead.
 
 Devnet is a FULL mainnet replica for accelerated testing; it is not a localnet.
 Both validator and seed-only nodes are supported. Additional validators can join
@@ -68,13 +67,11 @@ an already-running chain later, so a single initial validator boots the network.
 Non-interactive use is possible by passing the flags below.`
 
 // setupDeps carries the app wiring the setup command needs to EXECUTE the
-// bootstrap commands (init, keys add, gentx) in automated mode.
+// bootstrap commands (init, keys add) in automated mode.
 type setupDeps struct {
-	mbm           module.BasicManager
-	txConfig      client.TxConfig
-	defaultHome   string
-	valAddrCodec  address.Codec
-	genBalancesIt genutiltypes.GenesisBalancesIterator
+	mbm         module.BasicManager
+	txConfig    client.TxConfig
+	defaultHome string
 }
 
 // NewSetupCmd returns the guided first-run setup command.
@@ -212,17 +209,21 @@ func printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBa
 	fmt.Printf("runed keys add %s --keyring-backend %s %s\n\n", keyName, keyringBackend, base)
 
 	if nodeType == nodeTypeValidator {
-		fmt.Println("# 3. Ensure the wallet above holds at least the stake amount.")
+		fmt.Println("# 3. Replace the default genesis with the official one.")
+		fmt.Println("#    Hoodium's genesis is authored by the team; the local `init` only")
+		fmt.Println("#    writes a placeholder. Official genesis:")
+		fmt.Println("#      git clone https://github.com/hoodium-io/chains.git")
+		fmt.Printf("cp chains/mainchain/genesis.json %s/config/genesis.json\n\n", home)
+
+		fmt.Println("# 4. Ensure the wallet above holds at least the stake amount.")
 		fmt.Println("#    (mainnet/testnet: acquire RUNE first; devnet: use the premine account.)")
 		fmt.Println()
-		fmt.Println("# 4. Create the validator genesis transaction (gentx).")
-		fmt.Printf("VOTE_PUBKEY=$(runed tendermint show-validator %s)\n", base)
-		fmt.Printf(
-			"runed genesis gentx %s %s --pubkey \"$VOTE_PUBKEY\" --chain-id %s "+
-				"--keyring-backend %s %s\n\n",
-			keyName, stakeAmount, chainID, keyringBackend, base,
-		)
-		fmt.Println("# 5. Joining an already-running chain? Submit create-validator instead:")
+
+		fmt.Println("# 5. Start the node and let it FULLY sync.")
+		fmt.Printf("runed start %s\n\n", base)
+
+		fmt.Println("# 6. Create the validator (in another terminal, once synced).")
+		fmt.Println("VOTE_PUBKEY=$(runed tendermint show-validator " + base + ")")
 		fmt.Printf(
 			"runed tx staking create-validator --amount %s --pubkey \"$VOTE_PUBKEY\" "+
 				"--moniker %s --commission-rate 0.05 "+
@@ -230,8 +231,8 @@ func printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBa
 				"--from %s --keyring-backend %s %s\n\n",
 			stakeAmount, moniker, keyName, keyringBackend, base,
 		)
-		fmt.Println("# 6. Start the node.")
-		fmt.Printf("runed start %s\n", base)
+		fmt.Println("NOTE: there is no gentx step. Hoodium genesis is generated in one")
+		fmt.Println("pass by the team, so a joining validator uses create-validator.")
 	} else {
 		fmt.Println("# 3. Start the node (seed / non-validating).")
 		fmt.Printf("runed start %s\n\n", base)
@@ -280,9 +281,9 @@ func addSetupFlags(cmd *cobra.Command, defaultNodeHome string) {
 }
 
 // runSetupAutomated executes the bootstrap sequence by building and running the
-// real child commands (init, keys add, gentx). This reuses the exact same logic
-// the standalone commands use, so behaviour can never drift. Prompts (such as
-// the keyring password) are surfaced to the user as usual.
+// real child commands (init, keys add). This reuses the exact same logic the
+// standalone commands use, so behaviour can never drift. Prompts (such as the
+// keyring password) are surfaced to the user as usual.
 //
 // A confirmation is required before anything is written.
 func runSetupAutomated(
@@ -330,23 +331,13 @@ func runSetupAutomated(
 		if err := run("runed keys add", runeclient.KeyCommands(home), keyArgs); err != nil {
 			return fmt.Errorf("keys add failed: %w", err)
 		}
-
-		// 3. gentx ------------------------------------------------------------
-		valAddrCodec := deps.valAddrCodec
-		gentxCmd := genutilcli.GenTxCmd(
-			deps.mbm, deps.txConfig, deps.genBalancesIt, deps.defaultHome, valAddrCodec,
-		)
-		gentxArgs := append([]string{keyName, stakeAmount}, commonArgs...)
-		if err := run("runed genesis gentx", gentxCmd, gentxArgs); err != nil {
-			return fmt.Errorf("gentx failed: %w", err)
-		}
 	}
 
-	// 4. Next steps ------------------------------------------------------------
+	// 3. Next steps ------------------------------------------------------------
 	//
-	// The guidance depends on whether the node is joining an ALREADY-RUNNING
-	// network or contributing to a NOT-YET-LAUNCHED genesis. The gentx produced
-	// above is only meaningful for the latter (it is a genesis-time artifact).
+	// Hoodium has NO gentx step. Genesis is generated in one pass by the team
+	// (`runed genesis init-files`), which writes validators straight into the
+	// staking genesis. A joining validator uses `create-validator`, not a gentx.
 	fmt.Println()
 	fmt.Println("──────────────────────────────────────────────────────────────")
 	fmt.Println("✅ Setup complete.")
@@ -354,11 +345,10 @@ func runSetupAutomated(
 
 	switch {
 	case nodeType == nodeTypeValidator && network != "":
-		// Validator joining a live network: the gentx is NOT what they need.
+		// Validator joining a live network.
 		fmt.Println("  ⚠️  JOINING THE " + strings.ToUpper(network) + " NETWORK?")
 		fmt.Println()
-		fmt.Println("  The gentx created above is only used when a chain has NOT yet")
-		fmt.Println("  launched. If the " + network + " network is already running, you must:")
+		fmt.Println("  If the " + network + " network is already running, you must:")
 		fmt.Println()
 		fmt.Println("    1. Replace the default genesis with the official one:")
 		fmt.Printf("         cp <downloaded>/mainchain/genesis.json %s/config/genesis.json\n", home)
