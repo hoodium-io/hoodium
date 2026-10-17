@@ -4,30 +4,11 @@ How to join an **official, already-running** Hoodium network as a validator.
 
 > Running a node for the first time? Start with [Node Setup](./node-setup.md),
 > which covers `runed setup` and its two modes.
->
-> Launching a brand-new chain's genesis is a **team-only** action and is not
-> covered by the public docs.
 
-## ⚠️ First, the one thing that decides everything
+## ✅ There is only ONE path — `create-validator`
 
-There are **two different paths**, and picking the wrong one is the most common
-mistake:
-
-| Situation | What you need |
-|---|---|
-| The network **already exists** (genesis published, chain running) | **`create-validator`** — you join a live chain |
-| You are **assembling the genesis** for a network that has not started yet | **`gentx`** — your validator is baked into genesis |
-
-**If you are joining a live network, you do NOT create a gentx.** A gentx is a
-genesis-time artifact: it is only meaningful before block 1. Once the chain is
-running, your validator is added by broadcasting a `create-validator`
-transaction.
-
-> ⚠️ **Heads-up on `runed setup`:** in **automated** mode, `runed setup` runs
-> `init` + `keys add` + **`gentx`**. That is correct **only** when you are
-> contributing to a *not-yet-launched* genesis. When joining a **live** network,
-> the gentx step is not what you want — use **manual** mode, or run the steps
-> below yourself.
+Joining a Hoodium network is always the same action: **run a node against the
+official genesis, then broadcast a `create-validator` transaction.**
 
 ## Joining a live network — full guide
 
@@ -54,7 +35,7 @@ chains/mainchain/genesis.json
 
 > The `hoodium-io/chains` repository publishes the canonical genesis file per
 > network. **Never** use the default genesis that `runed init` generates — it has
-> no premine and no validators, and will not connect you to the network.
+> no validators, and will not connect you to the network.
 
 ### Step 1 — initialise the node with the official genesis
 
@@ -95,8 +76,7 @@ runed keys add <key-name> --recover --keyring-backend file --home ~/.runed
 ### Step 4 — fund the wallet
 
 Your wallet needs at least **500,000 RUNE** for the self-delegation (plus gas).
-Acquire RUNE from the team / an existing holder — on a live network there is no
-premine for you.
+Acquire RUNE from DEXs, CEXs etc...
 
 ```bash
 runed query bank balances <your-rune1-address> --home ~/.runed
@@ -149,16 +129,16 @@ Your validator is **bonded** once it is in the top **101** by voting power.
 
 ### What you need after `runed setup`
 
-If you used `runed setup`, it ends by telling you to `runed start`. **That is not
-the whole job** — depending on your situation:
+`runed setup` prepares the **node files** (`init` + your wallet key). It does
+**not** make you a live validator. You still must, in order:
 
-| You used | Still to do |
-|---|---|
-| `runed setup` (manual or automated) **to join a live network** | Replace `genesis.json` with the official one, set peers, **fund the wallet**, then **`create-validator`** (Steps 1–7). The `gentx` it produced is **not** usable for a live chain. |
-| `runed setup` **as part of a not-yet-launched genesis** | Give your gentx to whoever assembles the genesis; they run `collect-gentxs`. |
+1. Replace the placeholder `genesis.json` with the **official** one
+2. Set the published seeds / `persistent_peers`
+3. **Fund your wallet** (≥ 500,000 RUNE)
+4. Start the node and let it **fully sync**
+5. Broadcast **`create-validator`**
 
-In short: **`runed setup` gets the node files in place; it does not, by itself,
-make your validator live on an existing network.**
+That is Steps 1–7 above. There is **no gentx** anywhere in this flow.
 
 ## Staking parameters (Hoodium)
 

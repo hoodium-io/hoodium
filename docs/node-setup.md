@@ -1,8 +1,8 @@
 # Node Setup
 
 > **Unique to Hoodium.** This is the guided, first-run setup experience built into
-> the `runed` binary. Most Cosmos/EVM chains require you to wire `init`, `keys add`
-> and `gentx` together by hand; Hoodium gives you a single guided entry point with
+> the `runed` binary. Most Cosmos/EVM chains require you to wire `init` and
+> `keys add` together by hand; Hoodium gives you a single guided entry point with
 > an **automated** and a **manual** mode.
 
 ## The two modes
@@ -12,7 +12,7 @@ mode:
 
 | Mode | What it does |
 |------|--------------|
-| **Automated** | Asks for confirmation, then **runs** `init`, `keys add` and `gentx` for you (with prompts). |
+| **Automated** | Asks for confirmation, then **runs** `init` and `keys add` for you (with prompts). |
 | **Manual** | **Prints** the exact copy-paste commands so you stay in full control. |
 
 You can skip the interactive prompts by passing flags (see below).
@@ -53,24 +53,21 @@ runed setup \
 Flags: `--mode`, `--network`, `--node-type`, `--moniker`, `--key-name`,
 `--stake-amount`, `--home`, `--chain-id`, `--keyring-backend`.
 
-## ⚠️ What `runed setup` does and does not do
+## ✅ What `runed setup` does and does not do
 
-`runed setup` prepares the **node files** (init, wallet key, and — for a
-validator — a gentx). It does **not** by itself make you a live validator on an
-already-running network.
+`runed setup` prepares the **node files** — `init` (genesis placeholder + config +
+node keys) and your **wallet key**. There is **no gentx step**: Hoodium's genesis
+is generated in one pass by the team with `runed genesis init-files`, so there is
+no multi-party gentx flow.
 
 | Mode | What it runs | Good for |
 |---|---|---|
-| **Manual** | *Prints* `init` + `keys add` + `gentx` for you to run yourself | Either case — you stay in control |
-| **Automated** | *Runs* `init` + `keys add` + `gentx` for you | Contributing to a **not-yet-launched** genesis |
+| **Manual** | *Prints* `init` + `keys add` for you to run yourself | Either case — you stay in control |
+| **Automated** | *Runs* `init` + `keys add` for you | Faster bootstrap |
 
-> 🚫 **Joining a live network?** The `gentx` step is **not** what you want — a
-> gentx only makes sense *before* block 1. On a running chain you join by
-> broadcasting a `create-validator` transaction instead. Use **manual** mode, or
-> follow [Validator Setup](./validator.md) directly.
-
-**In both modes, you still must:** use the official `genesis.json` (not the
-default one `init` writes), set your peers, and fund your wallet.
+**In both modes, you still must:** replace the placeholder `genesis.json` with the
+**official** one, set your peers, fund your wallet, sync, and then
+**`create-validator`** — see [Validator Setup](./validator.md).
 
 ## Next steps
 
