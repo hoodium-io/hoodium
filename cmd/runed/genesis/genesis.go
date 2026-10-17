@@ -5,29 +5,27 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
-	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 )
 
-// NewCmd builds the genesis utilities command: add-account, migrate, gentx,
-// collect-gentxs and validate. It uses the standard Cosmos SDK staking gentx flow
-// (replacing the removed PoA genval/collect-genvals commands).
-func NewCmd(mbm module.BasicManager, txConfig client.TxConfig, defaultNodeHome string) *cobra.Command {
+// NewCmd builds the genesis utilities command: add-account, migrate, validate
+// and the team-only init-files generator (attached in root.go).
+//
+// NOTE: the Cosmos-standard `gentx` / `collect-gentxs` commands are deliberately
+// NOT registered. Hoodium's genesis is always generated in one pass by the team
+// with `runed genesis init-files`, which writes the validators straight into the
+// staking genesis — so there is no multi-party gentx flow and no gentx artifact
+// to collect. Joining an existing network is done with `create-validator`, not a
+// gentx. See docs/node-setup.md and docs/validator.md.
+func NewCmd(mbm module.BasicManager, _ client.TxConfig, _ string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "genesis",
 		Short: "Utilities for chain bootstrapping",
 	}
 
-	gentxModule := mbm[genutiltypes.ModuleName].(genutil.AppModuleBasic)
-	valAddrCodec := txConfig.SigningContext().ValidatorAddressCodec()
-
 	cmd.AddCommand(
 		NewAddAccountCmd(),
 		NewMigrateCmd(),
-		genutilcli.GenTxCmd(mbm, txConfig, banktypes.GenesisBalancesIterator{}, defaultNodeHome, valAddrCodec),
-		genutilcli.CollectGenTxsCmd(banktypes.GenesisBalancesIterator{}, defaultNodeHome, gentxModule.GenTxValidator, valAddrCodec),
 		genutilcli.ValidateGenesisCmd(mbm),
 	)
 
