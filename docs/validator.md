@@ -18,7 +18,7 @@ You need three things:
 
 1. **`genesis.json`** — the official genesis file. Its hash identifies the
    network.
-2. The **chain ID** (e.g. `rune_6590-1`).
+2. The **chain ID** (e.g. `rune_6592-1`).
 3. The **seed / persistent peer** addresses.
 
 **Get the official genesis** by cloning the chains repository:

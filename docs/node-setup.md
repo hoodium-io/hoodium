@@ -56,9 +56,7 @@ Flags: `--mode`, `--network`, `--node-type`, `--moniker`, `--key-name`,
 ## ✅ What `runed setup` does and does not do
 
 `runed setup` prepares the **node files** — `init` (genesis placeholder + config +
-node keys) and your **wallet key**. There is **no gentx step**: Hoodium's genesis
-is generated in one pass by the team with `runed genesis init-files`, so there is
-no multi-party gentx flow.
+node keys) and your **wallet key**.
 
 | Mode | What it runs | Good for |
 |---|---|---|
@@ -73,5 +71,3 @@ no multi-party gentx flow.
 
 - **Joining an official network as a validator** → [Validator Setup](./validator.md)
   (full guide: init → official genesis → peers → wallet → sync → `create-validator`).
-- **Launching a new network's genesis** (Hoodium team only) → not covered by the
-  public docs.
