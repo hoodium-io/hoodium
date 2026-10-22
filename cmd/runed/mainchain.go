@@ -217,14 +217,9 @@ func resolveNodeDir(homeDir, nodeDirPrefix, nodeDaemonHome string, i, numValidat
 	return filepath.Join(homeDir, nodeDirName, nodeDaemonHome)
 }
 
-// nodeDirName returns the display name for node `i`. For a single node this is
-// the node's moniker-ish name derived from the home directory so the genesis
-// description is still meaningful.
-//
-// A leading dot is stripped so the conventional home `~/.runed` yields the
-// moniker `runed` (not `.runed`). A moniker is a display name shown in
-// explorers and `query staking validators`, and `filepath.Base` on a dotfile
-// home would otherwise leak the dot into every validator listing.
+// nodeDirName returns the display name for node `i`. A single node takes its
+// name from the home directory so the genesis description stays meaningful,
+// with any leading dot stripped: `~/.runed` yields `runed`, not `.runed`.
 func nodeDirName(homeDir, nodeDirPrefix string, i, numValidators int) string {
 	if numValidators <= 1 {
 		return strings.TrimPrefix(filepath.Base(homeDir), ".")
@@ -329,12 +324,9 @@ func initGenesisFilesForNetwork(
 			return err
 		}
 
-		// Save the mnemonic that controls the premine.
-		//
-		// SECURITY: this file holds the wallet seed in plaintext, so it is
-		// written 0600 (owner-only). The generic testutil WriteFile helper
-		// hardcodes 0644, which would leave a mnemonic controlling the whole
-		// premine world-readable on a shared host.
+		// The mnemonic controls the premine, so write it owner-only. The
+		// testutil WriteFile helper hardcodes 0644, which would leave it
+		// world-readable.
 		keySeedFile := filepath.Join(nodeDir, "key_seed.json")
 		if err := os.WriteFile(keySeedFile, infoBytes, 0o600); err != nil {
 			return err
@@ -371,12 +363,9 @@ func initGenesisFilesForNetwork(
 		validators[i] = validator
 	}
 
-	// Build persistent peers list based on validators' memos.
-	//
-	// A single node has nobody to peer with: listing its own node ID would make
-	// the node dial itself, which CometBFT rejects ("connection to self") and
-	// logs as an error on every start. So the peer list is only populated for
-	// the multi-node layout, where every generated node peers with the others.
+	// Persistent peers. A single node gets none: listing its own node ID makes
+	// it dial itself, which CometBFT rejects and logs as an error on every
+	// start. Multi-node generations peer every node with the others.
 	persistentPeers := ""
 	if args.numValidators > 1 {
 		sort.Strings(memos)
@@ -654,22 +643,18 @@ func initGenesisFiles(
 
 	// Genesis validator commission.
 	//
-	// `stakingtypes.NewValidator` zeroes all three commission rates, and a zero
-	// MaxRate / MaxChangeRate makes the commission PERMANENTLY IMMUTABLE:
-	// `CommissionRates.ValidateNewRate` rejects any new rate greater than
-	// MaxRate, so the validator could never raise it afterwards. These values
-	// mirror the ones documented for joining validators (docs/validator.md), so
-	// every Hoodium validator starts from the same shape:
+	// NewValidator zeroes all three rates, and a zero MaxRate/MaxChangeRate makes
+	// the commission permanently immutable: ValidateNewRate rejects any rate
+	// above MaxRate, so the validator could never raise it afterwards. These
+	// match the values documented for joining validators in docs/validator.md.
 	//
 	//   - rate            = 5%  (the chain minimum set by MinCommissionRate above)
 	//   - max_rate        = 25% (headroom to raise later)
 	//   - max_change_rate = 1%  per change (the SDK also enforces 24h spacing)
 	//
-	// NOTE: NewCommission leaves UpdateTime at the SDK's zero sentinel
-	// (1970-01-01T00:00:00Z), meaning "never changed". That is deliberate and
-	// must NOT be replaced with a real time: the 24h guard in ValidateNewRate
-	// would then block the validator's first commission change until 24h after
-	// genesis.
+	// NewCommission leaves UpdateTime at the zero sentinel (1970-01-01T00:00:00Z),
+	// meaning "never changed". Setting a real time here would make the 24h guard
+	// block the validator's first commission change until a day after genesis.
 	genesisCommission := stakingtypes.NewCommission(
 		sdkmath.LegacyMustNewDecFromStr("0.05"),
 		sdkmath.LegacyMustNewDecFromStr("0.25"),

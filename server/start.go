@@ -148,13 +148,10 @@ which accepts a path for the resulting pprof file.
 
 			serverCtx.Logger.Info("Unlocking keyring")
 
-			// Fire the unlock process for the keyring.
-			//
-			// The backend is taken from the already-resolved client context
-			// (which honours client.toml) rather than from the CLI flag alone:
-			// the flag defaults to "os", so reading only the flag would skip
-			// this pre-unlock whenever client.toml says "file" and the flag was
-			// not passed explicitly.
+			// Unlock the keyring up front when the file backend is in use.
+			// The backend comes from the resolved client context so that
+			// client.toml is honoured; reading only the flag would skip this
+			// whenever the backend was not passed explicitly.
 			if clientCtx.Keyring != nil && clientCtx.Keyring.Backend() == keyring.BackendFile {
 				_, err = clientCtx.Keyring.List()
 				if err != nil {

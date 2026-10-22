@@ -16,7 +16,7 @@ const BlocksPerYearAt6s = uint64(5_259_600)
 // BlocksPerTwoYearsAt6s is two schedule-years, the length of the first tier.
 const BlocksPerTwoYearsAt6s = 2 * BlocksPerYearAt6s
 
-// DefaultTiers returns the Hoodium emission schedule (user-confirmed).
+// DefaultTiers returns the Hoodium emission schedule.
 //
 // Each tier carries a full (base) reward plus its Proof of Network Activity
 // (PoNA) rates. The reward actually paid for a block depends on how many
