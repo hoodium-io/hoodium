@@ -69,7 +69,6 @@ import (
 
 	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 	runekr "github.com/hoodium-io/hoodium/crypto/keyring"
-	"github.com/hoodium-io/hoodium/testutil/network"
 )
 
 var (
@@ -156,7 +155,7 @@ is launched:
 	cmd.Flags().String(flagNodeDirPrefix, "node", "Node directory prefix, used only when --val > 1 (node results in node0, node1, ...)")
 	cmd.Flags().String(flagNodeDaemonHome, "runed", "Node daemon home directory name, used only when --val > 1")
 	cmd.Flags().String(flagStartingIPAddress, localhost, "Starting IP address for the generated peer list; used only when --val > 1. Pass \"localhost\" for a single-host local network")
-	cmd.Flags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend (os|file|test)")
+	cmd.Flags().String(flags.FlagKeyringBackend, keyring.BackendFile, "Keyring backend for the generated wallet key (file|os|test)")
 
 	return cmd
 }
@@ -221,9 +220,14 @@ func resolveNodeDir(homeDir, nodeDirPrefix, nodeDaemonHome string, i, numValidat
 // nodeDirName returns the display name for node `i`. For a single node this is
 // the node's moniker-ish name derived from the home directory so the genesis
 // description is still meaningful.
+//
+// A leading dot is stripped so the conventional home `~/.runed` yields the
+// moniker `runed` (not `.runed`). A moniker is a display name shown in
+// explorers and `query staking validators`, and `filepath.Base` on a dotfile
+// home would otherwise leak the dot into every validator listing.
 func nodeDirName(homeDir, nodeDirPrefix string, i, numValidators int) string {
 	if numValidators <= 1 {
-		return filepath.Base(homeDir)
+		return strings.TrimPrefix(filepath.Base(homeDir), ".")
 	}
 	return fmt.Sprintf("%s%d", nodeDirPrefix, i)
 }
@@ -325,12 +329,14 @@ func initGenesisFilesForNetwork(
 			return err
 		}
 
-		// save private key seed words
-		if err := network.WriteFile(
-			fmt.Sprintf("%v.json", "key_seed"),
-			nodeDir,
-			infoBytes,
-		); err != nil {
+		// Save the mnemonic that controls the premine.
+		//
+		// SECURITY: this file holds the wallet seed in plaintext, so it is
+		// written 0600 (owner-only). The generic testutil WriteFile helper
+		// hardcodes 0644, which would leave a mnemonic controlling the whole
+		// premine world-readable on a shared host.
+		keySeedFile := filepath.Join(nodeDir, "key_seed.json")
+		if err := os.WriteFile(keySeedFile, infoBytes, 0o600); err != nil {
 			return err
 		}
 
@@ -366,8 +372,16 @@ func initGenesisFilesForNetwork(
 	}
 
 	// Build persistent peers list based on validators' memos.
-	sort.Strings(memos)
-	persistentPeers := strings.Join(memos, ",")
+	//
+	// A single node has nobody to peer with: listing its own node ID would make
+	// the node dial itself, which CometBFT rejects ("connection to self") and
+	// logs as an error on every start. So the peer list is only populated for
+	// the multi-node layout, where every generated node peers with the others.
+	persistentPeers := ""
+	if args.numValidators > 1 {
+		sort.Strings(memos)
+		persistentPeers = strings.Join(memos, ",")
+	}
 
 	// Initialize config files for each validator node.
 	for i := range validators {
