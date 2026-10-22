@@ -56,7 +56,7 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/tyler-smith/go-bip39 v1.1.0
-	go.opencensus.io v0.24.0
+	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/exp v0.0.0-20240909161429-701f63a606c0
 	golang.org/x/net v0.38.0
 	golang.org/x/text v0.23.0
