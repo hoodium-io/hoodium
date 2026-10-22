@@ -164,20 +164,20 @@ const (
 	nodeDirPerm = 0o755
 	localhost   = "localhost"
 
-	// UnbondingTime is the Hoodium staking unbonding period (user-confirmed):
-	// 14 days. It is written explicitly into the staking genesis params so the
-	// value is a deliberate chain decision rather than an SDK default (the SDK
-	// default is 21 days).
+	// UnbondingTime is the Hoodium staking unbonding period: 14 days. It is
+	// written explicitly into the staking genesis params so the value is a
+	// deliberate chain decision rather than an SDK default (the SDK default is
+	// 21 days).
 	//
-	// NOTE: Cosmos staking has a SINGLE unbonding param. It applies to BOTH
-	// validator unbonding and delegator undelegation - the SDK offers no
-	// separate delegator timeframe.
+	// Cosmos staking has a SINGLE unbonding param. It applies to BOTH validator
+	// unbonding and delegator undelegation; the SDK offers no separate delegator
+	// timeframe.
 	UnbondingTime = 14 * 24 * time.Hour
 
 	// DowntimeJailDuration is how long a validator stays jailed after missing
-	// too many blocks (user-confirmed: 24 hours). The SDK default is 10 minutes,
-	// which is far too short for a real chain. This is the MAINNET value; the
-	// official genesis.json is authoritative for devnet and mainnet alike.
+	// too many blocks: 24 hours. The SDK default is 10 minutes, which is far too
+	// short for a real chain. This is the MAINNET value; the official
+	// genesis.json is authoritative for devnet and mainnet alike.
 	DowntimeJailDuration = 24 * time.Hour
 )
 
@@ -591,11 +591,11 @@ func initGenesisFiles(
 
 	var slashingGenState slashingtypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[slashingtypes.ModuleName], &slashingGenState)
-	// Hoodium slashing parameters (user-confirmed). Set EXPLICITLY rather than
-	// relying on the SDK defaults, which are tuned for a 1s-block chain.
+	// Hoodium slashing parameters. Set explicitly rather than relying on the
+	// SDK defaults, which are tuned for a 1s-block chain.
 	//
-	//   - SlashFractionDoubleSign = 10% (SDK default 5%): deliberate hardening -
-	//     equivocation is the one unrecoverable fault, so the penalty is doubled.
+	//   - SlashFractionDoubleSign = 10% (SDK default 5%): equivocation is the one
+	//     unrecoverable fault, so the penalty is doubled.
 	//   - DowntimeJailDuration = 24h (SDK default 10 min): long enough to matter,
 	//     short enough that a failed restart is recoverable within a day.
 	//   - SignedBlocksWindow / MinSignedPerWindow = 10000 / 0.50:
@@ -605,7 +605,7 @@ func initGenesisFiles(
 	//   - SlashFractionDowntime = 1% (SDK default): small, since the real
 	//     deterrent for downtime is the jail itself.
 	//
-	// NOTE: slashed funds are BURNED (removed from supply), the SDK default.
+	// Slashed funds are burned (removed from supply), the SDK default.
 	// See docs/features/slashing.md for the supply implications.
 	slashingGenState.Params = slashingtypes.Params{
 		SignedBlocksWindow:      10_000,
@@ -625,20 +625,20 @@ func initGenesisFiles(
 	stakingGenState := stakingtypes.DefaultGenesisState()
 	stakingGenState.Params.BondDenom = coinDenom
 
-	// Hoodium staking parameters (user-confirmed).
+	// Hoodium staking parameters.
 	//
-	//   - UnbondingTime = 14 days. Set EXPLICITLY so the value is a deliberate
-	//     chain decision rather than an inherited SDK default (the SDK default is
-	//     21 days). NOTE: Cosmos staking has a single `UnbondingTime` param that
-	//     applies to BOTH validator unbonding and delegator undelegation - there
-	//     is no separate delegator timeframe at the params level.
+	//   - UnbondingTime = 14 days. Set explicitly so the value is a deliberate
+	//     chain decision rather than an inherited SDK default (21 days). Cosmos
+	//     staking has a single `UnbondingTime` param applying to BOTH validator
+	//     unbonding and delegator undelegation; there is no separate delegator
+	//     timeframe at the params level.
 	//   - MaxValidators = 101 (fresh start; raise later via governance).
 	//   - MinCommissionRate = 5%.
 	//
-	// NOTE: the SDK has NO global "min self-delegation" or "min delegation"
-	// params. MinSelfDelegation is a PER-VALIDATOR field (set below on each
-	// validator); the Hoodium 0.1 RUNE minimum delegation is enforced in the
-	// staking precompile (core/staking), the entry point delegation flows through.
+	// The SDK has no global "min self-delegation" or "min delegation" param.
+	// MinSelfDelegation is a PER-VALIDATOR field (set below on each validator);
+	// the Hoodium 0.1 RUNE minimum delegation is enforced in the staking
+	// precompile (core/staking), the entry point delegation flows through.
 	oneRune := sdkmath.NewIntWithDecimal(1, 18)
 	minSelfDelegation := oneRune.MulRaw(500_000) // 500,000 RUNE
 	stakingGenState.Params.UnbondingTime = UnbondingTime
@@ -752,18 +752,10 @@ func initGenesisFiles(
 		if err != nil {
 			return err
 		}
-		// Clear app_version so the official genesis is REPRODUCIBLE.
-		//
-		// AppVersion is stamped from version.Version, which the Makefile derives
-		// from `git describe --tags --always` — i.e. it embeds the build commit.
-		// That would make two team members generating the same genesis at
-		// different commits produce byte-different files, breaking the published
-		// genesis hash that validators verify against. The field is pure
-		// provenance: CometBFT never reads it (AppGenesis.ToGenesisDoc() drops
-		// AppName/AppVersion), so clearing it costs nothing.
-		//
-		// app_name is left as-is: it is the stable binary name ("runed").
-		appGenesis.AppVersion = ""
+		// app_version is left as stamped by the build (version.Version, from the
+		// Makefile's `git describe --tags --always`), so the genesis records
+		// which build produced it. It has no consensus effect: ToGenesisDoc()
+		// drops AppName/AppVersion, so CometBFT never reads it.
 		// Set the block gas limit to 10M.
 		appGenesis.Consensus.Params.Block.MaxGas = 10_000_000
 		// Enable vote extensions from block 1.
