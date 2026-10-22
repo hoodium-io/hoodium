@@ -377,11 +377,19 @@ func (a appCreator) appExport(
 // return tmcfg.DefaultConfig if no custom configuration is required for the application.
 func initTendermintConfig() *tmcfg.Config {
 	cfg := tmcfg.DefaultConfig()
-	cfg.Consensus.TimeoutCommit = time.Second * 3
-	// Allow empty blocks to be produced at most every 3 seconds. Combined with
-	// the 3s commit timeout this keeps the chain cadence uniform (a block every
-	// ~3s) instead of blocking on empty-block intervals of 0 (no interval).
-	cfg.Consensus.CreateEmptyBlocksInterval = time.Second * 3
+	// Hoodium target block time: 6s (user-confirmed). This is a node-local
+	// consensus setting (CometBFT removed time_iota_ms from the genesis
+	// consensus params, so block time is NOT part of genesis.json).
+	//
+	// NOTE: the PoNA emission schedule is calibrated for a 6s block time
+	// (x/pona/types.BlocksPerYearAt6s = 5,259,600 blocks/year). This value and
+	// that constant MUST stay in sync, or every emission tier completes in the
+	// wrong amount of wall-clock time.
+	cfg.Consensus.TimeoutCommit = 6 * time.Second
+	// Allow empty blocks to be produced at most every 6 seconds. Combined with
+	// the 6s commit timeout this keeps the chain cadence uniform (a block every
+	// ~6s) instead of blocking on empty-block intervals of 0 (no interval).
+	cfg.Consensus.CreateEmptyBlocksInterval = 6 * time.Second
 	// to put a higher strain on node memory, use these values:
 	// cfg.P2P.MaxNumInboundPeers = 100
 	// cfg.P2P.MaxNumOutboundPeers = 40
