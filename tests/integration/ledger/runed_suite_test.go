@@ -23,6 +23,7 @@ import (
 	"github.com/hoodium-io/hoodium/app"
 	"github.com/hoodium-io/hoodium/crypto/hd"
 	"github.com/hoodium-io/hoodium/tests/integration/ledger/mocks"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	"github.com/hoodium-io/hoodium/utils"
 	"github.com/stretchr/testify/suite"
@@ -85,7 +86,7 @@ func (suite *LedgerTestSuite) SetupHoodiumApp() {
 	consAddress := sdk.ConsAddress(utiltx.GenerateAddress().Bytes())
 
 	// init app
-	suite.app = app.Setup(false, feemarkettypes.DefaultGenesisState())
+	suite.app = appsetup.Setup(false, feemarkettypes.DefaultGenesisState())
 	suite.ctx = suite.app.BaseApp.NewContextLegacy(false, tmproto.Header{
 		Height:          1,
 		ChainID:         "rune_6590-1",

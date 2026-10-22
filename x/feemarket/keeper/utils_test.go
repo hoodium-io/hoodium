@@ -26,6 +26,7 @@ import (
 	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/testutil"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
@@ -170,7 +171,7 @@ func setupChain(localMinGasPricesStr, chainID string) {
 		baseapp.SetMinGasPrices(localMinGasPricesStr),
 	)
 
-	genesisState := app.NewTestGenesisState(newapp.AppCodec())
+	genesisState := appsetup.NewTestGenesisState(newapp.AppCodec())
 	genesisState[types.ModuleName] = newapp.AppCodec().MustMarshalJSON(types.DefaultGenesisState())
 
 	stateBytes, err := json.MarshalIndent(genesisState, "", "  ")
@@ -182,7 +183,7 @@ func setupChain(localMinGasPricesStr, chainID string) {
 			ChainId:         chainID,
 			Validators:      []abci.ValidatorUpdate{},
 			AppStateBytes:   stateBytes,
-			ConsensusParams: app.DefaultConsensusParams,
+			ConsensusParams: appsetup.DefaultConsensusParams,
 		},
 	)
 	s.Require().NoError(err)

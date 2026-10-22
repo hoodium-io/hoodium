@@ -17,6 +17,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/hoodium-io/hoodium/app"
 	"github.com/hoodium-io/hoodium/testutil"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	"github.com/stretchr/testify/suite"
 )
@@ -41,7 +42,7 @@ type StateDBTestSuite struct {
 
 func (suite *StateDBTestSuite) SetupTest() {
 	checkTx := false
-	suite.app = app.Setup(checkTx, nil)
+	suite.app = appsetup.Setup(checkTx, nil)
 
 	priv := secp256k1.GenPrivKey()
 	suite.consAddress = sdk.ConsAddress(priv.PubKey().Address())

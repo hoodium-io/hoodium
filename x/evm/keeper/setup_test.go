@@ -31,6 +31,7 @@ import (
 	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/testutil"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	runetypes "github.com/hoodium-io/hoodium/types"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
@@ -76,13 +77,13 @@ func TestKeeperTestSuite(t *testing.T) {
 
 func (suite *KeeperTestSuite) SetupTest() {
 	checkTx := false
-	suite.app = app.Setup(checkTx, nil)
+	suite.app = appsetup.Setup(checkTx, nil)
 	suite.SetupApp(checkTx)
 }
 
 func (suite *KeeperTestSuite) SetupTestWithT(t require.TestingT) {
 	checkTx := false
-	suite.app = app.Setup(checkTx, nil)
+	suite.app = appsetup.Setup(checkTx, nil)
 	suite.SetupAppWithT(checkTx, t)
 }
 
@@ -105,7 +106,7 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 	priv := secp256k1.GenPrivKey()
 	suite.consAddress = sdk.ConsAddress(priv.PubKey().Address())
 
-	suite.app = app.EthSetup(checkTx, func(app *app.Hoodium, genesis simapp.GenesisState) simapp.GenesisState {
+	suite.app = appsetup.EthSetup(checkTx, func(app *app.Hoodium, genesis simapp.GenesisState) simapp.GenesisState {
 		feemarketGenesis := feemarkettypes.DefaultGenesisState()
 		if suite.enableFeemarket {
 			feemarketGenesis.Params.EnableHeight = 1
@@ -128,7 +129,7 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 			genesis[evmtypes.ModuleName] = app.AppCodec().MustMarshalJSON(evmGenesis)
 		}
 
-		stakingGenesis, bondedBalance := app.StakingGenesisWithValidator(
+		stakingGenesis, bondedBalance := appsetup.StakingGenesisWithValidator(
 			sdk.ValAddress(suite.address.Bytes()),
 			priv.PubKey(),
 		)
@@ -152,7 +153,7 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 	if suite.mintFeeCollector {
 		// mint some coin to fee collector
 		coins := sdk.NewCoins(sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(int64(params.TxGas)-1)))
-		genesisState := app.NewTestGenesisState(suite.app.AppCodec())
+		genesisState := appsetup.NewTestGenesisState(suite.app.AppCodec())
 		balances := []banktypes.Balance{
 			{
 				Address: suite.app.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName).String(),
@@ -175,7 +176,7 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 			&abci.RequestInitChain{
 				ChainId:         "rune_6591-1",
 				Validators:      []abci.ValidatorUpdate{},
-				ConsensusParams: app.DefaultConsensusParams,
+				ConsensusParams: appsetup.DefaultConsensusParams,
 				AppStateBytes:   stateBytes,
 			},
 		)
@@ -191,7 +192,7 @@ func (suite *KeeperTestSuite) SetupAppWithT(checkTx bool, t require.TestingT) {
 	// normally does this inside FinalizeBlock. Populate them here so
 	// downstream readers (notably runetypes.BlockGasLimit) see the
 	// chain's real MaxGas instead of the zero-value fallback.
-	suite.ctx = suite.ctx.WithConsensusParams(*app.DefaultConsensusParams)
+	suite.ctx = suite.ctx.WithConsensusParams(*appsetup.DefaultConsensusParams)
 
 	queryHelper := baseapp.NewQueryServerTestHelper(suite.ctx, suite.app.InterfaceRegistry())
 	evmtypes.RegisterQueryServer(queryHelper, suite.app.EvmKeeper)

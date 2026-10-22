@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	"github.com/hoodium-io/hoodium/x/feemarket/types"
 	"github.com/stretchr/testify/suite"
 )
@@ -51,6 +52,6 @@ func TestKeeperTestSuite(t *testing.T) {
 // SetupTest setup test environment, it uses`require.TestingT` to support both `testing.T` and `testing.B`.
 func (suite *KeeperTestSuite) SetupTest() {
 	checkTx := false
-	suite.app = app.Setup(checkTx, nil)
+	suite.app = appsetup.Setup(checkTx, nil)
 	suite.SetupApp(checkTx, utils.TestnetChainID+"-1")
 }

@@ -17,13 +17,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/hoodium-io/hoodium/app"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	"github.com/hoodium-io/hoodium/utils"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
@@ -66,7 +67,7 @@ func (suite *EvmTestSuite) DoSetupTest(t require.TestingT) {
 	priv := secp256k1.GenPrivKey()
 	consAddress := sdk.ConsAddress(priv.PubKey().Address())
 
-	suite.app = app.EthSetup(checkTx, func(app *app.Hoodium, genesis simapp.GenesisState) simapp.GenesisState {
+	suite.app = appsetup.EthSetup(checkTx, func(app *app.Hoodium, genesis simapp.GenesisState) simapp.GenesisState {
 		if suite.dynamicTxFee {
 			feemarketGenesis := feemarkettypes.DefaultGenesisState()
 			feemarketGenesis.Params.EnableHeight = 1
@@ -77,7 +78,7 @@ func (suite *EvmTestSuite) DoSetupTest(t require.TestingT) {
 	})
 
 	coins := sdk.NewCoins(sdk.NewCoin(types.DefaultEVMDenom, sdkmath.NewInt(100000000000000)))
-	genesisState := app.NewTestGenesisState(suite.app.AppCodec())
+	genesisState := appsetup.NewTestGenesisState(suite.app.AppCodec())
 	b32address := sdk.MustBech32ifyAddressBytes(sdk.GetConfig().GetBech32AccountAddrPrefix(), priv.PubKey().Address().Bytes())
 	balances := []banktypes.Balance{
 		{
@@ -96,7 +97,7 @@ func (suite *EvmTestSuite) DoSetupTest(t require.TestingT) {
 	bankGenesis.Supply = bankGenesis.Supply.Add(coins...).Add(coins...)
 	genesisState[banktypes.ModuleName] = suite.app.AppCodec().MustMarshalJSON(&bankGenesis)
 
-	stakingGenesis, bondedBalance := suite.app.StakingGenesisWithValidator(
+	stakingGenesis, bondedBalance := appsetup.StakingGenesisWithValidator(
 		sdk.ValAddress(address.Bytes()),
 		priv.PubKey(),
 	)
@@ -119,7 +120,7 @@ func (suite *EvmTestSuite) DoSetupTest(t require.TestingT) {
 	req := &abci.RequestInitChain{
 		ChainId:         utils.TestnetChainID + "-1",
 		Validators:      []abci.ValidatorUpdate{},
-		ConsensusParams: app.DefaultConsensusParams,
+		ConsensusParams: appsetup.DefaultConsensusParams,
 		AppStateBytes:   stateBytes,
 	}
 	_, err = suite.app.InitChain(req)

@@ -1,4 +1,4 @@
-package app
+package app_test
 
 import (
 	"encoding/json"
@@ -26,7 +26,9 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 
+	"github.com/hoodium-io/hoodium/app"
 	"github.com/hoodium-io/hoodium/encoding"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	"github.com/hoodium-io/hoodium/utils"
 )
 
@@ -49,22 +51,22 @@ func TestRuneExport(t *testing.T) {
 
 	db := dbm.NewMemDB()
 	chainID := utils.MainnetChainID + "-1"
-	app := NewHoodium(
+	hoodiumApp := app.NewHoodium(
 		log.NewLogger(kitlog.NewSyncWriter(os.Stdout)),
 		db,
 		nil,
 		true,
 		map[int64]bool{},
-		DefaultNodeHome,
+		app.DefaultNodeHome,
 		0,
-		encoding.MakeConfig(ModuleBasics),
-		simtestutil.NewAppOptionsWithFlagHome(DefaultNodeHome),
+		encoding.MakeConfig(app.ModuleBasics),
+		simtestutil.NewAppOptionsWithFlagHome(app.DefaultNodeHome),
 		baseapp.SetChainID(chainID),
 	)
 
-	genesisState := NewDefaultGenesisState()
-	genesisState = GenesisStateWithValSet(
-		app,
+	genesisState := app.NewDefaultGenesisState()
+	genesisState = appsetup.GenesisStateWithValSet(
+		hoodiumApp,
 		genesisState,
 		acc.GetAddress(),
 		valSet,
@@ -75,7 +77,7 @@ func TestRuneExport(t *testing.T) {
 	require.NoError(t, err)
 
 	// Initialize the chain
-	_, err = app.InitChain(
+	_, err = hoodiumApp.InitChain(
 		&abci.RequestInitChain{
 			ChainId:       utils.MainnetChainID + "-1",
 			Validators:    []abci.ValidatorUpdate{},
@@ -84,22 +86,22 @@ func TestRuneExport(t *testing.T) {
 	)
 	require.NoError(t, err, "InitChain should not have an error")
 
-	_, err = app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: 1})
+	_, err = hoodiumApp.FinalizeBlock(&abci.RequestFinalizeBlock{Height: 1})
 	require.NoError(t, err, "FinalizeBlock should not have an error")
-	_, err = app.Commit()
+	_, err = hoodiumApp.Commit()
 	require.NoError(t, err, "Commit should not have an error")
 
 	// Making a new app object with the db, so that initchain hasn't been called
-	app2 := NewHoodium(
+	app2 := app.NewHoodium(
 		log.NewLogger(kitlog.NewSyncWriter(os.Stdout)),
 		db,
 		nil,
 		true,
 		map[int64]bool{},
-		DefaultNodeHome,
+		app.DefaultNodeHome,
 		0,
-		encoding.MakeConfig(ModuleBasics),
-		simtestutil.NewAppOptionsWithFlagHome(DefaultNodeHome),
+		encoding.MakeConfig(app.ModuleBasics),
+		simtestutil.NewAppOptionsWithFlagHome(app.DefaultNodeHome),
 		baseapp.SetChainID(chainID),
 	)
 	_, err = app2.ExportAppStateAndValidators(false, []string{})

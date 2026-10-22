@@ -8,9 +8,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hoodium-io/hoodium/app"
-	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	"github.com/hoodium-io/hoodium/core"
+	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	"github.com/hoodium-io/hoodium/testutil"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	"github.com/stretchr/testify/suite"
 )
@@ -82,7 +83,7 @@ func (s *TestSuite) SetupTest() {
 	consAddress := sdk.ConsAddress(privCons.PubKey().Address())
 
 	// init app
-	s.app = app.Setup(false, nil)
+	s.app = appsetup.Setup(false, nil)
 	header := testutil.NewHeader(
 		1, time.Now().UTC(), "rune_6590-1", consAddress, nil, nil,
 	)

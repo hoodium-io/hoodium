@@ -28,6 +28,7 @@ import (
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/evm/eip712"
 	"github.com/hoodium-io/hoodium/testutil"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	"github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/utils"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
@@ -63,7 +64,7 @@ func (suite *AnteTestSuite) SetupTest() {
 	suite.Require().NoError(err)
 	suite.priv = priv
 
-	suite.app = app.EthSetup(checkTx, func(app *app.Hoodium, genesis simapp.GenesisState) simapp.GenesisState {
+	suite.app = appsetup.EthSetup(checkTx, func(app *app.Hoodium, genesis simapp.GenesisState) simapp.GenesisState {
 		if suite.enableFeemarket {
 			// setup feemarketGenesis params
 			feemarketGenesis := feemarkettypes.DefaultGenesisState()

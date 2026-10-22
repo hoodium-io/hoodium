@@ -21,6 +21,7 @@ import (
 	ante "github.com/hoodium-io/hoodium/app/ante"
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/evm/eip712"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	"github.com/hoodium-io/hoodium/utils"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
@@ -46,7 +47,7 @@ const TestGasLimit uint64 = 100000
 func (suite *AnteTestSuite) SetupTest() {
 	checkTx := false
 
-	suite.app = app.EthSetup(checkTx, func(app *app.Hoodium, genesis simapp.GenesisState) simapp.GenesisState {
+	suite.app = appsetup.EthSetup(checkTx, func(app *app.Hoodium, genesis simapp.GenesisState) simapp.GenesisState {
 		if suite.enableFeemarket {
 			// setup feemarketGenesis params
 			feemarketGenesis := feemarkettypes.DefaultGenesisState()

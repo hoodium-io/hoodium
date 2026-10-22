@@ -13,6 +13,7 @@ import (
 	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/testutil"
+	"github.com/hoodium-io/hoodium/testutil/appsetup"
 	"github.com/hoodium-io/hoodium/utils"
 	feemarkettypes "github.com/hoodium-io/hoodium/x/feemarket/types"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,7 @@ func (suite *AnteTestSuite) SetupTest() {
 	consAddress := sdk.ConsAddress(privCons.PubKey().Address())
 
 	isCheckTx := false
-	suite.app = app.Setup(isCheckTx, feemarkettypes.DefaultGenesisState())
+	suite.app = appsetup.Setup(isCheckTx, feemarkettypes.DefaultGenesisState())
 	suite.Require().NotNil(suite.app.AppCodec())
 
 	header := testutil.NewHeader(
