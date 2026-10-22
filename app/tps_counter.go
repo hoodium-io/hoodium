@@ -23,28 +23,14 @@ import (
 	"time"
 
 	"cosmossdk.io/log"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
+	"github.com/cosmos/cosmos-sdk/telemetry"
+	"github.com/hashicorp/go-metrics"
 )
 
-var (
-	tagKeyStatus     = tag.MustNewKey("status")
-	mTransactions    = stats.Int64("transactions", "the number of transactions after .EndBlocker", "1")
-	viewTransactions = &view.View{
-		Name:        "transactions_processed",
-		Measure:     mTransactions,
-		Description: "The transactions processed",
-		TagKeys:     []tag.Key{tagKeyStatus},
-		Aggregation: view.Count(),
-	}
-)
-
-func ObservabilityViews() (views []*view.View) {
-	views = append(views, viewTransactions)
-	return views
-}
-
+// tpsCounter reports the transaction throughput of the node.
+//
+// Two observables: a periodic log line, and a counter in the node's configured
+// telemetry sink (e.g. Prometheus when prometheus-retention-time > 0).
 type tpsCounter struct {
 	nSuccessful, NFailed uint64
 	reportPeriod         time.Duration
@@ -86,18 +72,10 @@ func (tpc *tpsCounter) start(ctx context.Context) error {
 			latestNFailed := atomic.LoadUint64(&tpc.NFailed)
 
 			var nTxn int64
-			nSuccess, err := tpc.recordValue(ctx, latestNSuccessful, lastNSuccessful, statusSuccess)
-			if err == nil {
-				nTxn += nSuccess
-			} else {
-				panic(err)
-			}
-			nFailed, err := tpc.recordValue(ctx, latestNFailed, lastNFailed, statusFailure)
-			if err == nil {
-				nTxn += nFailed
-			} else {
-				panic(err)
-			}
+			nSuccess := tpc.recordValue(latestNSuccessful, lastNSuccessful, statusSuccess)
+			nTxn += nSuccess
+			nFailed := tpc.recordValue(latestNFailed, lastNFailed, statusFailure)
+			nTxn += nFailed
 
 			if nTxn != 0 {
 				// Record to our logger for easy examination in the logs.
@@ -118,27 +96,29 @@ const (
 	statusFailure = "failure"
 )
 
-func (tpc *tpsCounter) recordValue(ctx context.Context, latest, previous uint64, status status) (int64, error) {
+// recordValue emits the delta since the previous report and returns it.
+func (tpc *tpsCounter) recordValue(latest, previous uint64, status status) int64 {
 	if latest < previous {
-		return 0, nil
+		return 0
 	}
 
 	n := int64(latest - previous) //nolint:gosec
 	if n < 0 {
 		// Perhaps we exceeded the uint64 limits then wrapped around, for the latest value.
 		// TODO: Perhaps log this?
-		return 0, nil
+		return 0
 	}
 
 	statusValue := "OK"
 	if status == statusFailure {
 		statusValue = "ERR"
 	}
-	ctx, err := tag.New(ctx, tag.Upsert(tagKeyStatus, statusValue))
-	if err != nil {
-		return 0, err
-	}
 
-	stats.Record(ctx, mTransactions.M(n))
-	return n, nil
+	telemetry.IncrCounterWithLabels(
+		[]string{"transactions", "processed", "total"},
+		float32(n),
+		[]metrics.Label{telemetry.NewLabel("status", statusValue)},
+	)
+
+	return n
 }
