@@ -652,6 +652,30 @@ func initGenesisFiles(
 	// is a queued record the chain must settle, so the cap still prevents spam.
 	stakingGenState.Params.MaxEntries = 10
 
+	// Genesis validator commission.
+	//
+	// `stakingtypes.NewValidator` zeroes all three commission rates, and a zero
+	// MaxRate / MaxChangeRate makes the commission PERMANENTLY IMMUTABLE:
+	// `CommissionRates.ValidateNewRate` rejects any new rate greater than
+	// MaxRate, so the validator could never raise it afterwards. These values
+	// mirror the ones documented for joining validators (docs/validator.md), so
+	// every Hoodium validator starts from the same shape:
+	//
+	//   - rate            = 5%  (the chain minimum set by MinCommissionRate above)
+	//   - max_rate        = 25% (headroom to raise later)
+	//   - max_change_rate = 1%  per change (the SDK also enforces 24h spacing)
+	//
+	// NOTE: NewCommission leaves UpdateTime at the SDK's zero sentinel
+	// (1970-01-01T00:00:00Z), meaning "never changed". That is deliberate and
+	// must NOT be replaced with a real time: the 24h guard in ValidateNewRate
+	// would then block the validator's first commission change until 24h after
+	// genesis.
+	genesisCommission := stakingtypes.NewCommission(
+		sdkmath.LegacyMustNewDecFromStr("0.05"),
+		sdkmath.LegacyMustNewDecFromStr("0.25"),
+		sdkmath.LegacyMustNewDecFromStr("0.01"),
+	)
+
 	var (
 		genDelegations []stakingtypes.Delegation
 		lastPowers     []stakingtypes.LastValidatorPower
@@ -667,6 +691,7 @@ func initGenesisFiles(
 		val.Tokens = tokens
 		val.DelegatorShares = sdkmath.LegacyNewDecFromInt(tokens)
 		val.MinSelfDelegation = minSelfDelegation
+		val.Commission = genesisCommission
 
 		validators[i] = val
 

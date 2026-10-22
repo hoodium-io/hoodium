@@ -107,7 +107,7 @@ runed tx staking create-validator \
   --pubkey "$(runed tendermint show-validator --home ~/.runed)" \
   --moniker <your-moniker> \
   --commission-rate 0.05 \
-  --commission-max-rate 0.20 \
+  --commission-max-rate 0.25 \
   --commission-max-change-rate 0.01 \
   --min-self-delegation 500000000000000000000000 \
   --from <key-name> \
@@ -147,6 +147,7 @@ That is Steps 1–7 above. There is **no gentx** anywhere in this flow.
 | Max validators | 101 |
 | Min self-delegation | 500,000 RUNE |
 | Min commission rate | 5% |
+| Max commission rate | 25% |
 | **Unbonding time** | **14 days** |
 
 > A minimum **delegation** of 0.1 RUNE is enforced at the **staking precompile**
