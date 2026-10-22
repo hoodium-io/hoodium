@@ -68,11 +68,11 @@ func TestEIP712TestSuite(t *testing.T) {
 }
 
 func (suite *EIP712TestSuite) SetupTest() {
+	sdk.GetConfig().SetBech32PrefixForAccount(config.Bech32Prefix, "")
 	suite.config = encoding.MakeConfig(app.ModuleBasics)
 	suite.clientCtx = client.Context{}.WithTxConfig(suite.config.TxConfig)
 	suite.denom = utils.BaseDenom
 
-	sdk.GetConfig().SetBech32PrefixForAccount(config.Bech32Prefix, "")
 	eip712.SetEncodingConfig(suite.config)
 }
 

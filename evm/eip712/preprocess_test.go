@@ -27,11 +27,24 @@ import (
 // Testing Constants
 var (
 	chainID = utils.TestnetChainID + "-1"
-	ctx     = client.Context{}.WithTxConfig(
-		encoding.MakeConfig(app.ModuleBasics).TxConfig,
-	)
 )
 var feePayerAddress = "rune17xpfvakm2amg962yls6f84z3kell8c5lq5jwph"
+
+// Set the bech32 prefix before anything builds an encoding config. MakeConfig
+// snapshots the prefix into its address codecs, so it must already be "rune"
+// when the first config is constructed.
+func init() {
+	config.SetBech32Prefixes(sdk.GetConfig())
+}
+
+// txConfig builds a TxConfig on demand.
+//
+// It must not be a package-level variable: MakeConfig snapshots the global
+// bech32 prefix, which tests set inside the test body. A var initializer would
+// run before that and capture the SDK default ("cosmos").
+func txConfig() client.TxConfig {
+	return encoding.MakeConfig(app.ModuleBasics).TxConfig
+}
 
 type TestCaseStruct struct {
 	txBuilder              client.TxBuilder
@@ -109,7 +122,7 @@ func TestLedgerPreprocessing(t *testing.T) {
 }
 
 func TestBlankTxBuilder(t *testing.T) {
-	txBuilder := ctx.TxConfig.NewTxBuilder()
+	txBuilder := txConfig().NewTxBuilder()
 
 	err := eip712.PreprocessLedgerTx(
 		chainID,
@@ -121,7 +134,7 @@ func TestBlankTxBuilder(t *testing.T) {
 }
 
 func TestNonLedgerTxBuilder(t *testing.T) {
-	txBuilder := ctx.TxConfig.NewTxBuilder()
+	txBuilder := txConfig().NewTxBuilder()
 
 	err := eip712.PreprocessLedgerTx(
 		chainID,
@@ -133,7 +146,7 @@ func TestNonLedgerTxBuilder(t *testing.T) {
 }
 
 func TestInvalidChainId(t *testing.T) {
-	txBuilder := ctx.TxConfig.NewTxBuilder()
+	txBuilder := txConfig().NewTxBuilder()
 
 	err := eip712.PreprocessLedgerTx(
 		"invalid-chain-id",
@@ -146,7 +159,7 @@ func TestInvalidChainId(t *testing.T) {
 
 func createBasicTestCase(t *testing.T) TestCaseStruct {
 	t.Helper()
-	txBuilder := ctx.TxConfig.NewTxBuilder()
+	txBuilder := txConfig().NewTxBuilder()
 
 	feePayer, err := sdk.AccAddressFromBech32(feePayerAddress)
 	require.NoError(t, err)
