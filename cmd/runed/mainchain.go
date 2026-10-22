@@ -752,6 +752,18 @@ func initGenesisFiles(
 		if err != nil {
 			return err
 		}
+		// Clear app_version so the official genesis is REPRODUCIBLE.
+		//
+		// AppVersion is stamped from version.Version, which the Makefile derives
+		// from `git describe --tags --always` — i.e. it embeds the build commit.
+		// That would make two team members generating the same genesis at
+		// different commits produce byte-different files, breaking the published
+		// genesis hash that validators verify against. The field is pure
+		// provenance: CometBFT never reads it (AppGenesis.ToGenesisDoc() drops
+		// AppName/AppVersion), so clearing it costs nothing.
+		//
+		// app_name is left as-is: it is the stable binary name ("runed").
+		appGenesis.AppVersion = ""
 		// Set the block gas limit to 10M.
 		appGenesis.Consensus.Params.Block.MaxGas = 10_000_000
 		// Enable vote extensions from block 1.
