@@ -283,6 +283,12 @@ We can observe that the block time remains stable at 3 seconds consistently. The
 node processes the mempool backlog in a regular pattern, and its size never
 exceeds the amount of transactions that can fit in a block.
 
+> ⚠️ **Historical measurement (3s era).** This report was produced while
+> `TimeoutCommit` was set to 3s. The Hoodium target block time is now **6s**
+> (`cmd/runed/root.go` → `initTendermintConfig`), which matches the PoNA
+> emission schedule's assumption. Throughput-per-block figures above remain
+> valid; per-second figures should be halved.
+
 The network processes around 400 transactions per block, which amounts to a
 total of approximately 24,000 transactions across 180 seconds.
 
