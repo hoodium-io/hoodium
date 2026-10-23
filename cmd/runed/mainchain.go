@@ -724,15 +724,23 @@ func initGenesisFiles(
 		return fmt.Errorf("failed to validate genesis file: %w", err)
 	}
 
-	// Drop the deprecated distribution proposer-reward fields from the written
-	// genesis. They are inert (always zero, and MsgUpdateParams rejects any
-	// non-zero value), but ProtoMarshalJSON emits every field, so they would
-	// otherwise be baked into genesis.json. Removing them here — rather than
-	// editing the file afterwards — keeps the output reproducible across runs.
+	// Drop fields that carry no information for a genesis that has never run.
+	// ProtoMarshalJSON sets EmitDefaults, so the SDK always writes them; removing
+	// them here (rather than editing the file afterwards) keeps the output
+	// reproducible across runs.
 	//
-	// The genesis loader accepts their absence: jsonpb only rejects *unknown*
-	// fields, and a missing LegacyDec decodes to its zero value.
-	if err := omitDeprecatedDistributionFields(appGenState); err != nil {
+	//   - distribution: the deprecated proposer-reward fields. They are inert —
+	//     permanently zero, and MsgUpdateParams rejects any non-zero value.
+	//   - staking: the validator `unbonding_time` and `commission.update_time`
+	//     sentinels. Both are meaningless before the chain has produced a block:
+	//     the validator is bonded (never unbonding), and its commission has never
+	//     been changed. The SDK writes them as Unix epoch 0 (1970), which reads
+	//     as a real date and invites confusion. Absent, they decode to the Go
+	//     zero time and are overwritten on first use anyway.
+	//
+	// The genesis loader accepts absence: jsonpb only rejects *unknown* fields,
+	// and both field types decode cleanly to their zero values.
+	if err := omitInertGenesisFields(appGenState); err != nil {
 		return err
 	}
 
@@ -778,53 +786,153 @@ func initGenesisFiles(
 	return nil
 }
 
-// omitDeprecatedDistributionFields deletes the deprecated proposer-reward keys
-// from the distribution params in the marshalled app state.
+// omitInertGenesisFields removes keys from the marshalled app state that carry
+// no information for a genesis which has never run.
 //
-// The keys are `base_proposer_reward` and `bonus_proposer_reward`. The SDK
-// always emits them because ProtoMarshalJSON sets EmitDefaults; they carry no
-// information (permanently zero, and setting them is rejected by MsgUpdateParams)
-// so they are removed to keep genesis.json free of dead fields.
+// Two groups are removed:
 //
-// The distribution module's own ValidateGenesis and InitGenesis do not read
-// these fields, so the result loads cleanly.
-func omitDeprecatedDistributionFields(appGenState map[string]json.RawMessage) error {
-	raw, ok := appGenState[distrtypes.ModuleName]
+//   - distribution params: the deprecated proposer-reward fields. They are
+//     permanently zero and MsgUpdateParams rejects any non-zero value.
+//   - staking validators: the `unbonding_time` and `commission.update_time`
+//     sentinels. A genesis validator is bonded (never unbonding) and its
+//     commission has never been changed, so both are placeholders. The SDK
+//     writes them as Unix epoch 0, which reads as a real date.
+//
+// The modules never read these values at genesis — staking's ValidateGenesis
+// checks only consensus-key duplicates, jailed-and-bonded, and delegator shares,
+// and its InitGenesis consults unbonding_time only for validators already
+// unbonding. Omitted, each decodes to its type's zero value, and both are
+// overwritten the first time they become meaningful.
+func omitInertGenesisFields(appGenState map[string]json.RawMessage) error {
+	if err := omitKeys(
+		appGenState,
+		distrtypes.ModuleName,
+		[]string{"params"},
+		"base_proposer_reward",
+		"bonus_proposer_reward",
+	); err != nil {
+		return err
+	}
+
+	// Each validator entry: the unbonding and commission sentinels live at
+	// different depths, so they are removed as two passes over the same array.
+	if err := omitKeys(
+		appGenState,
+		stakingtypes.ModuleName,
+		[]string{"validators"},
+		"unbonding_time",
+	); err != nil {
+		return err
+	}
+
+	return omitKeys(
+		appGenState,
+		stakingtypes.ModuleName,
+		[]string{"validators", "commission"},
+		"update_time",
+	)
+}
+
+// omitKeys deletes the given key paths from a module's JSON object in appGenState.
+//
+// `path` is the chain of nested object keys leading to the target object (e.g.
+// ["params"], or ["validators"]). A path segment may address a JSON array, in
+// which case the leaf keys are deleted from every element — which is how the
+// per-validator staking fields are reached.
+//
+// Missing modules, paths, or keys are not an error: the genesis simply does not
+// contain them.
+func omitKeys(appGenState map[string]json.RawMessage, module string, path []string, keys ...string) error {
+	raw, ok := appGenState[module]
 	if !ok {
 		return nil
 	}
 
-	var distrState map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &distrState); err != nil {
-		return fmt.Errorf("failed to decode distribution genesis: %w", err)
+	var moduleState map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &moduleState); err != nil {
+		return fmt.Errorf("failed to decode %s genesis: %w", module, err)
 	}
 
-	rawParams, ok := distrState["params"]
-	if !ok {
+	if len(path) == 0 {
 		return nil
 	}
 
-	var params map[string]json.RawMessage
-	if err := json.Unmarshal(rawParams, &params); err != nil {
-		return fmt.Errorf("failed to decode distribution params: %w", err)
-	}
-
-	delete(params, "base_proposer_reward")
-	delete(params, "bonus_proposer_reward")
-
-	encodedParams, err := json.Marshal(params)
+	encoded, err := omitFromRaw(moduleState[path[0]], path[1:], keys)
 	if err != nil {
-		return fmt.Errorf("failed to encode distribution params: %w", err)
+		return fmt.Errorf("failed to process %s.%s: %w", module, path[0], err)
 	}
-	distrState["params"] = encodedParams
+	if encoded == nil {
+		return nil
+	}
+	moduleState[path[0]] = encoded
 
-	encodedState, err := json.Marshal(distrState)
+	encodedModule, err := json.Marshal(moduleState)
 	if err != nil {
-		return fmt.Errorf("failed to encode distribution genesis: %w", err)
+		return fmt.Errorf("failed to encode %s genesis: %w", module, err)
 	}
-	appGenState[distrtypes.ModuleName] = encodedState
+	appGenState[module] = encodedModule
 
 	return nil
+}
+
+// omitFromRaw removes keys from a raw JSON value, descending the remaining path.
+// It returns nil when the value is absent or is not the expected JSON kind, so
+// callers leave the genesis untouched.
+func omitFromRaw(raw json.RawMessage, path []string, keys []string) (json.RawMessage, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+
+	trimmed := bytes.TrimLeft(raw, " \t\r\n")
+	if len(trimmed) == 0 {
+		return nil, nil
+	}
+
+	// Arrays: apply the deletion to every element.
+	if trimmed[0] == '[' {
+		var items []json.RawMessage
+		if err := json.Unmarshal(raw, &items); err != nil {
+			return nil, err
+		}
+		for i := range items {
+			item, err := omitFromRaw(items[i], path, keys)
+			if err != nil {
+				return nil, err
+			}
+			if item != nil {
+				items[i] = item
+			}
+		}
+		return json.Marshal(items)
+	}
+
+	// Objects: descend, or delete the leaf keys at the end of the path.
+	if trimmed[0] != '{' {
+		return nil, nil
+	}
+
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err != nil {
+		return nil, err
+	}
+
+	if len(path) == 0 {
+		for _, key := range keys {
+			delete(object, key)
+		}
+		return json.Marshal(object)
+	}
+
+	child, err := omitFromRaw(object[path[0]], path[1:], keys)
+	if err != nil {
+		return nil, err
+	}
+	if child == nil {
+		return nil, nil
+	}
+	object[path[0]] = child
+
+	return json.Marshal(object)
 }
 
 func getMemo(nodeID string, i int, startingIPAddr string) (string, error) {
