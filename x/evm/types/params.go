@@ -41,12 +41,6 @@ var (
 	// DefaultMaxPrecompilesCallsPerExecution defines the default amount of precompiles
 	// call per transaction execution allowed.
 	DefaultMaxPrecompilesCallsPerExecution = 10
-	// ChainFeeSplitterAddress defines the address of the fee splitter contract deployed
-	// on Hoodium. It will receive the fees from 'fee_collector' account collected from Hoodium
-	// transactions.
-	DefaultChainFeeSplitterAddress = ""
-	// DefaultHoodiMinterAddress defines the address of the HOODI minter.
-	DefaultHoodiMinterAddress = ""
 )
 
 // AvailableExtraEIPs lists standard EIPs supported through ExtraEIPs. Values
@@ -90,8 +84,6 @@ func DefaultParams() Params {
 		StorageRootStrategy:             uint32(DefaultStorageRootStrategy),
 		PrecompilesVersions:             DefaultPrecompilesVersions,
 		MaxPrecompilesCallsPerExecution: uint32(DefaultMaxPrecompilesCallsPerExecution), //nolint:gosec
-		ChainFeeSplitterAddress:         DefaultChainFeeSplitterAddress,
-		HoodiMinterAddress:               DefaultHoodiMinterAddress,
 	}
 }
 

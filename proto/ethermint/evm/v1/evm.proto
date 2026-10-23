@@ -35,12 +35,6 @@ message Params {
   // max_precompiles_calls_per_execution defines the amount of precompiles
   // calls a transaction can do when it's executed.
   uint32 max_precompiles_calls_per_execution = 9;
-  // chain_fee_splitter_address defines the hex-encoded EVM address of the chain
-  // fee splitter contract.
-  string chain_fee_splitter_address = 10;
-  // hoodi_minter_address defines the hex-encoded EVM address of the HOODI
-  // minter.
-  string hoodi_minter_address = 11;
   // tx_lockdown_enabled indicates whether the transaction lockdown is active.
   // While active, only transactions that pass the lockdown rule are accepted.
   bool tx_lockdown_enabled = 12;
@@ -54,6 +48,13 @@ message Params {
   // is active. An empty list matches every target unless tx_lockdown_senders
   // is empty too.
   repeated string tx_lockdown_targets = 14;
+  // Removed: chain_fee_splitter_address (10) and hoodi_minter_address (11) are
+  // Mezo-era fields with no Hoodium equivalent. Numbers are reserved so they
+  // can never be reused for a different meaning.
+  reserved 10, 11;
+  reserved "chain_fee_splitter_address", "hoodi_minter_address";
+}
+
 }
 
 // PrecompileVersionInfo defines the version of a custom EVM precompile.
