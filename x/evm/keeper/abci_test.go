@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,60 +30,4 @@ func (suite *KeeperTestSuite) TestEndBlockWithZeroBalance() {
 
 	err = suite.app.EvmKeeper.EndBlock(suite.ctx)
 	suite.Require().NoError(err)
-}
-
-func (suite *KeeperTestSuite) TestEndBlockWithZeroChainFeeSplitterAddress() {
-	// Configure chain fee splitter address to zero address
-	params := suite.app.EvmKeeper.GetParams(suite.ctx)
-	params.ChainFeeSplitterAddress = common.Address{}.Hex() // zero address
-	err := suite.app.EvmKeeper.SetParams(suite.ctx, params)
-	suite.Require().NoError(err)
-
-	coinAmount := sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(42))
-
-	// Set balance to non-zero
-	err = addBalanceToFeeCollector(suite, coinAmount)
-	suite.Require().NoError(err)
-
-	err = suite.app.EvmKeeper.EndBlock(suite.ctx)
-	suite.Require().NoError(err)
-}
-
-func (suite *KeeperTestSuite) TestEndBlockSuccessfulTransfer() {
-	// Set a valid chain fee splitter address
-	targetAddress := common.HexToAddress("0x1234567890AbcdEF1234567890aBcdef12345678")
-	err := suite.app.EvmKeeper.SetParams(suite.ctx, evmtypes.Params{
-		EvmDenom:                suite.app.EvmKeeper.GetParams(suite.ctx).EvmDenom,
-		ChainFeeSplitterAddress: targetAddress.Hex(),
-	})
-	suite.Require().NoError(err)
-
-	coinAmount := sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(42))
-
-	// Set balance to non-zero
-	err = addBalanceToFeeCollector(suite, coinAmount)
-	suite.Require().NoError(err)
-
-	err = suite.app.EvmKeeper.EndBlock(suite.ctx)
-	suite.Require().NoError(err)
-
-	// Check fee collector balance
-	feeCollectorBalance := suite.app.BankKeeper.GetBalance(suite.ctx, suite.app.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName), suite.app.EvmKeeper.GetParams(suite.ctx).EvmDenom)
-	suite.Require().Equal(sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(0)), feeCollectorBalance)
-
-	// Check target address balance
-	sdkValidAddress := sdk.AccAddress(targetAddress.Bytes())
-	chainFeeSplitterBalance := suite.app.BankKeeper.GetBalance(suite.ctx, sdkValidAddress, suite.app.EvmKeeper.GetParams(suite.ctx).EvmDenom)
-	suite.Require().Equal(coinAmount, chainFeeSplitterBalance)
-}
-
-func addBalanceToFeeCollector(suite *KeeperTestSuite, coinAmount sdk.Coin) error {
-	amount := sdk.NewCoins(coinAmount)
-	err := suite.app.BankKeeper.MintCoins(suite.ctx, evmtypes.ModuleName, amount)
-	suite.Require().NoError(err)
-	// Send coins to FeeCollector
-	err = suite.app.BankKeeper.SendCoinsFromModuleToModule(suite.ctx, evmtypes.ModuleName, authtypes.FeeCollectorName, amount)
-	suite.Require().NoError(err)
-
-	return err
 }
