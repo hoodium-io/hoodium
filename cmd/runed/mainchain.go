@@ -575,7 +575,9 @@ func initGenesisFiles(
 
 	var crisisGenState crisistypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[crisistypes.ModuleName], &crisisGenState)
-	crisisGenState.ConstantFee.Denom = coinDenom
+	// Anti-spam fee for MsgVerifyInvariant. The SDK default is 1000; raised so a
+	// manual invariant check is not free to spam. Denom must be the chain denom.
+	crisisGenState.ConstantFee = sdk.NewCoin(coinDenom, sdkmath.NewInt(10_000))
 	appGenState[crisistypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&crisisGenState)
 
 	var slashingGenState slashingtypes.GenesisState
