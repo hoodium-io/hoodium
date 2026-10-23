@@ -55,8 +55,6 @@ message Params {
   reserved "chain_fee_splitter_address", "hoodi_minter_address";
 }
 
-}
-
 // PrecompileVersionInfo defines the version of a custom EVM precompile.
 message PrecompileVersionInfo {
   // precompile_address represents the EVM address of the precompile.
