@@ -55,6 +55,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	crisistypes "github.com/cosmos/cosmos-sdk/x/crisis/types"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -579,6 +580,16 @@ func initGenesisFiles(
 	// manual invariant check is not free to spam. Denom must be the chain denom.
 	crisisGenState.ConstantFee = sdk.NewCoin(coinDenom, sdkmath.NewInt(10_000))
 	appGenState[crisistypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&crisisGenState)
+
+	var distrGenState distrtypes.GenesisState
+	clientCtx.Codec.MustUnmarshalJSON(appGenState[distrtypes.ModuleName], &distrGenState)
+	// Community tax is set to 0 so no share of collected fees is diverted to the
+	// community pool. The pool cannot be spent on Hoodium: spending requires
+	// MsgCommunityPoolSpend signed by the authority, and the authority here is
+	// the x/evm module account while governance is not wired. Any non-zero tax
+	// would accumulate unreachable funds.
+	distrGenState.Params.CommunityTax = sdkmath.LegacyZeroDec()
+	appGenState[distrtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&distrGenState)
 
 	var slashingGenState slashingtypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[slashingtypes.ModuleName], &slashingGenState)
