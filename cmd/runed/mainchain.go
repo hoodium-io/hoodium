@@ -724,6 +724,18 @@ func initGenesisFiles(
 		return fmt.Errorf("failed to validate genesis file: %w", err)
 	}
 
+	// Drop the deprecated distribution proposer-reward fields from the written
+	// genesis. They are inert (always zero, and MsgUpdateParams rejects any
+	// non-zero value), but ProtoMarshalJSON emits every field, so they would
+	// otherwise be baked into genesis.json. Removing them here — rather than
+	// editing the file afterwards — keeps the output reproducible across runs.
+	//
+	// The genesis loader accepts their absence: jsonpb only rejects *unknown*
+	// fields, and a missing LegacyDec decodes to its zero value.
+	if err := omitDeprecatedDistributionFields(appGenState); err != nil {
+		return err
+	}
+
 	appGenStateJSON, err := json.MarshalIndent(appGenState, "", "  ")
 	if err != nil {
 		return err
@@ -763,6 +775,55 @@ func initGenesisFiles(
 			return err
 		}
 	}
+	return nil
+}
+
+// omitDeprecatedDistributionFields deletes the deprecated proposer-reward keys
+// from the distribution params in the marshalled app state.
+//
+// The keys are `base_proposer_reward` and `bonus_proposer_reward`. The SDK
+// always emits them because ProtoMarshalJSON sets EmitDefaults; they carry no
+// information (permanently zero, and setting them is rejected by MsgUpdateParams)
+// so they are removed to keep genesis.json free of dead fields.
+//
+// The distribution module's own ValidateGenesis and InitGenesis do not read
+// these fields, so the result loads cleanly.
+func omitDeprecatedDistributionFields(appGenState map[string]json.RawMessage) error {
+	raw, ok := appGenState[distrtypes.ModuleName]
+	if !ok {
+		return nil
+	}
+
+	var distrState map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &distrState); err != nil {
+		return fmt.Errorf("failed to decode distribution genesis: %w", err)
+	}
+
+	rawParams, ok := distrState["params"]
+	if !ok {
+		return nil
+	}
+
+	var params map[string]json.RawMessage
+	if err := json.Unmarshal(rawParams, &params); err != nil {
+		return fmt.Errorf("failed to decode distribution params: %w", err)
+	}
+
+	delete(params, "base_proposer_reward")
+	delete(params, "bonus_proposer_reward")
+
+	encodedParams, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("failed to encode distribution params: %w", err)
+	}
+	distrState["params"] = encodedParams
+
+	encodedState, err := json.Marshal(distrState)
+	if err != nil {
+		return fmt.Errorf("failed to encode distribution genesis: %w", err)
+	}
+	appGenState[distrtypes.ModuleName] = encodedState
+
 	return nil
 }
 
