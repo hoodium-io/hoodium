@@ -315,9 +315,27 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 			}
 
 			// --- 3. Moniker -----------------------------------------------------
+			//
+			// The prompt is printed with fmt.Print rather than passed to
+			// input.GetString, because GetString only emits its prompt when
+			// stdin is a TTY (`inputIsTty()` in the SDK). Piping setup, or
+			// running it under a wrapper, silently hides the question — the
+			// read still happens, so the step looks missing and whatever was
+			// typed is accepted unverified.
+			//
+			// This matters for the moniker in particular: CometBFT's default
+			// moniker is the machine's HOSTNAME (`getDefaultMoniker`), which on
+			// a VPS is often long and meaningless. Always show the question so
+			// the operator consciously picks the name.
 			if moniker == "" {
 				var err error
-				moniker, err = input.GetString("Enter a moniker for your node", inBuf)
+				fmt.Println()
+				fmt.Println("Enter a moniker for your node.")
+				fmt.Println("  This is your node's public display name (it is not the wallet key).")
+				fmt.Println("  Do NOT accept the default hostname — pick something short and recognisable,")
+				fmt.Println("  e.g. \"hoodium-node-1\" or your validator brand.")
+				fmt.Print("Moniker: ")
+				moniker, err = input.GetString("", inBuf)
 				if err != nil {
 					return err
 				}
@@ -325,23 +343,31 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 					return fmt.Errorf("moniker must not be empty")
 				}
 			}
+			moniker = strings.TrimSpace(moniker)
 
 			fmt.Printf("\nSetting up a %q node on %q (chain-id %s)\n", nodeType, network, chainID)
+			fmt.Printf("Moniker: %s\n", moniker)
 			fmt.Printf("Home: %s\n\n", home)
 
 			// --- 4. Wallet key name (validator only) ---------------------------
 			if nodeType == nodeTypeValidator && keyName == "" {
 				var err error
-				fmt.Printf("\nNote: using your moniker (%q) as the key name is recommended —\n"+
-					"keeping one name avoids confusion later.\n", moniker)
-				keyName, err = input.GetString("Enter a name for your validator wallet key", inBuf)
+				fmt.Println()
+				fmt.Printf("Enter a name for your validator wallet key.\n")
+				fmt.Printf("  Using your moniker (%q) as the key name is recommended —\n", moniker)
+				fmt.Println("  keeping one name avoids confusion later.")
+				fmt.Printf("Wallet key name [%s]: ", moniker)
+				keyName, err = input.GetString("", inBuf)
 				if err != nil {
 					return err
 				}
+				// An empty answer accepts the suggested moniker, so pressing
+				// Enter keeps the convenient default without hiding the choice.
 				if strings.TrimSpace(keyName) == "" {
-					return fmt.Errorf("key name must not be empty")
+					keyName = moniker
 				}
 			}
+			keyName = strings.TrimSpace(keyName)
 
 			// Manual mode: print the copy-paste guide.
 			if mode == setupModeManual {
