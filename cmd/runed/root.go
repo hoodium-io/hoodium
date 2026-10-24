@@ -46,6 +46,7 @@ import (
 	"cosmossdk.io/store"
 	"cosmossdk.io/store/snapshots"
 	snapshottypes "cosmossdk.io/store/snapshots/types"
+	upgradecli "cosmossdk.io/x/upgrade/client/cli"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -56,13 +57,18 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	authzcli "github.com/cosmos/cosmos-sdk/x/authz/client/cli"
+	bankcli "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
+	distrcli "github.com/cosmos/cosmos-sdk/x/distribution/client/cli"
+	stakingcli "github.com/cosmos/cosmos-sdk/x/staking/client/cli"
 	runeclient "github.com/hoodium-io/hoodium/client"
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/evm/eip712"
 	runeserver "github.com/hoodium-io/hoodium/server"
 	servercfg "github.com/hoodium-io/hoodium/server/config"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
+	evmcli "github.com/hoodium-io/hoodium/x/evm/client/cli"
 
 	"github.com/hoodium-io/hoodium/app"
 	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
@@ -159,7 +165,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	rootCmd.AddCommand(
 		sdkserver.StatusCommand(),
 		queryCommand(),
-		txCommand(),
+		txCommand(encodingConfig),
 		runeclient.KeyCommands(app.DefaultNodeHome),
 	)
 	rootCmd, err := srvflags.AddTxFlags(rootCmd)
@@ -198,14 +204,23 @@ func queryCommand() *cobra.Command {
 }
 
 // txCommand builds the `tx` command tree: the auth helpers for signing and
-// broadcasting, plus every module's transaction commands via
-// ModuleBasics.AddTxCommands (bank send, staking create-validator, slashing
-// unjail, ...).
+// broadcasting, plus the module transaction commands (bank send, staking
+// create-validator, distribution, authz, upgrade, evm).
 //
 // Without this the binary exposes no way to submit a transaction — not even a
 // plain token transfer — because `srvflags.AddTxFlags` only attaches flags to
 // the root command; it does not build the command tree.
-func txCommand() *cobra.Command {
+//
+// The module commands are constructed here with the address codecs from the
+// encoding config, rather than via ModuleBasics.AddTxCommands. ModuleBasics
+// holds zero-value AppModuleBasic structs whose codec fields are nil, and
+// staking/distribution/authz/upgrade dereference that codec inside GetTxCmd,
+// which panics. Building them from real codecs avoids that.
+func txCommand(encodingConfig params.EncodingConfig) *cobra.Command {
+	signingCtx := encodingConfig.InterfaceRegistry.SigningContext()
+	valAddrCodec := signingCtx.ValidatorAddressCodec()
+	addrCodec := signingCtx.AddressCodec()
+
 	cmd := &cobra.Command{
 		Use:                        "tx",
 		Aliases:                    []string{"txs"},
@@ -225,9 +240,13 @@ func txCommand() *cobra.Command {
 		authcmd.GetEncodeCommand(),
 		authcmd.GetDecodeCommand(),
 		authcmd.GetSimulateCmd(),
+		bankcli.NewTxCmd(addrCodec),
+		stakingcli.NewTxCmd(valAddrCodec, addrCodec),
+		distrcli.NewTxCmd(valAddrCodec, addrCodec),
+		authzcli.GetTxCmd(addrCodec),
+		upgradecli.GetTxCmd(addrCodec),
+		evmcli.GetTxCmd(),
 	)
-
-	app.ModuleBasics.AddTxCommands(cmd)
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
 	return cmd
