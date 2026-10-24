@@ -223,14 +223,20 @@ func printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBa
 		fmt.Printf("runed start %s\n\n", base)
 
 		fmt.Println("# 6. Create the validator (in another terminal, once synced).")
-		fmt.Println("VOTE_PUBKEY=$(runed tendermint show-validator " + base + ")")
-		fmt.Printf(
-			"runed tx staking create-validator --amount %s --pubkey \"$VOTE_PUBKEY\" "+
-				"--moniker %s --commission-rate 0.05 "+
-				"--min-self-delegation 500000000000000000000000 "+
-				"--from %s --keyring-backend %s %s\n\n",
-			stakeAmount, moniker, keyName, keyringBackend, base,
-		)
+		fmt.Println("#    create-validator takes a JSON file, not inline flags. Build it with")
+		fmt.Println("#    your consensus pubkey, then submit the file:")
+		fmt.Printf("runed tendermint show-validator %s   # -> the \"pubkey\" value\n", base)
+		fmt.Println("#    validator.json:")
+		fmt.Println("#      {")
+		fmt.Println("#        \"pubkey\": <the JSON object printed above>,")
+		fmt.Printf("#        \"amount\": \"%s\",\n", stakeAmount)
+		fmt.Printf("#        \"moniker\": \"%s\",\n", moniker)
+		fmt.Println("#        \"commission-rate\": \"0.05\",")
+		fmt.Println("#        \"commission-max-rate\": \"0.25\",")
+		fmt.Println("#        \"commission-max-change-rate\": \"0.01\",")
+		fmt.Println("#        \"min-self-delegation\": \"500000000000000000000000\"")
+		fmt.Println("#      }")
+		fmt.Printf("runed tx staking create-validator validator.json --from %s --keyring-backend %s --chain-id %s %s --gas auto --gas-adjustment 1.3 --fees 1000arune -y\n\n", keyName, keyringBackend, chainID, base)
 		fmt.Println("NOTE: there is no gentx step. Hoodium genesis is generated in one")
 		fmt.Println("pass by the team, so a joining validator uses create-validator.")
 	} else {
@@ -357,8 +363,13 @@ func runSetupAutomated(
 		fmt.Println("    3. Fund your wallet (>= 500,000 RUNE self-delegation).")
 		fmt.Println("    4. Start the node and let it FULLY sync.")
 		fmt.Printf("         runed start --home %s\n", home)
-		fmt.Println("    5. In another terminal, create your validator:")
-		fmt.Println("         runed tx staking create-validator ... --from " + keyName)
+		fmt.Println("    5. In another terminal, create your validator.")
+		fmt.Println("       create-validator takes a JSON file, not inline flags:")
+		fmt.Println("         runed tendermint show-validator --home " + home)
+		fmt.Println("         # put that JSON object in validator.json's \"pubkey\" field, then:")
+		fmt.Println("         runed tx staking create-validator validator.json \\")
+		fmt.Println("           --from " + keyName + " --keyring-backend " + keyringBackend + " \\")
+		fmt.Println("           --gas auto --gas-adjustment 1.3 --fees 1000arune -y")
 		fmt.Println()
 		fmt.Println("  Full guide: docs/validator.md")
 	default:

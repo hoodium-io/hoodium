@@ -99,24 +99,63 @@ runed status --home ~/.runed        # look at latest_block_height / catching_up
 
 ### Step 6 — create the validator
 
-In a **second terminal** (the node keeps running):
+`create-validator` takes a **JSON file**, not inline flags. Build the file, then
+submit it.
+
+**6a — get your consensus public key.** This prints a JSON object (your node's
+CometBFT validator key, in the form the next step needs):
 
 ```bash
-runed tx staking create-validator \
-  --amount 500000000000000000000000arune \
-  --pubkey "$(runed tendermint show-validator --home ~/.runed)" \
-  --moniker <your-moniker> \
-  --commission-rate 0.05 \
-  --commission-max-rate 0.25 \
-  --commission-max-change-rate 0.01 \
-  --min-self-delegation 500000000000000000000000 \
+runed tendermint show-validator --home ~/.runed
+```
+
+It looks like:
+
+```json
+{"@type":"/cosmos.crypto.ed25519.PubKey","key":"oWg2ISpLF405Jcm2vXV+2v4fnjodh6aafuIdeoW+rUw="}
+```
+
+**6b — write `validator.json`** with that object in the `pubkey` field:
+
+```json
+{
+  "pubkey": {"@type":"/cosmos.crypto.ed25519.PubKey","key":"oWg2ISpLF405Jcm2vXV+2v4fnjodh6aafuIdeoW+rUw="},
+  "amount": "500000000000000000000000arune",
+  "moniker": "your-moniker",
+  "commission-rate": "0.05",
+  "commission-max-rate": "0.25",
+  "commission-max-change-rate": "0.01",
+  "min-self-delegation": "500000000000000000000000"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `pubkey` | Your consensus key, exactly as `show-validator` prints it |
+| `amount` | Self-delegation, in **base denom** (`arune`). Minimum 500,000 RUNE. |
+| `moniker` | Your validator's display name |
+| `commission-rate` | Initial commission — must be **≥ 5%** (chain minimum) |
+| `commission-max-rate` | Upper bound the rate can ever reach |
+| `commission-max-change-rate` | Largest single rate change |
+| `min-self-delegation` | Minimum self-bond; must be ≤ `amount` |
+
+Optional fields: `identity`, `website`, `security`, `details`.
+
+**6c — submit it** (in a second terminal, while the node runs and is synced):
+
+```bash
+runed tx staking create-validator validator.json \
   --from <key-name> \
   --chain-id rune_6590-1 \
   --keyring-backend file \
   --home ~/.runed \
-  --gas auto --gas-adjustment 1.3 \
+  --gas auto --gas-adjustment 1.3 --fees 1000arune \
   -y
 ```
+
+> ⚠️ **The `--amount` / `--pubkey` / `--moniker` flags do not exist.** In Cosmos SDK
+> v0.50 those values are read from the JSON file only; passing them as flags is
+> rejected. Keep the file — it documents the terms you bonded under.
 
 ### Step 7 — confirm you are in the active set
 
@@ -178,4 +217,38 @@ return to the account once the period elapses.
   is offline.
 - Only a validator's **public consensus key** is public; `config/priv_validator_key.json`
   never leaves your node. Back it up — losing it means you cannot sign.
-- To unjail after downtime: `runed tx slashing unjail --from <key-name> --home ~/.runed`.
+
+## Unjailing after downtime
+
+If your validator misses too many blocks it is **jailed** and stops earning. Once
+the jail period has elapsed, unjail it.
+
+**There is no `runed tx slashing unjail` command** — Hoodium exposes slashing
+actions through the EVM, not as native Cosmos transactions. Call the **staking
+precompile's `unjail` method** instead.
+
+| | |
+|---|---|
+| Precompile address | `0x19be000000000000000000000000000000000003` |
+| Method | `unjail(address validator)` |
+| Argument | The validator's **operator address** (the `0x…` form of your `runevaloper1…`) |
+| Caller | **Must be the operator itself** — the precompile rejects any other sender |
+
+Because the caller must be the operator, call it **from the same EVM account that
+owns the validator** (the account holding your self-delegation). An operator
+address and its account address are the same 20 bytes, so the check is exact.
+
+```javascript
+// viem / ethers — send from the operator account
+const abi = ["function unjail(address validator) returns (bool)"];
+await walletClient.writeContract({
+  address: "0x19be000000000000000000000000000000000003",
+  abi,
+  functionName: "unjail",
+  args: ["0x<validator-operator-address>"],
+});
+```
+
+> The method simply forwards to `x/slashing`'s unjail, so the usual preconditions
+> apply: the jail period must have elapsed, and your self-delegation must still be
+> at or above `min-self-delegation`. Calling it early fails with a clear error.
