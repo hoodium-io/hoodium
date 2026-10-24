@@ -99,9 +99,15 @@ runed keys list --keyring-backend file --home ~/.runed
 Fund it like any account:
 
 ```bash
-runed tx bank send <your-key> <multisig-address> 1000000arune \
-  --chain-id rune_6590-1 --keyring-backend file --home ~/.runed
+runed tx bank send <your-key> <multisig-address> 1000rune \
+  --chain-id rune_6590-1 --keyring-backend file --home ~/.runed \
+  --gas auto --gas-adjustment 1.3 --fees 1000arune -y
 ```
+
+> **Amounts:** `rune` is a registered display denomination (1 RUNE = 10^18 `arune`), so
+> `1000rune` and `1000000000000000000000arune` are the same amount. Fees are always in the
+> **base** denom (`arune`) and must be provided — the node's `minimum-gas-prices` floor
+> (default `0.0000025arune` per gas) rejects a transaction that carries no fee.
 
 ## Signing a transaction
 
@@ -110,10 +116,11 @@ A multisig spend is **not** a single command. The flow is: build once, sign by
 
 ```bash
 # 1. Generate the unsigned transaction
-runed tx bank send <multisig-address> <recipient> 500arune \
+runed tx bank send <multisig-address> <recipient> 100rune \
   --from foundation \
   --chain-id rune_6590-1 \
   --keyring-backend file --home ~/.runed \
+  --gas auto --gas-adjustment 1.3 --fees 1000arune \
   --generate-only > unsigned.json
 
 # 2. Each required member signs the SAME unsigned.json
