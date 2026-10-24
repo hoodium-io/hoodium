@@ -159,6 +159,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	rootCmd.AddCommand(
 		sdkserver.StatusCommand(),
 		queryCommand(),
+		txCommand(),
 		runeclient.KeyCommands(app.DefaultNodeHome),
 	)
 	rootCmd, err := srvflags.AddTxFlags(rootCmd)
@@ -191,6 +192,42 @@ func queryCommand() *cobra.Command {
 	)
 
 	app.ModuleBasics.AddQueryCommands(cmd)
+	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
+
+	return cmd
+}
+
+// txCommand builds the `tx` command tree: the auth helpers for signing and
+// broadcasting, plus every module's transaction commands via
+// ModuleBasics.AddTxCommands (bank send, staking create-validator, slashing
+// unjail, ...).
+//
+// Without this the binary exposes no way to submit a transaction — not even a
+// plain token transfer — because `srvflags.AddTxFlags` only attaches flags to
+// the root command; it does not build the command tree.
+func txCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                        "tx",
+		Aliases:                    []string{"txs"},
+		Short:                      "Transactions subcommands",
+		DisableFlagParsing:         true,
+		SuggestionsMinimumDistance: 2,
+		RunE:                       client.ValidateCmd,
+	}
+
+	cmd.AddCommand(
+		authcmd.GetSignCommand(),
+		authcmd.GetSignBatchCommand(),
+		authcmd.GetMultiSignCommand(),
+		authcmd.GetMultiSignBatchCmd(),
+		authcmd.GetValidateSignaturesCommand(),
+		authcmd.GetBroadcastCommand(),
+		authcmd.GetEncodeCommand(),
+		authcmd.GetDecodeCommand(),
+		authcmd.GetSimulateCmd(),
+	)
+
+	app.ModuleBasics.AddTxCommands(cmd)
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
 	return cmd

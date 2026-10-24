@@ -126,7 +126,7 @@ runed tx sign unsigned.json \
 # ... repeat with bob / carol until K signatures exist
 
 # 3. Combine the signatures into one multisig signature
-runed tx multisign unsigned.json foundation alice-sig.json bob-sig.json \
+runed tx multi-sign unsigned.json foundation alice-sig.json bob-sig.json \
   --chain-id rune_6590-1 \
   --keyring-backend file --home ~/.runed \
   --output-document signed.json
