@@ -96,6 +96,43 @@ an already-running chain later, so a single initial validator boots the network.
 
 Non-interactive use is possible by passing the flags below.`
 
+// resolveChoice maps a prompt answer to one of the allowed options.
+//
+// It accepts the full option name ("automated") or its first letter ("a"), case
+// insensitively, so users can answer these prompts with a single keystroke. The
+// empty answer is returned unchanged so the caller's own validation reports it.
+func resolveChoice(answer string, options ...string) (string, bool) {
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	if answer == "" {
+		return "", false
+	}
+
+	for _, opt := range options {
+		if answer == opt {
+			return opt, true
+		}
+	}
+
+	// Single letter: match the option with that initial. Ambiguous initials are
+	// rejected rather than guessed.
+	if len(answer) == 1 {
+		var match string
+		for _, opt := range options {
+			if strings.HasPrefix(opt, answer) {
+				if match != "" {
+					return "", false // ambiguous
+				}
+				match = opt
+			}
+		}
+		if match != "" {
+			return match, true
+		}
+	}
+
+	return "", false
+}
+
 // setupDeps carries the app wiring the setup command needs to EXECUTE the
 // bootstrap commands (init, keys add) in automated mode.
 type setupDeps struct {
@@ -209,13 +246,22 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 			// --- 0. Mode --------------------------------------------------------
 			if mode == "" {
 				var err error
-				mode, err = input.GetString(
-					"Do you want the setup to be [automated] (run it for you) or [manual] (print the steps)?",
+				var answer string
+				answer, err = input.GetString(
+					"Do you want the setup to be [a]utomated (run it for you) or [m]anual (print the steps)?",
 					inBuf,
 				)
 				if err != nil {
 					return err
 				}
+
+				resolved, ok := resolveChoice(answer, setupModeAutomated, setupModeManual)
+				if !ok {
+					return fmt.Errorf(
+						"invalid mode %q (type a for automated or m for manual)", strings.TrimSpace(answer),
+					)
+				}
+				mode = resolved
 			}
 			mode = strings.ToLower(strings.TrimSpace(mode))
 			if mode != setupModeAutomated && mode != setupModeManual {
@@ -242,12 +288,21 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 			// --- 2. Node type ---------------------------------------------------
 			if nodeType == "" {
 				var err error
-				nodeType, err = input.GetString(
-					"Set up a [validator] node or a [seed] (non-validating) node?", inBuf,
+				var answer string
+				answer, err = input.GetString(
+					"Set up a [v]alidator node or a [s]eed (non-validating) node?", inBuf,
 				)
 				if err != nil {
 					return err
 				}
+
+				resolved, ok := resolveChoice(answer, nodeTypeValidator, nodeTypeSeed)
+				if !ok {
+					return fmt.Errorf(
+						"invalid node type %q (type v for validator or s for seed)", strings.TrimSpace(answer),
+					)
+				}
+				nodeType = resolved
 			}
 			nodeType = strings.ToLower(strings.TrimSpace(nodeType))
 			if nodeType != nodeTypeValidator && nodeType != nodeTypeSeed {
@@ -272,6 +327,8 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 			// --- 4. Wallet key name (validator only) ---------------------------
 			if nodeType == nodeTypeValidator && keyName == "" {
 				var err error
+				fmt.Printf("\nNote: using your moniker (%q) as the key name is recommended —\n"+
+					"keeping one name avoids confusion later.\n", moniker)
 				keyName, err = input.GetString("Enter a name for your validator wallet key", inBuf)
 				if err != nil {
 					return err
