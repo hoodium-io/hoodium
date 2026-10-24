@@ -988,7 +988,14 @@ func customEvmPrecompiles(
 	// unjail a validator. `MsgUnjail` is a native Cosmos msg and is unreachable
 	// on Hoodium (the ante handler routes only EVM txs), so the precompile is the
 	// only recovery path for a jailed validator.
-	stakingVersionMap, err := stakingprecompile.NewPrecompileVersionMap(stakingKeeper, slashingKeeper)
+	stakingVersionMap, err := stakingprecompile.NewPrecompileVersionMap(
+		stakingKeeper,
+		slashingKeeper,
+		// The staking module's own message server. Routing createValidator
+		// through it (rather than hand-building a validator) keeps the
+		// precompile identical to the MsgCreateValidator transaction path.
+		newStakingMsgServerAdapter(stakingKeeper),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create staking precompile: [%w]", err)
 	}

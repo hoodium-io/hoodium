@@ -26,3 +26,24 @@ var (
 	// 50% of the leftover gas will be refunded
 	MainnetMinGasMultiplier = sdkmath.LegacyNewDecWithPrec(5, 1)
 )
+
+// RecommendedGasPrice is the gas price (in arune per gas) that CLI users should
+// pass via `--gas-prices` when submitting a transaction.
+//
+// It is deliberately EQUAL to MainnetMinGasPrices: the chain rejects any fee
+// below `MinGasPrice × gas`, and `--gas-prices` makes the SDK derive the fee
+// from the *simulated* gas limit, so a value exactly at the floor is both
+// sufficient and the cheapest valid choice. There is no headroom to add —
+// paying above the floor only costs the user more.
+//
+// Using `--gas-prices` (rather than `--fees`) is what makes this correct with
+// `--gas auto`: the SDK simulates the gas limit first and then multiplies it by
+// this price, so the resulting fee always clears the floor without the user
+// having to guess the gas. A fixed `--fees` amount cannot do that — it is
+// compared against `MinGasPrice × gas`, so any amount smaller than the floor is
+// rejected outright.
+//
+// Example: a ~300k-gas create-validator needs 300_000 × 20e9 = 6e15 arune
+// (0.006 RUNE). A hardcoded `--fees 1000arune` is 1e-15 RUNE — roughly 6×10^12
+// times too small, and is rejected before the message is ever executed.
+const RecommendedGasPrice = "0.00000002arune"
