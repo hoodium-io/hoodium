@@ -147,6 +147,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		NewSetupCmd(setupDeps{
 			mbm:         app.ModuleBasics,
 			txConfig:    encodingConfig.TxConfig,
+			codec:       encodingConfig.Codec,
 			defaultHome: app.DefaultNodeHome,
 		}),
 		tmcli.NewCompletionCmd(rootCmd, true),

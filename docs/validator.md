@@ -115,7 +115,12 @@ It looks like:
 {"@type":"/cosmos.crypto.ed25519.PubKey","key":"oWg2ISpLF405Jcm2vXV+2v4fnjodh6aafuIdeoW+rUw="}
 ```
 
-**6b — write `validator.json`** with that object in the `pubkey` field:
+**6b — write `validator.json`.** Run `runed setup` and this file is generated for
+you automatically at **`<home>/validator.json`** (default `~/.runed/validator.json`),
+already containing your consensus pubkey. Edit it if you want a different moniker or
+amount.
+
+If you set the node up manually, create it yourself with the object from 6a:
 
 ```json
 {

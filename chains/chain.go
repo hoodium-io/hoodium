@@ -12,11 +12,13 @@ import (
 
 //go:embed all:mainnet
 //go:embed all:testnet
+//go:embed all:devnet
 var fs embed.FS
 
 const (
 	mainnetPath = "mainnet"
 	testnetPath = "testnet"
+	devnetPath  = "devnet"
 	genesisFile = "genesis.json"
 	seedsFile   = "seeds.txt"
 )
@@ -46,6 +48,10 @@ func LoadConfig(chainID string) (Config, error) {
 		baseDir = mainnetPath
 	} else if utils.IsTestnet(chainID) {
 		baseDir = testnetPath
+	} else if utils.IsDevnet(chainID) {
+		// Devnet is a full mainnet replica for accelerated testing, so it uses
+		// the same predefined-config mechanism as the other networks.
+		baseDir = devnetPath
 	} else {
 		return Config{}, fmt.Errorf("chain-id %s is not supported", chainID)
 	}

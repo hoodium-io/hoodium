@@ -2,19 +2,49 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	pvm "github.com/cometbft/cometbft/privval"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/input"
+	"github.com/cosmos/cosmos-sdk/codec"
+	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	runeclient "github.com/hoodium-io/hoodium/client"
 	"github.com/hoodium-io/hoodium/utils"
 )
+
+// ensureInheritedFlags registers the root's persistent flags on a child command
+// when the child does not already define them.
+//
+// setup executes child commands standalone (child.ExecuteContext), bypassing the
+// root, so flags the root normally injects — --home, --chain-id,
+// --keyring-backend — are absent and would be rejected as unknown. Registering
+// them here reproduces what the root would have done.
+func ensureInheritedFlags(cmd *cobra.Command) {
+	if cmd.Flags().Lookup(flags.FlagHome) == nil {
+		cmd.Flags().String(flags.FlagHome, "", "The application home directory")
+	}
+	if cmd.Flags().Lookup(flags.FlagChainID) == nil {
+		cmd.Flags().String(flags.FlagChainID, "", "Specify Chain ID for sending Tx")
+	}
+	if cmd.Flags().Lookup(flags.FlagKeyringBackend) == nil {
+		cmd.Flags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend")
+	}
+}
+
+// minSelfDelegationAmount is the default self-delegation written into the
+// generated validator.json: 500,000 RUNE, in the base denom.
+const minSelfDelegationAmount = "500000000000000000000000"
 
 // Node types selectable in the guided setup.
 const (
@@ -71,7 +101,85 @@ Non-interactive use is possible by passing the flags below.`
 type setupDeps struct {
 	mbm         module.BasicManager
 	txConfig    client.TxConfig
+	codec       codec.Codec
 	defaultHome string
+}
+
+// validatorJSONName is the file `create-validator` reads. The SDK requires a JSON
+// file rather than flags (see cosmos-sdk#14864), so setup writes one for the user.
+const validatorJSONName = "validator.json"
+
+// writeValidatorJSONFile writes a ready-to-submit create-validator input file
+// into the node's home directory.
+//
+// It reads the node's consensus public key from priv_validator_key.json (written
+// by `init`) and fills in the remaining terms, so the operator only has to edit
+// the moniker/amount if they want something other than the defaults.
+//
+// The file is deliberately placed in the node home rather than a temp dir: it
+// records the exact terms the validator was created under, and create-validator
+// must be run after the node has synced (potentially hours later, in a different
+// shell).
+func writeValidatorJSONFile(
+	cdc codec.Codec, home, moniker, stakeAmount string,
+) (string, error) {
+	privValPath := filepath.Join(home, "config", "priv_validator_key.json")
+
+	privVal := pvm.LoadFilePVEmptyState(privValPath, "")
+	pubKey, err := privVal.GetPubKey()
+	if err != nil {
+		return "", fmt.Errorf("failed to read consensus key from %s: %w", privValPath, err)
+	}
+
+	sdkPubKey, err := cryptocodec.FromCmtPubKeyInterface(pubKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert consensus key: %w", err)
+	}
+
+	// Marshal through the app codec so the pubkey carries the "@type" envelope
+	// create-validator expects. A bare Any.MarshalJSON panics without a resolver.
+	pubKeyJSON, err := cdc.MarshalInterfaceJSON(sdkPubKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode consensus key: %w", err)
+	}
+
+	contents, err := buildValidatorJSON(pubKeyJSON, moniker, stakeAmount)
+	if err != nil {
+		return "", err
+	}
+
+	path := filepath.Join(home, validatorJSONName)
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		return "", err
+	}
+
+	return path, nil
+}
+
+// buildValidatorJSON assembles the create-validator input, splicing in the
+// already-marshalled pubkey so its @type envelope is preserved verbatim.
+func buildValidatorJSON(pubKeyJSON json.RawMessage, moniker, stakeAmount string) ([]byte, error) {
+	input := map[string]json.RawMessage{
+		"pubkey":                     pubKeyJSON,
+		"amount":                     mustJSON(stakeAmount),
+		"moniker":                    mustJSON(moniker),
+		"commission-rate":            mustJSON("0.05"),
+		"commission-max-rate":        mustJSON("0.25"),
+		"commission-max-change-rate": mustJSON("0.01"),
+		"min-self-delegation":        mustJSON(minSelfDelegationAmount),
+	}
+
+	return json.MarshalIndent(input, "", "  ")
+}
+
+// mustJSON marshals a string; it can only fail on invalid UTF-8, which cannot
+// occur for the literals and CLI input used here.
+func mustJSON(s string) json.RawMessage {
+	bz, err := json.Marshal(s)
+	if err != nil {
+		panic(err)
+	}
+	return bz
 }
 
 // NewSetupCmd returns the guided first-run setup command.
@@ -316,8 +424,16 @@ func runSetupAutomated(
 		"--" + flags.FlagKeyringBackend, keyringBackend,
 	}
 
+	// run executes a child command directly, without going through the root.
+	//
+	// Commands like `init` do not declare --home / --chain-id / --keyring-backend
+	// themselves; when run under the root they inherit them as persistent flags.
+	// Executing the child standalone would therefore reject those arguments with
+	// "unknown flag", so any inherited flag the caller relies on is registered
+	// here when the child does not already define it.
 	run := func(name string, child *cobra.Command, args []string) error {
 		fmt.Printf("\n── %s ──\n", name)
+		ensureInheritedFlags(child)
 		child.SetArgs(args)
 		child.SetIn(parent.InOrStdin())
 		child.SetOut(parent.OutOrStdout())
@@ -337,6 +453,16 @@ func runSetupAutomated(
 		if err := run("runed keys add", runeclient.KeyCommands(home), keyArgs); err != nil {
 			return fmt.Errorf("keys add failed: %w", err)
 		}
+
+		// 3. validator.json ---------------------------------------------------
+		// create-validator takes a JSON file, not flags, so write one now using
+		// the consensus key that `init` just generated.
+		validatorPath, err := writeValidatorJSONFile(deps.codec, home, moniker, stakeAmount)
+		if err != nil {
+			return fmt.Errorf("failed to write %s: %w", validatorJSONName, err)
+		}
+		fmt.Printf("\n── %s ──\n", validatorJSONName)
+		fmt.Printf("Wrote %s (edit it if you want a different moniker or amount).\n", validatorPath)
 	}
 
 	// 3. Next steps ------------------------------------------------------------
