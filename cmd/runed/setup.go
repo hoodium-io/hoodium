@@ -141,6 +141,10 @@ type setupDeps struct {
 	txConfig    client.TxConfig
 	codec       codec.Codec
 	defaultHome string
+	// gasPrice is the `--gas-prices` value printed in the create-validator
+	// instructions (app.RecommendedGasPrice). Injected rather than imported so
+	// cmd/runed does not depend on the app package.
+	gasPrice string
 }
 
 // validatorJSONName is the file `create-validator` reads. The SDK requires a JSON
@@ -341,7 +345,7 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 
 			// Manual mode: print the copy-paste guide.
 			if mode == setupModeManual {
-				printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount)
+				printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount, deps.gasPrice)
 				return nil
 			}
 
@@ -359,7 +363,7 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 
 // printSetupInstructions prints the copy-pasteable bootstrap sequence for the
 // chosen node type and network.
-func printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount string) {
+func printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount, gasPrice string) {
 	base := fmt.Sprintf("--home %s", home)
 
 	fmt.Println("──────────────────────────────────────────────────────────────")
@@ -402,7 +406,7 @@ func printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBa
 		fmt.Println("#        \"commission-max-change-rate\": \"0.01\",")
 		fmt.Println("#        \"min-self-delegation\": \"500000000000000000000000\"")
 		fmt.Println("#      }")
-		fmt.Printf("runed tx staking create-validator validator.json --from %s --keyring-backend %s --chain-id %s %s --gas auto --gas-adjustment 1.3 --fees 1000arune -y\n\n", keyName, keyringBackend, chainID, base)
+		fmt.Printf("runed tx staking create-validator validator.json --from %s --keyring-backend %s --chain-id %s %s --gas auto --gas-adjustment 1.3 --gas-prices %s -y\n\n", keyName, keyringBackend, chainID, base, gasPrice)
 		fmt.Println("NOTE: there is no gentx step. Hoodium genesis is generated in one")
 		fmt.Println("pass by the team, so a joining validator uses create-validator.")
 	} else {
@@ -577,7 +581,7 @@ func runSetupAutomated(
 		fmt.Println("    5. In another terminal, launch your validator node:")
 		fmt.Println("         runed tx staking create-validator validator.json \\")
 		fmt.Printf("           --from %s --keyring-backend %s \\\n", keyName, keyringBackend)
-		fmt.Println("           --gas auto --gas-adjustment 1.3 --fees 1000arune -y")
+		fmt.Println("           --gas auto --gas-adjustment 1.3 --gas-prices " + deps.gasPrice + " -y")
 		fmt.Println("    6. Secure the node and set up systemd + cron so it restarts on reboot.")
 		fmt.Println()
 		fmt.Println("  Full guide: docs/validator.md")

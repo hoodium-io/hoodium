@@ -149,6 +149,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 			txConfig:    encodingConfig.TxConfig,
 			codec:       encodingConfig.Codec,
 			defaultHome: app.DefaultNodeHome,
+			gasPrice:    app.RecommendedGasPrice,
 		}),
 		tmcli.NewCompletionCmd(rootCmd, true),
 		confixcmd.ConfigCommand(),
