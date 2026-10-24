@@ -360,12 +360,9 @@ prefix from accounts):
 runed keys show mykey --bech val -a --keyring-backend file --home ~/.runed
 ```
 
-> ⚠️ **The 0.1 RUNE minimum delegation is enforced by the staking PRECOMPILE, not
-> by this CLI command.** Cosmos `x/staking` has no min-delegation parameter, and
-> the precompile is the only place Hoodium checks it. A `delegate` issued through
-> the CLI therefore is **not** subject to that floor. Use the precompile
-> (`0x19be…0003`) if you want the minimum enforced; the CLI is a raw staking
-> entry point.
+Minimum delegation is **0.1 RUNE**. It is enforced at **both** delegation entry
+points — this CLI command *and* the staking precompile — so the floor cannot be
+bypassed by choosing one over the other.
 
 Unbonding takes **14 days**.
 

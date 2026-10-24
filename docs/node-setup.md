@@ -24,8 +24,11 @@ You can skip the interactive prompts by passing flags (see below).
 1. **Mode** — `automated` or `manual`
 2. **Network** — `mainnet`, `testnet` or `devnet`
 3. **Node type** — `validator` or `seed` (non-validating)
-4. **Moniker** — a name for your node
-5. **Wallet key name** — (validator only) the account that holds/stakes RUNE
+4. **Moniker** — your node's public display name. **Always type this yourself.**
+   Do not accept the machine hostname: on a VPS that is often long and
+   meaningless. Pick something short and recognisable.
+5. **Wallet key name** — (validator only) the account that holds/stakes RUNE.
+   Press **Enter** to reuse the moniker.
 
 The network choice maps to the chain-id automatically:
 

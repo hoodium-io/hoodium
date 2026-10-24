@@ -51,8 +51,12 @@ creates your wallet key, and writes `validator.json` for you. Answer the prompts
 | Mode | `m` (manual) or `a` (automated) |
 | Network | `mainnet` · `testnet` · `devnet` |
 | Node type | `v` (validator) |
-| Moniker | any name — **reuse it as the key name when asked** |
-| Wallet key name | your moniker (recommended) |
+| Moniker | **Type your own** — a short, recognisable node name. Do **not** accept the machine hostname: on a VPS that is often long and meaningless (e.g. `ip-10-0-1-23.eu-west-1.compute.internal`). |
+| Wallet key name | Press **Enter** to accept your moniker, or type a different key name |
+
+> ⚠️ **The moniker is your node's public display name** and it is written into
+> `config.toml` and `validator.json`. It is *not* the wallet key name, though
+> reusing the same name for both is the recommended convention.
 
 Then **replace** the generated default genesis with the official one:
 
@@ -195,9 +199,12 @@ Your validator is **bonded** once it is in the top **101** by voting power.
 | Max commission rate | 25% |
 | **Unbonding time** | **14 days** |
 
-> A minimum **delegation** of 0.1 RUNE is enforced at the **staking precompile**
-> (`core/staking`). Cosmos staking has no min-delegation parameter, so Hoodium
-> checks it at the precompile, which is the entry point delegation flows through.
+> A minimum **delegation** of 0.1 RUNE is enforced at **both** delegation entry
+> points: the staking precompile (`core/staking`, for EVM wallets) and the Cosmos
+> ante chain (`app/ante/cosmos.MinDelegationDecorator`, for `runed tx staking
+> delegate`). Cosmos staking has no min-delegation parameter, so Hoodium checks
+> it itself — both paths read the same `types.MinDelegation` value, so neither can
+> be used to bypass the floor.
 
 ### About the unbonding time
 
