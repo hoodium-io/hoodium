@@ -44,6 +44,26 @@ const (
 // PowerReduction defines the default power reduction value for staking
 var PowerReduction = sdkmath.NewIntFromBigInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(BaseDenomUnit), nil))
 
+// MinDelegation is the minimum amount of RUNE that may be delegated to a
+// validator in a single delegation, in arune. It is 0.1 RUNE.
+//
+// Cosmos x/staking has NO minimum-delegation parameter (stakingtypes.Params has
+// no such field), so Hoodium enforces this floor itself. It lives here rather
+// than in `core/staking` because it is enforced at BOTH delegation entry points,
+// and this package is the only one they can share:
+//
+//   - the EVM staking precompile (`core/staking`), which serves EVM wallets, and
+//   - the Cosmos ante chain (`app/ante/cosmos`), which serves `runed tx staking
+//     delegate`.
+//
+// Enforcing it in only one place leaves the other wide open — which is exactly
+// what happened before the Cosmos ante chain was wired: the precompile checked
+// it and the CLI did not.
+//
+// A delegation affects a validator's delegator count and index entries, so the
+// floor prevents spam delegations of 1 arune.
+var MinDelegation = sdkmath.NewIntWithDecimal(1, 17) // 0.1 RUNE
+
 // NewHoodiumCoin is a utility function that returns an "arune" coin with the given sdkmath.Int amount.
 // The function will panic if the provided amount is negative.
 func NewHoodiumCoin(amount sdkmath.Int) sdk.Coin {

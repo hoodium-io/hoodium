@@ -15,6 +15,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hoodium-io/hoodium/core"
+	runetypes "github.com/hoodium-io/hoodium/types"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
@@ -40,14 +41,14 @@ type SlashingKeeper interface {
 // MinDelegation is the minimum amount of RUNE that can be delegated in a single
 // `delegate` call, in arune (1 RUNE = 10^18 arune). It is 0.1 RUNE.
 //
-// Cosmos staking has NO minimum-delegation parameter (stakingtypes.Params has no
-// such field), so Hoodium enforces this at the entry point that delegation
-// actually flows through: the staking precompile. Adding a delegation affects a
-// validator's delegator count and index entries, so a dust floor prevents spam
-// delegations of 1 arune.
+// The value is defined in the shared `types` package because it is enforced at
+// BOTH delegation entry points — this precompile (for EVM wallets) and the
+// Cosmos ante chain (for `runed tx staking delegate`). Keeping one definition
+// means the two can never drift apart.
 //
-// NOTE: this is the ENFORCEMENT point for Hoodium's 0.1 RUNE minimum delegation.
-var MinDelegation = sdkmath.NewIntWithDecimal(1, 17) // 0.1 RUNE
+// NOTE: this is the ENFORCEMENT point for EVM wallets; the Cosmos path is
+// enforced by `app/ante/cosmos.MinDelegationDecorator`.
+var MinDelegation = runetypes.MinDelegation
 
 // StakingKeeper is the subset of the x/staking keeper used by this precompile.
 type StakingKeeper interface {
