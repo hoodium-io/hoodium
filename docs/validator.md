@@ -40,23 +40,37 @@ chains/mainchain/genesis.json
 ### Step 1 — initialise the node with the official genesis
 
 ```bash
-runed init <your-moniker> --chain-id rune_6590-1 --home ~/.runed
+runed setup
 ```
+
+`runed setup` initialises the node home (genesis placeholder, config, node keys),
+creates your wallet key, and writes `validator.json` for you. Answer the prompts:
+
+| Prompt | Answer |
+|---|---|
+| Mode | `m` (manual) or `a` (automated) |
+| Network | `mainnet` · `testnet` · `devnet` |
+| Node type | `v` (validator) |
+| Moniker | any name — **reuse it as the key name when asked** |
+| Wallet key name | your moniker (recommended) |
 
 Then **replace** the generated default genesis with the official one:
 
 ```bash
-cp chains/mainchain/genesis.json ~/.runed/config/genesis.json
+git clone https://github.com/hoodium-io/chains
+cp chains/mainchain/<network>/genesis.json ~/.runed/config/genesis.json
 ```
 
-(Adjust the source path to wherever you cloned `hoodium-io/chains`.)
+`<network>` is the one you selected (`mainnet`, `testnet` or `devnet`).
 
 **Verify the genesis hash** against the value published by the team before
 continuing — if it does not match, you are on the wrong network.
 
 ### Step 2 — configure peers
 
-Add the seeds/persistent peers the team published, in `~/.runed/config/config.toml`:
+Add the seeds/persistent peers the team published, in `~/.runed/config/config.toml`.
+They are listed in `chains/mainchain/<network>/seeds.md` in the cloned
+`hoodium-io/chains` repository:
 
 ```toml
 persistent_peers = "<nodeID>@<host>:26656,..."
@@ -99,44 +113,13 @@ runed status --home ~/.runed        # look at latest_block_height / catching_up
 
 ### Step 6 — create the validator
 
-`create-validator` takes a **JSON file**, not inline flags. Build the file, then
-submit it.
-
-**6a — get your consensus public key.** This prints a JSON object (your node's
-CometBFT validator key, in the form the next step needs):
-
-```bash
-runed tendermint show-validator --home ~/.runed
-```
-
-It looks like:
-
-```json
-{"@type":"/cosmos.crypto.ed25519.PubKey","key":"oWg2ISpLF405Jcm2vXV+2v4fnjodh6aafuIdeoW+rUw="}
-```
-
-**6b — write `validator.json`.** Run `runed setup` and this file is generated for
-you automatically at **`<home>/validator.json`** (default `~/.runed/validator.json`),
-already containing your consensus pubkey. Edit it if you want a different moniker or
-amount.
-
-If you set the node up manually, create it yourself with the object from 6a:
-
-```json
-{
-  "pubkey": {"@type":"/cosmos.crypto.ed25519.PubKey","key":"oWg2ISpLF405Jcm2vXV+2v4fnjodh6aafuIdeoW+rUw="},
-  "amount": "500000000000000000000000arune",
-  "moniker": "your-moniker",
-  "commission-rate": "0.05",
-  "commission-max-rate": "0.25",
-  "commission-max-change-rate": "0.01",
-  "min-self-delegation": "500000000000000000000000"
-}
-```
+`create-validator` takes a **JSON file**, not inline flags. `runed setup` already
+generated it for you at **`~/.runed/validator.json`**, containing your consensus
+pubkey and the terms below. Edit it first if you want a different moniker or amount.
 
 | Field | Meaning |
 |---|---|
-| `pubkey` | Your consensus key, exactly as `show-validator` prints it |
+| `pubkey` | Your consensus key, taken from `config/priv_validator_key.json` |
 | `amount` | Self-delegation, in **base denom** (`arune`). Minimum 500,000 RUNE. |
 | `moniker` | Your validator's display name |
 | `commission-rate` | Initial commission — must be **≥ 5%** (chain minimum) |
@@ -146,12 +129,11 @@ If you set the node up manually, create it yourself with the object from 6a:
 
 Optional fields: `identity`, `website`, `security`, `details`.
 
-**6c — submit it** (in a second terminal, while the node runs and is synced):
+**Submit it** (in a second terminal, while the node runs and is synced):
 
 ```bash
 runed tx staking create-validator validator.json \
   --from <key-name> \
-  --chain-id rune_6590-1 \
   --keyring-backend file \
   --home ~/.runed \
   --gas auto --gas-adjustment 1.3 --fees 1000arune \
