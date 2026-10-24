@@ -164,6 +164,28 @@ func (suite *AnteTestSuite) RequireErrorForLegacyTypedData(err error) {
 	}
 }
 
+// supportsEIP712CosmosTx reports whether this suite's signing flavour is one the
+// chain accepts.
+//
+// Hoodium wires only the MODERN EIP-712 path for Cosmos transactions. The two
+// legacy variants are Evmos backwards-compatibility scaffolding for wallets that
+// predate the chain:
+//
+//   - `useLegacyEIP712Extension` wraps the tx in `ExtensionOptionsWeb3Tx`, a
+//     fee-delegation extension that Hoodium does not handle (its
+//     `ExtensionOptionChecker` accepts only `ExtensionOptionDynamicFeeTx`), and
+//   - `useLegacyEIP712TypedData` produces a SignDoc the legacy encoder cannot
+//     represent, so the test helper deliberately substitutes an empty tx.
+//
+// Hoodium is a fresh chain with no prior state and therefore no legacy wallets,
+// so neither variant needs to be accepted. Legacy EIP-712 *signatures* are still
+// verified — `ethsecp256k1.PubKey.VerifySignature` tries both the modern and the
+// legacy encodings — it is only these two legacy transaction shapes that are
+// rejected.
+func (suite *AnteTestSuite) supportsEIP712CosmosTx() bool {
+	return !suite.useLegacyEIP712Extension && !suite.useLegacyEIP712TypedData
+}
+
 func (suite *AnteTestSuite) TxForLegacyTypedData(txBuilder client.TxBuilder) sdk.Tx {
 	if suite.useLegacyEIP712TypedData {
 		// Since the TxBuilder will be nil on failure,

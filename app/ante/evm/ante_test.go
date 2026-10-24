@@ -312,7 +312,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712TxBuilderMsgSend(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.Require().NoError(err)
 				return txBuilder.GetTx()
-			}, false, false, true,
+			}, false, false, suite.supportsEIP712CosmosTx(),
 		},
 		{
 			"success - DeliverTx EIP712 Multiple MsgSend",
@@ -324,7 +324,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712MultipleMsgSend(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.Require().NoError(err)
 				return txBuilder.GetTx()
-			}, false, false, true,
+			}, false, false, suite.supportsEIP712CosmosTx(),
 		},
 		{
 			"success - DeliverTx EIP712 Multiple Different Msgs",
@@ -336,7 +336,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712MultipleDifferentMsgs(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.RequireErrorForLegacyTypedData(err)
 				return suite.TxForLegacyTypedData(txBuilder)
-			}, false, false, true,
+			}, false, false, suite.supportsEIP712CosmosTx(),
 		},
 		{
 			"success - DeliverTx EIP712 Same Msgs, Different Schemas",
@@ -348,7 +348,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712SameMsgDifferentSchemas(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.RequireErrorForLegacyTypedData(err)
 				return suite.TxForLegacyTypedData(txBuilder)
-			}, false, false, true,
+			}, false, false, suite.supportsEIP712CosmosTx(),
 		},
 		{
 			"success - DeliverTx EIP712 Zero Value Array (Should Not Omit Field)",
@@ -360,7 +360,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712ZeroValueArray(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.RequireErrorForLegacyTypedData(err)
 				return suite.TxForLegacyTypedData(txBuilder)
-			}, false, false, true,
+			}, false, false, suite.supportsEIP712CosmosTx(),
 		},
 		{
 			"success - DeliverTx EIP712 Zero Value Number (Should Not Omit Field)",
@@ -372,7 +372,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712ZeroValueNumber(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.RequireErrorForLegacyTypedData(err)
 				return suite.TxForLegacyTypedData(txBuilder)
-			}, false, false, true,
+			}, false, false, suite.supportsEIP712CosmosTx(),
 		},
 		{
 			"fail - DeliverTx EIP712 Multiple Signers",

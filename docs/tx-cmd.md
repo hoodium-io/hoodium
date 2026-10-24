@@ -110,7 +110,7 @@ the same amount:
 ### Example — send 1000 RUNE
 
 ```bash
-runed tx bank send mykey rune1dx67l23hz9l0k9hcher8xz04uj7wf3yulxfqd2 1000rune \
+runed tx bank send mykey rune1dx67l23hz9l0k9hcher8xz04uj7wf3yuckl253 1000rune \
   --chain-id rune_6590-1 \
   --keyring-backend file \
   --home ~/.runed \
