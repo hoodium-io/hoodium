@@ -42,10 +42,10 @@ var _ = Describe("when sending a Cosmos transaction", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("should fail", func() {
+		It("should succeed and move the funds", func() {
 			res, err := testutil.DeliverTx(s.ctx, s.app, priv, nil, msg)
 			Expect(err).To(BeNil())
-			Expect(res.IsOK()).To(BeFalse())
+			Expect(res.IsOK()).To(BeTrue(), res.Log)
 		})
 	})
 

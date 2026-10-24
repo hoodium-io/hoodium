@@ -44,6 +44,11 @@ func NewAnteHandler(options HandlerOptions) sdk.AnteHandler {
 					}
 					// handle as *evmtypes.MsgEthereumTx
 					anteHandler = newEVMAnteHandler(options)
+				case "/ethermint.types.v1.ExtensionOptionDynamicFeeTx":
+					// A Cosmos tx that opts into the EIP-1559 dynamic fee market.
+					// Handled by the Cosmos chain; the fee decorator reads the
+					// extension to derive the priority tip.
+					anteHandler = newCosmosAnteHandler(options)
 				default:
 					return ctx, errorsmod.Wrapf(
 						errortypes.ErrUnknownExtensionOptions,
@@ -55,6 +60,11 @@ func NewAnteHandler(options HandlerOptions) sdk.AnteHandler {
 			}
 		}
 
-		return ctx, errorsmod.Wrapf(errortypes.ErrUnknownRequest, "invalid transaction type: %T", tx)
+		// No extension options: a plain Cosmos SDK transaction (MsgSend,
+		// MsgCreateValidator, MsgDelegate, MsgGrant, MsgUpdateParams, …). Route it
+		// to the Cosmos ante chain — otherwise validator onboarding and every
+		// other native message is unreachable. `tx` is already known to be a
+		// valid sdk.Tx here, so no further type assertion is needed.
+		return newCosmosAnteHandler(options)(ctx, tx, sim)
 	}
 }

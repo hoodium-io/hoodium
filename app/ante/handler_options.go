@@ -27,6 +27,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	anteutils "github.com/hoodium-io/hoodium/app/ante/utils"
 
+	cosmosante "github.com/hoodium-io/hoodium/app/ante/cosmos"
 	evmante "github.com/hoodium-io/hoodium/app/ante/evm"
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 
@@ -99,5 +100,99 @@ func newEVMAnteHandler(options HandlerOptions) sdk.AnteHandler {
 		evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper),
 		// emit eth tx hash and index at the very last ante handler.
 		evmante.NewEthEmitEventDecorator(options.EvmKeeper),
+	)
+}
+
+// asAnteTxFeeChecker adapts the Hoodium `anteutils.TxFeeChecker` to the
+// Cosmos SDK's `ante.TxFeeChecker`.
+//
+// The two have the same shape except for the tx parameter type: the SDK passes
+// an `sdk.Tx` and asserts `sdk.FeeTx` internally, whereas Hoodium's checker
+// takes the already-asserted `sdk.FeeTx`. The EVM chain uses the Hoodium type;
+// the SDK's DeductFeeDecorator (used by the Cosmos chain) requires its own.
+//
+// A nil checker is returned as nil so the decorator falls back to its built-in
+// validator min-gas-price logic — the same behaviour as passing nil directly.
+func asAnteTxFeeChecker(checker anteutils.TxFeeChecker) ante.TxFeeChecker {
+	if checker == nil {
+		return nil
+	}
+
+	return func(ctx sdk.Context, tx sdk.Tx) (sdk.Coins, int64, error) {
+		feeTx, ok := tx.(sdk.FeeTx)
+		if !ok {
+			return nil, 0, errorsmod.Wrapf(
+				errortypes.ErrInvalidType, "invalid transaction type %T, expected sdk.FeeTx", tx,
+			)
+		}
+
+		return checker(ctx, feeTx)
+	}
+}
+
+// newCosmosAnteHandler creates the ante handler for native Cosmos SDK
+// transactions (everything that is not a MsgEthereumTx).
+//
+// Hoodium is an EVM chain, but it is still a Cosmos SDK application: validator
+// onboarding (`MsgCreateValidator`), token transfers (`MsgSend`), distribution,
+// authz, upgrades and governance are all native Cosmos messages. Without this
+// chain the router in ante.go rejected every one of them, which made
+// `runed tx staking create-validator` impossible to broadcast.
+//
+// The decorator order follows upstream Evmos. Deviations from Evmos, all
+// deliberate:
+//
+//   - No `ibcante.NewRedundantRelayDecorator` — Hoodium wires no IBC keeper.
+//   - No `VestingDelegationDecorator` — Hoodium has no vesting module.
+//   - `ante.NewDeductFeeDecorator` (the SDK one) rather than the Evmos custom
+//     fee decorator. Evmos' version exists to fall back to *unclaimed staking
+//     rewards* when the balance cannot cover the fee, which it needs because
+//     Evmos ships clawback/vesting accounts. Hoodium has no such accounts, so
+//     the standard SDK decorator is the correct and better-audited choice.
+//
+// `NewMinGasPriceDecorator` is the Cosmos-side counterpart of the EVM
+// `EthMinGasPriceDecorator`: both read `x/feemarket`'s `MinGasPrice` param, so
+// native and EVM transactions are held to the same global floor.
+func newCosmosAnteHandler(options HandlerOptions) sdk.AnteHandler {
+	return sdk.ChainAnteDecorators(
+		// Reject MsgEthereumTx on the Cosmos path: it must arrive wrapped in a tx
+		// carrying the ExtensionOptionsEthereumTx option so the EVM chain (which
+		// performs the gas refund) handles it.
+		cosmosante.RejectMessagesDecorator{},
+		// Block msg types that must never be nested inside an authz.MsgExec.
+		cosmosante.NewAuthzLimiterDecorator(
+			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
+		),
+		// Outermost decorator: SetUpContext must run first.
+		ante.NewSetUpContextDecorator(),
+		// Reject unknown tx extension options. The checker accepts the dynamic
+		// fee extension; plain Cosmos txs carry no options at all and pass.
+		ante.NewExtensionOptionsDecorator(options.ExtensionOptionChecker),
+		ante.NewValidateBasicDecorator(),
+		ante.NewTxTimeoutHeightDecorator(),
+		ante.NewValidateMemoDecorator(options.AccountKeeper),
+		// Global minimum gas price floor (x/feemarket MinGasPrice param).
+		cosmosante.NewMinGasPriceDecorator(options.FeeMarketKeeper, options.EvmKeeper),
+		ante.NewConsumeGasForTxSizeDecorator(options.AccountKeeper),
+		// Fee validation + deduction. FeegrantKeeper is nil on Hoodium (no
+		// feegrant module); the decorator only consults it when a tx actually
+		// sets a fee granter, in which case it correctly reports that fee grants
+		// are not enabled.
+		ante.NewDeductFeeDecorator(
+			options.AccountKeeper,
+			options.BankKeeper,
+			options.FeegrantKeeper,
+			asAnteTxFeeChecker(options.TxFeeChecker),
+		),
+		// SetPubKeyDecorator must be called before all signature verification
+		// decorators.
+		ante.NewSetPubKeyDecorator(options.AccountKeeper),
+		ante.NewValidateSigCountDecorator(options.AccountKeeper),
+		ante.NewSigGasConsumeDecorator(options.AccountKeeper, options.SigGasConsumer),
+		ante.NewSigVerificationDecorator(options.AccountKeeper, options.SignModeHandler),
+		ante.NewIncrementSequenceDecorator(options.AccountKeeper),
+		// Track gas wanted for the EIP-1559 base-fee calculation, exactly as the
+		// EVM chain does.
+		evmante.NewGasWantedDecorator(options.EvmKeeper, options.FeeMarketKeeper),
 	)
 }
