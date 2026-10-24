@@ -10,6 +10,30 @@ contract StakingCaller is IStaking {
         return IStaking(precompile).delegate(validator, amount);
     }
 
+    function createValidator(
+        bytes calldata consensusPubKey,
+        uint256 amount,
+        string calldata moniker,
+        uint256 commissionRate,
+        uint256 commissionMaxRate,
+        uint256 commissionMaxChangeRate,
+        uint256 minSelfDelegation
+    ) external returns (bool) {
+        return IStaking(precompile).createValidator(
+            consensusPubKey,
+            amount,
+            moniker,
+            commissionRate,
+            commissionMaxRate,
+            commissionMaxChangeRate,
+            minSelfDelegation
+        );
+    }
+
+    function unjail(address validator) external returns (bool) {
+        return IStaking(precompile).unjail(validator);
+    }
+
     function undelegate(address validator, uint256 amount) external returns (bool) {
         return IStaking(precompile).undelegate(validator, amount);
     }

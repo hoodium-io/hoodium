@@ -18,6 +18,36 @@ interface IStaking {
     function delegate(address validator, uint256 amount) external returns (bool);
 
     /**
+     * @notice Creates a validator whose operator is the caller.
+     * @dev    The caller's EVM address becomes the validator operator address,
+     *         so an account can never create a validator it does not control.
+     * @param consensusPubKey          32-byte ed25519 consensus public key.
+     * @param amount                   Self-delegation, in arune.
+     * @param moniker                  Validator display name.
+     * @param commissionRate           Initial commission, fixed-point 18 decimals (1e18 = 100%).
+     * @param commissionMaxRate        Maximum commission, fixed-point 18 decimals.
+     * @param commissionMaxChangeRate  Max single commission change, fixed-point 18 decimals.
+     * @param minSelfDelegation        Minimum self-bond, in arune.
+     * @return True on success.
+     */
+    function createValidator(
+        bytes calldata consensusPubKey,
+        uint256 amount,
+        string calldata moniker,
+        uint256 commissionRate,
+        uint256 commissionMaxRate,
+        uint256 commissionMaxChangeRate,
+        uint256 minSelfDelegation
+    ) external returns (bool);
+
+    /**
+     * @notice Unjails the caller's own validator.
+     * @param validator The EVM address of the validator operator (must be the caller).
+     * @return True on success.
+     */
+    function unjail(address validator) external returns (bool);
+
+    /**
      * @notice Undelegates `amount` RUNE from the given validator.
      * @param validator The EVM address of the validator operator.
      * @param amount    The amount to undelegate, in arune (RUNE base denomination).

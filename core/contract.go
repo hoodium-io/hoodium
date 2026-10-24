@@ -8,6 +8,7 @@ import (
 	"embed"
 	"fmt"
 	"math/big"
+	"slices"
 
 	store "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -99,6 +100,29 @@ func (c *Contract) RegisterMethods(methods ...Method) *Contract {
 // Address returns the EVM address of the contract.
 func (c *Contract) Address() common.Address {
 	return c.address
+}
+
+// MethodNames returns the names of every registered method, sorted.
+//
+// It exists so tests and diagnostics can assert that the registered Go methods
+// and the embedded ABI agree — a drift between the two makes methods silently
+// unreachable. The returned slice is a copy; mutating it does not affect the
+// contract.
+func (c *Contract) MethodNames() []string {
+	names := make([]string, 0, len(c.methods))
+	for name := range c.methods {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	return names
+}
+
+// HasMethod reports whether a method with the given name is registered.
+func (c *Contract) HasMethod(name string) bool {
+	_, ok := c.methods[name]
+
+	return ok
 }
 
 // Name returns a stable identifier of the precompile.

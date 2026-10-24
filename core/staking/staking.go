@@ -9,6 +9,8 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 
+	addresscodec "cosmossdk.io/core/address"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -69,10 +71,33 @@ type StakingKeeper interface {
 	) (completionTime time.Time, amount sdkmath.Int, err error)
 	// GetDelegation returns the delegation between delAddr and valAddr.
 	GetDelegation(ctx context.Context, delAddr sdk.AccAddress, valAddr sdk.ValAddress) (stakingtypes.Delegation, error)
+	// BondDenom returns the staking bond denomination (arune on Hoodium).
+	BondDenom(ctx context.Context) (string, error)
 }
 
-func NewPrecompileVersionMap(sk StakingKeeper, slk SlashingKeeper) (*core.VersionMap, error) {
-	contractV1, err := NewPrecompile(sk, slk)
+// MsgServerKeeper is the subset of the x/staking keeper needed to create a
+// validator through the module's own message server.
+//
+// Creating a validator by hand (NewValidator + SetValidator + Delegate) would
+// silently skip the validations and hooks that MsgServer.CreateValidator
+// performs: minimum-commission enforcement, duplicate operator/consensus-key
+// detection, bond-denom checking, description length limits, consensus pubkey
+// type allow-listing, power-index maintenance and the AfterValidatorCreated
+// hook. Routing through the message server keeps the precompile behaviourally
+// identical to the `MsgCreateValidator` transaction path.
+type MsgServerKeeper interface {
+	// CreateValidator runs the x/staking MsgServer's CreateValidator.
+	CreateValidator(
+		ctx context.Context,
+		msg *stakingtypes.MsgCreateValidator,
+	) (*stakingtypes.MsgCreateValidatorResponse, error)
+	// ValidatorAddressCodec returns the codec used to encode/decode validator
+	// operator addresses (bech32, HRP "runevaloper" on Hoodium).
+	ValidatorAddressCodec() addresscodec.Codec
+}
+
+func NewPrecompileVersionMap(sk StakingKeeper, slk SlashingKeeper, msk MsgServerKeeper) (*core.VersionMap, error) {
+	contractV1, err := NewPrecompile(sk, slk, msk)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +112,7 @@ func NewPrecompileVersionMap(sk StakingKeeper, slk SlashingKeeper) (*core.Versio
 // StakingCaller contract via `make precompile-gen`). Registering the ABI is what
 // makes the precompile register a genesis account so eth_getCode returns its
 // bytecode.
-func NewPrecompile(sk StakingKeeper, slk SlashingKeeper) (*core.Contract, error) {
+func NewPrecompile(sk StakingKeeper, slk SlashingKeeper, msk MsgServerKeeper) (*core.Contract, error) {
 	contractAbi, err := core.LoadAbiFile(filesystem, "abi.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to load abi file: [%w]", err)
@@ -101,12 +126,155 @@ func NewPrecompile(sk StakingKeeper, slk SlashingKeeper) (*core.Contract, error)
 		"staking",
 	)
 	contract.RegisterMethods(
+		newCreateValidatorMethod(sk, msk),
 		newDelegateMethod(sk),
 		newUndelegateMethod(sk),
 		newGetDelegationMethod(sk),
 		newUnjailMethod(slk),
 	)
 	return contract, nil
+}
+
+const CreateValidatorMethodName = "createValidator"
+
+type createValidatorMethod struct {
+	sk  StakingKeeper
+	msk MsgServerKeeper
+}
+
+func newCreateValidatorMethod(sk StakingKeeper, msk MsgServerKeeper) *createValidatorMethod {
+	return &createValidatorMethod{sk: sk, msk: msk}
+}
+
+func (m *createValidatorMethod) MethodName() string          { return CreateValidatorMethodName }
+func (m *createValidatorMethod) MethodType() core.MethodType { return core.Write }
+func (m *createValidatorMethod) RequiredGas(_ []byte) (uint64, bool) {
+	return 0, false
+}
+func (m *createValidatorMethod) Payable() bool { return false }
+
+// legacyDecFromFixedPoint converts a fixed-point integer with 18 decimals into
+// a Cosmos SDK LegacyDec. A nil or negative input becomes zero; the underlying
+// commission validation then rejects the resulting rates with a clear error.
+func legacyDecFromFixedPoint(value *big.Int) sdkmath.LegacyDec {
+	if value == nil || value.Sign() < 0 {
+		return sdkmath.LegacyZeroDec()
+	}
+
+	return sdkmath.LegacyNewDecFromBigIntWithPrec(value, sdkmath.LegacyPrecision)
+}
+
+// Run implements
+//
+//	createValidator(
+//	    bytes   consensusPubKey,
+//	    uint256 amount,
+//	    string  moniker,
+//	    uint256 commissionRate,
+//	    uint256 commissionMaxRate,
+//	    uint256 commissionMaxChangeRate,
+//	    uint256 minSelfDelegation
+//	) → bool
+//
+// The validator's OPERATOR address is the EVM msg.sender: the caller's own
+// account becomes the operator, so an account can never create a validator it
+// does not control. `amount` is the self-delegation in arune.
+//
+// Commission and min-self-delegation values are fixed-point integers with 18
+// decimals (1e18 == 100%), matching the arune denomination. Passing the scale
+// explicitly avoids any ambiguity in a Solidity `uint256` ratio.
+//
+// Every real precondition is enforced by x/staking's own message server
+// (minimum commission, duplicate operator/consensus key, bond denom,
+// description length, pubkey type, min-self-delegation ≤ amount), so this
+// method cannot drift from `MsgCreateValidator` transaction semantics.
+func (m *createValidatorMethod) Run(
+	runCtx *core.RunContext,
+	inputs core.MethodInputs,
+) (core.MethodOutputs, []statedb.StateChange, error) {
+	if err := core.ValidateMethodInputsCount(inputs, 7); err != nil {
+		return nil, nil, err
+	}
+
+	consensusPubKeyBytes, ok := inputs[0].([]byte)
+	if !ok {
+		return nil, nil, fmt.Errorf("consensusPubKey argument must be []byte")
+	}
+
+	amount, ok := inputs[1].(*big.Int)
+	if !ok {
+		return nil, nil, fmt.Errorf("amount argument must be *big.Int")
+	}
+
+	moniker, ok := inputs[2].(string)
+	if !ok {
+		return nil, nil, fmt.Errorf("moniker argument must be string")
+	}
+
+	commissionRate, ok := inputs[3].(*big.Int)
+	if !ok {
+		return nil, nil, fmt.Errorf("commissionRate argument must be *big.Int")
+	}
+
+	commissionMaxRate, ok := inputs[4].(*big.Int)
+	if !ok {
+		return nil, nil, fmt.Errorf("commissionMaxRate argument must be *big.Int")
+	}
+
+	commissionMaxChangeRate, ok := inputs[5].(*big.Int)
+	if !ok {
+		return nil, nil, fmt.Errorf("commissionMaxChangeRate argument must be *big.Int")
+	}
+
+	minSelfDelegation, ok := inputs[6].(*big.Int)
+	if !ok {
+		return nil, nil, fmt.Errorf("minSelfDelegation argument must be *big.Int")
+	}
+
+	// The consensus key must be a 32-byte ed25519 public key — the only
+	// validator key type this chain accepts.
+	if len(consensusPubKeyBytes) != ed25519.PubKeySize {
+		return nil, nil, fmt.Errorf(
+			"consensus public key must be %d bytes (ed25519), got %d",
+			ed25519.PubKeySize, len(consensusPubKeyBytes),
+		)
+	}
+
+	// The operator is the caller. An EVM account and its Cosmos account share
+	// the same 20 bytes, so this is an exact identity mapping.
+	operator := core.TypesConverter.Address.ToSDK(runCtx.MsgSender())
+
+	operatorAddr, err := m.msk.ValidatorAddressCodec().BytesToString(operator.Bytes())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to encode validator operator address: %w", err)
+	}
+
+	denom, err := m.sk.BondDenom(runCtx.SdkCtx())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read staking bond denom: %w", err)
+	}
+
+	msg, err := stakingtypes.NewMsgCreateValidator(
+		operatorAddr,
+		&ed25519.PubKey{Key: consensusPubKeyBytes},
+		sdk.NewCoin(denom, sdkmath.NewIntFromBigInt(amount)),
+		stakingtypes.NewDescription(moniker, "", "", "", ""),
+		stakingtypes.NewCommissionRates(
+			legacyDecFromFixedPoint(commissionRate),
+			legacyDecFromFixedPoint(commissionMaxRate),
+			legacyDecFromFixedPoint(commissionMaxChangeRate),
+		),
+		sdkmath.NewIntFromBigInt(minSelfDelegation),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build create-validator message: %w", err)
+	}
+
+	if _, err := m.msk.CreateValidator(runCtx.SdkCtx(), msg); err != nil {
+		return nil, nil, fmt.Errorf("failed to create validator: %w", err)
+	}
+
+	return core.MethodOutputs{true}, nil, nil
 }
 
 const DelegateMethodName = "delegate"
