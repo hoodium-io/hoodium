@@ -180,6 +180,10 @@ func newCosmosAnteHandler(options HandlerOptions) sdk.AnteHandler {
 		ante.NewValidateBasicDecorator(),
 		ante.NewTxTimeoutHeightDecorator(),
 		ante.NewValidateMemoDecorator(options.AccountKeeper),
+		// Enforce Hoodium's 0.1 RUNE minimum delegation. Cosmos x/staking has no
+		// such parameter, and the EVM precompile checks it separately — without
+		// this the native CLI path would bypass the floor entirely.
+		cosmosante.NewMinDelegationDecorator(),
 		// Global minimum gas price floor (x/feemarket MinGasPrice param).
 		cosmosante.NewMinGasPriceDecorator(options.FeeMarketKeeper, options.EvmKeeper),
 		ante.NewConsumeGasForTxSizeDecorator(options.AccountKeeper),
