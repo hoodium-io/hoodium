@@ -534,10 +534,11 @@ func runSetupAutomated(
 
 	switch {
 	case nodeType == nodeTypeValidator && network != "":
-		// Validator joining a live network.
-		fmt.Println("  ⚠️  JOINING THE " + strings.ToUpper(network) + " NETWORK?")
+		// Validator joining a live network. The network is already running by
+		// definition — setup is only ever run to join one.
+		fmt.Println("  ⚠️  You are now ready to join Hoodium " + strings.ToUpper(network))
 		fmt.Println()
-		fmt.Println("  If the " + network + " network is already running, you must:")
+		fmt.Println("  Next steps:")
 		fmt.Println()
 		fmt.Println("    1. Replace the default genesis with the official one:")
 		fmt.Printf("         cp <downloaded>/mainchain/genesis.json %s/config/genesis.json\n", home)
@@ -546,7 +547,7 @@ func runSetupAutomated(
 		fmt.Println("    3. Fund your wallet (>= 500,000 RUNE self-delegation).")
 		fmt.Println("    4. Start the node and let it FULLY sync.")
 		fmt.Printf("         runed start --home %s\n", home)
-		fmt.Println("    5. In another terminal, create your validator.")
+		fmt.Println("    5. In another terminal, create your validator:")
 		fmt.Println("       create-validator takes a JSON file, not inline flags:")
 		fmt.Println("         runed tendermint show-validator --home " + home)
 		fmt.Println("         # put that JSON object in validator.json's \"pubkey\" field, then:")
