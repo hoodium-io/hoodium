@@ -101,13 +101,15 @@ Fund it like any account:
 ```bash
 runed tx bank send <your-key> <multisig-address> 1000rune \
   --chain-id rune_6590-1 --keyring-backend file --home ~/.runed \
-  --gas auto --gas-adjustment 1.3 --fees 1000arune -y
+  --gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune -y
 ```
 
 > **Amounts:** `rune` is a registered display denomination (1 RUNE = 10^18 `arune`), so
 > `1000rune` and `1000000000000000000000arune` are the same amount. Fees are always in the
-> **base** denom (`arune`) and must be provided — the node's `minimum-gas-prices` floor
-> (default `0.0000025arune` per gas) rejects a transaction that carries no fee.
+> **base** denom (`arune`). The chain enforces a floor of `min_gas_price × gas`
+> (`min_gas_price` = **20 × 10⁹ arune per gas**), so a fee must be provided and must
+> clear that floor. Use `--gas-prices 0.00000002arune` with `--gas auto` and the SDK
+> derives a compliant fee from the simulated gas.
 
 ## Signing a transaction
 
@@ -120,7 +122,7 @@ runed tx bank send <multisig-address> <recipient> 100rune \
   --from foundation \
   --chain-id rune_6590-1 \
   --keyring-backend file --home ~/.runed \
-  --gas auto --gas-adjustment 1.3 --fees 1000arune \
+  --gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune \
   --generate-only > unsigned.json
 
 # 2. Each required member signs the SAME unsigned.json

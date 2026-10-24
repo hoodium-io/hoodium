@@ -66,6 +66,19 @@ cp chains/mainchain/<network>/genesis.json ~/.runed/config/genesis.json
 **Verify the genesis hash** against the value published by the team before
 continuing — if it does not match, you are on the wrong network.
 
+### What you need after `runed setup`
+
+`runed setup` prepares the **node files** (`init` + your wallet key). It does
+**not** make you a live validator. You still must, in order:
+
+1. Replace the placeholder `genesis.json` with the **official** one
+2. Set the published seeds / `persistent_peers`
+3. **Fund your wallet** (≥ 500,001 RUNE)
+4. Start the node and let it **fully sync**
+5. Broadcast **`create-validator`**
+
+That is Steps 1–7 above. There is **no gentx** anywhere in this flow.
+
 ### Step 2 — configure peers
 
 Add the seeds/persistent peers the team published, in `~/.runed/config/config.toml`.
@@ -136,9 +149,20 @@ runed tx staking create-validator validator.json \
   --from <key-name> \
   --keyring-backend file \
   --home ~/.runed \
-  --gas auto --gas-adjustment 1.3 --fees 1000arune \
+  --gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune \
   -y
 ```
+
+> **Why `--gas-prices` and not `--fees`?** The chain rejects any transaction whose
+> fee is below `min_gas_price × gas`, where `min_gas_price` is **20 × 10⁹ arune per
+> gas**. With `--gas auto` the SDK first *simulates* the gas limit, then multiplies
+> it by `--gas-prices` — so the fee always clears the floor and you never have to
+> guess the gas. A fixed `--fees` amount cannot do that, and any amount below the
+> floor is rejected outright before the message runs. A `create-validator` at
+> ~300,000 gas therefore needs **0.006 RUNE**; the old `--fees 1000arune`
+> (= 10⁻¹⁵ RUNE) was ~6 × 10¹² times too small.
+>
+> Run `runed query feemarket params --home ~/.runed` to read the current floor.
 
 > ⚠️ **The `--amount` / `--pubkey` / `--moniker` flags do not exist.** In Cosmos SDK
 > v0.50 those values are read from the JSON file only; passing them as flags is
@@ -152,19 +176,6 @@ runed query staking validators --home ~/.runed
 ```
 
 Your validator is **bonded** once it is in the top **101** by voting power.
-
-### What you need after `runed setup`
-
-`runed setup` prepares the **node files** (`init` + your wallet key). It does
-**not** make you a live validator. You still must, in order:
-
-1. Replace the placeholder `genesis.json` with the **official** one
-2. Set the published seeds / `persistent_peers`
-3. **Fund your wallet** (≥ 500,000 RUNE)
-4. Start the node and let it **fully sync**
-5. Broadcast **`create-validator`**
-
-That is Steps 1–7 above. There is **no gentx** anywhere in this flow.
 
 ## Staking parameters (Hoodium)
 
