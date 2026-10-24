@@ -20,6 +20,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 
 	runeclient "github.com/hoodium-io/hoodium/client"
+	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 	"github.com/hoodium-io/hoodium/utils"
 )
 
@@ -38,7 +39,7 @@ func ensureInheritedFlags(cmd *cobra.Command) {
 		cmd.Flags().String(flags.FlagChainID, "", "Specify Chain ID for sending Tx")
 	}
 	if cmd.Flags().Lookup(flags.FlagKeyringBackend) == nil {
-		cmd.Flags().String(flags.FlagKeyringBackend, flags.DefaultKeyringBackend, "Select keyring's backend")
+		cmd.Flags().String(flags.FlagKeyringBackend, cmdcfg.DefaultKeyringBackend, "Select keyring's backend")
 	}
 }
 
@@ -446,7 +447,7 @@ func addSetupFlags(cmd *cobra.Command, defaultNodeHome string) {
 	cmd.Flags().String(flags.FlagHome, defaultNodeHome, "The application home directory")
 	cmd.Flags().String(flags.FlagChainID, "", "Override the chain-id derived from --network")
 	cmd.Flags().String(
-		flags.FlagKeyringBackend, flags.DefaultKeyringBackend,
+		flags.FlagKeyringBackend, cmdcfg.DefaultKeyringBackend,
 		"Keyring backend for the wallet key (os|file|test)",
 	)
 }
@@ -492,7 +493,27 @@ func runSetupAutomated(
 		fmt.Printf("\n── %s ──\n", name)
 		ensureInheritedFlags(child)
 		child.SetArgs(args)
-		child.SetIn(parent.InOrStdin())
+
+		// Seed the child's client context with the SAME buffered reader used for
+		// the prompts above.
+		//
+		// Child commands read prompts from clientCtx.Input (see runAddCmd in
+		// client/keys.go), not from cmd.InOrStdin, so SetIn alone does nothing.
+		// And it must be this reader rather than parent.InOrStdin(): bufio reads
+		// ahead, so the raw stream has already been drained by the prompts here,
+		// and a child that prompts (`keys add` with the file backend asks for the
+		// passphrase twice) would otherwise see EOF and abort.
+		//
+		// The parent's client context is copied rather than replaced so the child
+		// keeps the codec, home directory and keyring options the root resolved;
+		// only Input is overridden. SetCmdClientContext also dereferences
+		// cmd.Context() without a nil check, so a context must be set first.
+		child.SetContext(parent.Context())
+		childCtx := client.GetClientContextFromCmd(parent).WithInput(inBuf)
+		if err := client.SetCmdClientContext(child, childCtx); err != nil {
+			return err
+		}
+
 		child.SetOut(parent.OutOrStdout())
 		child.SetErr(parent.ErrOrStderr())
 		return child.ExecuteContext(parent.Context())

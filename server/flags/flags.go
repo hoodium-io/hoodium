@@ -17,9 +17,10 @@ package flags
 
 import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 )
 
 // Tendermint/cosmos-sdk full-node start flags
@@ -119,7 +120,7 @@ func AddTxFlags(cmd *cobra.Command) (*cobra.Command, error) {
 	cmd.PersistentFlags().String(flags.FlagNode, "tcp://localhost:26657", "<host>:<port> to tendermint rpc interface for this chain")                                                                                                   //nolint:lll
 	cmd.PersistentFlags().Float64(flags.FlagGasAdjustment, flags.DefaultGasAdjustment, "adjustment factor to be multiplied against the estimate returned by the tx simulation; if the gas limit is set manually this flag is ignored ") //nolint:lll
 	cmd.PersistentFlags().StringP(flags.FlagBroadcastMode, "b", flags.BroadcastSync, "Transaction broadcasting mode (sync|async|block)")
-	cmd.PersistentFlags().String(flags.FlagKeyringBackend, keyring.BackendOS, "Select keyring's backend")
+	cmd.PersistentFlags().String(flags.FlagKeyringBackend, cmdcfg.DefaultKeyringBackend, "Select keyring's backend")
 
 	// --gas can accept integers and "simulate"
 	// cmd.PersistentFlags().Var(&flags.GasFlagVar, "gas", fmt.Sprintf(

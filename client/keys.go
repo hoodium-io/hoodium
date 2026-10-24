@@ -24,8 +24,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/spf13/cobra"
 
-	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	clientkeys "github.com/hoodium-io/hoodium/client/keys"
+	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 	"github.com/hoodium-io/hoodium/crypto/hd"
 )
 
@@ -90,7 +90,7 @@ The pass backend requires GnuPG: https://gnupg.org/
 
 	cmd.PersistentFlags().String(flags.FlagHome, defaultNodeHome, "The application home directory")
 	cmd.PersistentFlags().String(flags.FlagKeyringDir, "", "The client Keyring directory; if omitted, the default 'home' directory will be used")
-	cmd.PersistentFlags().String(flags.FlagKeyringBackend, keyring.BackendOS, "Select keyring's backend (os|file|test)")
+	cmd.PersistentFlags().String(flags.FlagKeyringBackend, cmdcfg.DefaultKeyringBackend, "Select keyring's backend (os|file|test)")
 	cmd.PersistentFlags().String(cli.OutputFlag, "text", "Output format (text|json)")
 	return cmd
 }

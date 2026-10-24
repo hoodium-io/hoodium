@@ -48,6 +48,17 @@ const (
 	BaseDenom = "arune"
 )
 
+// DefaultKeyringBackend is the keyring backend used when none is specified.
+//
+// It is "file" rather than the SDK's "os" default because Hoodium nodes run on
+// servers, where "os" has no platform keyring to talk to (no Secret Service or
+// keyctl session). The os backend then silently falls back to the file backend —
+// but rooted at the home directory itself instead of <home>/keyring-file, so
+// keys land somewhere no `--keyring-backend file` command looks. Using "file"
+// explicitly keeps every key in <home>/keyring-file and matches entrypoint.sh,
+// which already passes --keyring-backend=file everywhere.
+const DefaultKeyringBackend = "file"
+
 // SetBech32Prefixes sets the global prefixes to be used when serializing addresses and public keys to Bech32 strings.
 func SetBech32Prefixes(config *sdk.Config) {
 	config.SetBech32PrefixForAccount(Bech32PrefixAccAddr, Bech32PrefixAccPub)
