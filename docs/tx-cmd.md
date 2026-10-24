@@ -28,16 +28,22 @@ the whole gas limit. A typical transaction costs a fraction of a RUNE:
 ### Always use `--gas-prices`, never a hardcoded `--fees`
 
 ```bash
---gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune
+--gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune
 ```
 
-`--gas-prices 0.00000002arune` is **exactly** the floor (`20 × 10⁹ arune`).
-With `--gas auto` the SDK:
+That is `25 × 10⁹ arune` per gas = `0.000000025 RUNE` per gas, a **1.25×** margin
+over the floor. With `--gas auto` the SDK:
 
 1. **simulates** the transaction to learn the gas limit, then
 2. multiplies that limit by `--gas-prices` to derive the fee.
 
 So the fee always clears the floor and you never have to estimate gas yourself.
+
+> ⚠️ **Use the BASE denom (`arune`), never `rune`, for `--gas-prices`.**
+> `--gas-prices` is parsed **without** denom normalization (unlike `--fees`), so
+> `0.000000025rune` stays a `rune`-denominated value. The ante handler builds its
+> required fee in `arune`, so the two never compare equal and the transaction is
+> rejected. Write the whole amount in `arune`.
 
 > ⚠️ **A fixed `--fees` amount cannot do this.** The fee is compared against
 > `min_gas_price × gas` before the message executes, so any amount below the
@@ -45,6 +51,10 @@ So the fee always clears the floor and you never have to estimate gas yourself.
 > **10⁻¹⁵ RUNE** — about **6 × 10¹² times too small** for a `create-validator`,
 > and it will fail. If you prefer `--fees`, you must size it yourself:
 > `min_gas_price × gas` or above.
+
+**For validator creation, use a larger margin** — `runed setup` prints
+`--gas-prices 50000000000arune` (2× the floor) because a failed
+`create-validator` costs a full sync cycle.
 
 Check the current floor at any time:
 
@@ -114,7 +124,7 @@ runed tx bank send mykey rune1dx67l23hz9l0k9hcher8xz04uj7wf3yuckl253 1000rune \
   --chain-id rune_6590-1 \
   --keyring-backend file \
   --home ~/.runed \
-  --gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune \
+  --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune \
   -y
 ```
 
@@ -130,13 +140,17 @@ runed tx bank send mykey rune1dx67l23hz9l0k9hcher8xz04uj7wf3yuckl253 1000rune \
 
 ### Multi-send (one tx, many recipients)
 
+This is a **separate subcommand** — `bank send` takes exactly three positional
+arguments, so passing several recipients to it is an error.
+
 ```bash
-runed tx bank send mykey \
+runed tx bank multi-send mykey \
   rune1recipientA... rune1recipientB... 1000rune \
-  --gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune -y
+  --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
 ```
 
-The amount is sent to **each** recipient.
+By default the amount is sent to **each** recipient. Add `--split` to divide it
+**equally between** them instead.
 
 ### Check a balance
 
@@ -305,7 +319,7 @@ runed tx staking create-validator validator.json \
   --keyring-backend file \
   --home ~/.runed \
   --chain-id rune_6590-1 \
-  --gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune \
+  --gas auto --gas-adjustment 1.3 --gas-prices 50000000000arune \
   -y
 ```
 
@@ -336,7 +350,7 @@ See [validator.md](./validator.md) for the full onboarding flow.
 ```bash
 runed tx staking delegate <validator-operator-address> 1000rune \
   --from mykey --keyring-backend file --home ~/.runed \
-  --gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune -y
+  --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
 ```
 
 Get the operator address (note the `--bech val` — validators use a different
@@ -346,7 +360,14 @@ prefix from accounts):
 runed keys show mykey --bech val -a --keyring-backend file --home ~/.runed
 ```
 
-Minimum delegation is **0.1 RUNE**; unbonding is **14 days**.
+> ⚠️ **The 0.1 RUNE minimum delegation is enforced by the staking PRECOMPILE, not
+> by this CLI command.** Cosmos `x/staking` has no min-delegation parameter, and
+> the precompile is the only place Hoodium checks it. A `delegate` issued through
+> the CLI therefore is **not** subject to that floor. Use the precompile
+> (`0x19be…0003`) if you want the minimum enforced; the CLI is a raw staking
+> entry point.
+
+Unbonding takes **14 days**.
 
 ---
 
@@ -374,7 +395,7 @@ runed query tx <TX_HASH> --home ~/.runed
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `fee not provided…` / `insufficient fees; got: … required: …` | Fee below `min_gas_price × gas` | Use `--gas-prices 0.00000002arune` with `--gas auto`. |
+| `fee not provided…` / `insufficient fees; got: … required: …` | Fee below `min_gas_price × gas` | Use `--gas-prices 25000000000arune` with `--gas auto`. |
 | `invalid transaction type` | Pre-`tx`-command binary, or a Cosmos msg the node cannot route | Rebuild (`make install`). |
 | `decoding bech32 failed` / address error | A `0x` address passed to a Cosmos command | Use bech32 (`rune1…`) for `runed tx`, or send via EVM instead. |
 | `key not found` | Key name/backend/home mismatch | Check `runed keys list --keyring-backend <b> --home <h>`. |

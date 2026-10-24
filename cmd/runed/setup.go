@@ -141,10 +141,10 @@ type setupDeps struct {
 	txConfig    client.TxConfig
 	codec       codec.Codec
 	defaultHome string
-	// gasPrice is the `--gas-prices` value printed in the create-validator
-	// instructions (app.RecommendedGasPrice). Injected rather than imported so
-	// cmd/runed does not depend on the app package.
-	gasPrice string
+	// validatorGasPrice is the `--gas-prices` value printed for
+	// `create-validator` (app.RecommendedValidatorGasPrice). Injected rather
+	// than imported so cmd/runed does not depend on the app package.
+	validatorGasPrice string
 }
 
 // validatorJSONName is the file `create-validator` reads. The SDK requires a JSON
@@ -345,7 +345,7 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 
 			// Manual mode: print the copy-paste guide.
 			if mode == setupModeManual {
-				printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount, deps.gasPrice)
+				printSetupInstructions(home, moniker, chainID, nodeType, keyName, keyringBackend, stakeAmount, deps.validatorGasPrice)
 				return nil
 			}
 
@@ -581,7 +581,7 @@ func runSetupAutomated(
 		fmt.Println("    5. In another terminal, launch your validator node:")
 		fmt.Println("         runed tx staking create-validator validator.json \\")
 		fmt.Printf("           --from %s --keyring-backend %s \\\n", keyName, keyringBackend)
-		fmt.Println("           --gas auto --gas-adjustment 1.3 --gas-prices " + deps.gasPrice + " -y")
+		fmt.Println("           --gas auto --gas-adjustment 1.3 --gas-prices " + deps.validatorGasPrice + " -y")
 		fmt.Println("    6. Secure the node and set up systemd + cron so it restarts on reboot.")
 		fmt.Println()
 		fmt.Println("  Full guide: docs/validator.md")

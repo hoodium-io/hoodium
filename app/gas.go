@@ -27,23 +27,34 @@ var (
 	MainnetMinGasMultiplier = sdkmath.LegacyNewDecWithPrec(5, 1)
 )
 
-// RecommendedGasPrice is the gas price (in arune per gas) that CLI users should
-// pass via `--gas-prices` when submitting a transaction.
-//
-// It is deliberately EQUAL to MainnetMinGasPrices: the chain rejects any fee
-// below `MinGasPrice × gas`, and `--gas-prices` makes the SDK derive the fee
-// from the *simulated* gas limit, so a value exactly at the floor is both
-// sufficient and the cheapest valid choice. There is no headroom to add —
-// paying above the floor only costs the user more.
-//
-// Using `--gas-prices` (rather than `--fees`) is what makes this correct with
-// `--gas auto`: the SDK simulates the gas limit first and then multiplies it by
-// this price, so the resulting fee always clears the floor without the user
-// having to guess the gas. A fixed `--fees` amount cannot do that — it is
-// compared against `MinGasPrice × gas`, so any amount smaller than the floor is
-// rejected outright.
-//
-// Example: a ~300k-gas create-validator needs 300_000 × 20e9 = 6e15 arune
-// (0.006 RUNE). A hardcoded `--fees 1000arune` is 1e-15 RUNE — roughly 6×10^12
-// times too small, and is rejected before the message is ever executed.
-const RecommendedGasPrice = "0.00000002arune"
+const (
+	// RecommendedGasPrice is the `--gas-prices` value for ordinary transactions.
+	//
+	// ⚠️ TWO things are easy to get wrong here, and both were:
+	//
+	//  1. THE DENOM MUST BE `arune`, NOT `rune`. `--gas-prices` is parsed with
+	//     `sdk.ParseDecCoins`, which does NOT normalize denominations (unlike
+	//     `--fees`, which uses `ParseCoinsNormalized`). A `rune`-denominated gas
+	//     price therefore keeps `denom="rune"`, while the ante decorator builds
+	//     its required fee with `evmDenom = "arune"`. The denominations never
+	//     match, the comparison yields a 1-arune fee, and the transaction is
+	//     rejected. A `rune` value cannot work — it must be `arune`.
+	//
+	//  2. THE MAGNITUDE IS IN THE BASE DENOM. `MinGasPrice` is
+	//     `20_000_000_000 arune/gas`, which is `0.00000002 RUNE/gas` — the same
+	//     number in a different unit. Writing `0.00000002arune` means 2e-8 arune
+	//     per gas, i.e. 10^18 too small.
+	//
+	// The value below is 25_000_000_000 arune/gas = 0.000000025 RUNE/gas, which
+	// is 1.25x the floor — a small margin so a tx still clears the floor if the
+	// simulated gas is slightly under the final gas used.
+	RecommendedGasPrice = "25000000000arune"
+
+	// RecommendedValidatorGasPrice is the `--gas-prices` value for
+	// `create-validator`, which pays a 2x margin (50_000_000_000 arune/gas
+	// = 0.00000005 RUNE/gas) because it is the single most important
+	// transaction an operator sends and a failure costs a full sync cycle.
+	//
+	// At ~300,000 gas that is 15_000_000_000_000_000 arune = 0.015 RUNE.
+	RecommendedValidatorGasPrice = "50000000000arune"
+)

@@ -149,7 +149,7 @@ runed tx staking create-validator validator.json \
   --from <key-name> \
   --keyring-backend file \
   --home ~/.runed \
-  --gas auto --gas-adjustment 1.3 --gas-prices 0.00000002arune \
+  --gas auto --gas-adjustment 1.3 --gas-prices 50000000000arune \
   -y
 ```
 
@@ -158,9 +158,17 @@ runed tx staking create-validator validator.json \
 > gas**. With `--gas auto` the SDK first *simulates* the gas limit, then multiplies
 > it by `--gas-prices` — so the fee always clears the floor and you never have to
 > guess the gas. A fixed `--fees` amount cannot do that, and any amount below the
-> floor is rejected outright before the message runs. A `create-validator` at
-> ~300,000 gas therefore needs **0.006 RUNE**; the old `--fees 1000arune`
-> (= 10⁻¹⁵ RUNE) was ~6 × 10¹² times too small.
+> floor is rejected outright before the message runs.
+>
+> `50000000000arune` is **2× the floor** (0.00000005 RUNE per gas). At ~300,000 gas
+> that is **0.015 RUNE**. The margin is deliberate: a failed `create-validator`
+> costs you a full sync cycle, so it is worth overpaying by a hundredth of a RUNE.
+>
+> ⚠️ **The denom must be `arune`, not `rune`.** `--gas-prices` is parsed without
+> denom normalization, so `rune`-denominated values never match the `arune`
+> requirement and are rejected.
+>
+> The old `--fees 1000arune` (= 10⁻¹⁵ RUNE) was ~6 × 10¹² times too small.
 >
 > Run `runed query feemarket params --home ~/.runed` to read the current floor.
 
