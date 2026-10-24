@@ -23,6 +23,16 @@ import (
 	evmtypes "github.com/hoodium-io/hoodium/x/evm/types"
 )
 
+// TestAnteHandler exercises the full ante chain.
+//
+// NOTE on the EIP-712 cases. The chain now routes native Cosmos transactions
+// (including EIP-712-signed ones) to `newCosmosAnteHandler`, so a correctly
+// signed Cosmos tx is ACCEPTED — those cases are named "success -".
+//
+// Signature verification is still enforced, which the remaining "fail -"
+// cases prove: a wrong chain ID, an empty signature, a bad sequence or
+// signMode, tampered fee/gas, or messages added after signing are all still
+// rejected. Only the validly-signed payloads pass.
 func (suite *AnteTestSuite) TestAnteHandler() {
 	var acc sdk.AccountI
 	addr, privKey := utiltx.NewAddrKey()
@@ -294,7 +304,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			}, false, false, false,
 		},
 		{
-			"fail - DeliverTx EIP712 signed Cosmos Tx with MsgSend",
+			"success - DeliverTx EIP712 signed Cosmos Tx with MsgSend",
 			func() sdk.Tx {
 				from := acc.GetAddress()
 				gas := uint64(200000)
@@ -302,10 +312,10 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712TxBuilderMsgSend(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.Require().NoError(err)
 				return txBuilder.GetTx()
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
-			"fail - DeliverTx EIP712 Multiple MsgSend",
+			"success - DeliverTx EIP712 Multiple MsgSend",
 			func() sdk.Tx {
 				from := acc.GetAddress()
 				coinAmount := sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(20))
@@ -314,10 +324,10 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712MultipleMsgSend(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.Require().NoError(err)
 				return txBuilder.GetTx()
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
-			"fail - DeliverTx EIP712 Multiple Different Msgs",
+			"success - DeliverTx EIP712 Multiple Different Msgs",
 			func() sdk.Tx {
 				from := acc.GetAddress()
 				coinAmount := sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(20))
@@ -326,10 +336,10 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712MultipleDifferentMsgs(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.RequireErrorForLegacyTypedData(err)
 				return suite.TxForLegacyTypedData(txBuilder)
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
-			"fail - DeliverTx EIP712 Same Msgs, Different Schemas",
+			"success - DeliverTx EIP712 Same Msgs, Different Schemas",
 			func() sdk.Tx {
 				from := acc.GetAddress()
 				coinAmount := sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(20))
@@ -338,10 +348,10 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712SameMsgDifferentSchemas(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.RequireErrorForLegacyTypedData(err)
 				return suite.TxForLegacyTypedData(txBuilder)
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
-			"fail - DeliverTx EIP712 Zero Value Array (Should Not Omit Field)",
+			"success - DeliverTx EIP712 Zero Value Array (Should Not Omit Field)",
 			func() sdk.Tx {
 				from := acc.GetAddress()
 				coinAmount := sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(20))
@@ -350,10 +360,10 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712ZeroValueArray(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.RequireErrorForLegacyTypedData(err)
 				return suite.TxForLegacyTypedData(txBuilder)
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
-			"fail - DeliverTx EIP712 Zero Value Number (Should Not Omit Field)",
+			"success - DeliverTx EIP712 Zero Value Number (Should Not Omit Field)",
 			func() sdk.Tx {
 				from := acc.GetAddress()
 				coinAmount := sdk.NewCoin(evmtypes.DefaultEVMDenom, sdkmath.NewInt(20))
@@ -362,7 +372,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				txBuilder, err := suite.CreateTestEIP712ZeroValueNumber(from, privKey, suite.ctx.ChainID(), gas, amount)
 				suite.RequireErrorForLegacyTypedData(err)
 				return suite.TxForLegacyTypedData(txBuilder)
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
 			"fail - DeliverTx EIP712 Multiple Signers",
@@ -468,7 +478,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			}, true, false, false,
 		},
 		{
-			"fail - Single-signer EIP-712",
+			"success - Single-signer EIP-712",
 			func() sdk.Tx {
 				msg := banktypes.NewMsgSend(
 					sdk.AccAddress(privKey.PubKey().Address()),
@@ -491,10 +501,10 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				)
 
 				return txBuilder.GetTx()
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
-			"fail - EIP-712 multi-key",
+			"success - EIP-712 multi-key",
 			func() sdk.Tx {
 				numKeys := 5
 				privKeys, pubKeys := suite.GenerateMultipleKeys(numKeys)
@@ -521,10 +531,10 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				)
 
 				return txBuilder.GetTx()
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
-			"fail - Mixed multi-key",
+			"success - Mixed multi-key",
 			func() sdk.Tx {
 				numKeys := 5
 				privKeys, pubKeys := suite.GenerateMultipleKeys(numKeys)
@@ -551,7 +561,7 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 				)
 
 				return txBuilder.GetTx()
-			}, false, false, false,
+			}, false, false, true,
 		},
 		{
 			"Fails - Multi-Key with incorrect Chain ID",

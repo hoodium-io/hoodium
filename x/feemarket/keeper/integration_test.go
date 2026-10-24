@@ -13,6 +13,7 @@ import (
 	"github.com/hoodium-io/hoodium/testutil"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
@@ -23,9 +24,11 @@ var _ = Describe("Feemarket", func() {
 	)
 
 	Describe("Performing Cosmos transactions", func() {
-		// Cosmos transactions have been disabled. All cosmos transactions are
-		// expected to return an "invalid transaction type" error. Test
-		// descriptions have been left as is for future reference
+		// These tests exercise the Cosmos-side fee floor. The chain routes
+		// native Cosmos transactions through `newCosmosAnteHandler`, whose
+		// `MinGasPriceDecorator` compares the tx fee against the x/feemarket
+		// `MinGasPrice` param (`minGasPrice`) and the node's local
+		// `minimum-gas-prices` (`valMinGasPrice`).
 		Context("with min-gas-prices (local) < MinGasPrices (feemarket param)", func() {
 			BeforeEach(func() {
 				privKey, msg = setupTestWithContext("1", sdkmath.LegacyNewDec(3), sdkmath.ZeroInt())
@@ -39,18 +42,15 @@ var _ = Describe("Feemarket", func() {
 					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
 					Expect(
 						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+							"provided fee < minimum global fee"),
+					).To(BeTrue(), res.Log)
 				})
 
 				It("should accept transactions with gasPrice >= MinGasPrices", func() {
 					gasPrice := sdkmath.NewInt(3)
 					res, err := testutil.CheckTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
-					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log, "invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.IsOK()).To(BeTrue(), res.Log)
 				})
 			})
 
@@ -62,19 +62,15 @@ var _ = Describe("Feemarket", func() {
 					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
 					Expect(
 						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+							"provided fee < minimum global fee"),
+					).To(BeTrue(), res.Log)
 				})
 
 				It("should accept transactions with gasPrice >= MinGasPrices", func() {
 					gasPrice := sdkmath.NewInt(3)
 					res, err := testutil.DeliverTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					s.Require().NoError(err)
-					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.IsOK()).To(BeTrue(), res.Log)
 				})
 			})
 		})
@@ -90,21 +86,14 @@ var _ = Describe("Feemarket", func() {
 					res, err := testutil.CheckTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
 					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.Code).To(Equal(sdkerrors.ErrInsufficientFee.ABCICode()), res.Log)
 				})
 
 				It("should accept transactions with gasPrice >= MinGasPrices", func() {
 					gasPrice := sdkmath.NewInt(3)
 					res, err := testutil.CheckTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
-					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.IsOK()).To(BeTrue(), res.Log)
 				})
 			})
 
@@ -114,21 +103,14 @@ var _ = Describe("Feemarket", func() {
 					res, err := testutil.DeliverTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
 					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.Code).To(Equal(sdkerrors.ErrInsufficientFee.ABCICode()), res.Log)
 				})
 
 				It("should accept transactions with gasPrice >= MinGasPrices", func() {
 					gasPrice := sdkmath.NewInt(3)
 					res, err := testutil.DeliverTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
-					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.IsOK()).To(BeTrue(), res.Log)
 				})
 			})
 		})
@@ -145,10 +127,7 @@ var _ = Describe("Feemarket", func() {
 					res, err := testutil.CheckTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
 					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.Code).To(Equal(sdkerrors.ErrInsufficientFee.ABCICode()), res.Log)
 				})
 
 				It("should reject transactions with MinGasPrices < gasPrice < baseFee", func() {
@@ -156,21 +135,14 @@ var _ = Describe("Feemarket", func() {
 					res, err := testutil.CheckTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
 					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.Code).To(Equal(sdkerrors.ErrInsufficientFee.ABCICode()), res.Log)
 				})
 
 				It("should accept transactions with gasPrice >= baseFee", func() {
 					gasPrice := sdkmath.NewInt(5)
 					res, err := testutil.CheckTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
-					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.IsOK()).To(BeTrue(), res.Log)
 				})
 			})
 
@@ -181,10 +153,7 @@ var _ = Describe("Feemarket", func() {
 					res, err := testutil.DeliverTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
 					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.Code).To(Equal(sdkerrors.ErrInsufficientFee.ABCICode()), res.Log)
 				})
 
 				It("should reject transactions with MinGasPrices < gasPrice < baseFee", func() {
@@ -192,20 +161,13 @@ var _ = Describe("Feemarket", func() {
 					res, err := testutil.CheckTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
 					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.Code).To(Equal(sdkerrors.ErrInsufficientFee.ABCICode()), res.Log)
 				})
 				It("should accept transactions with gasPrice >= baseFee", func() {
 					gasPrice := sdkmath.NewInt(5)
 					res, err := testutil.DeliverTx(s.ctx, s.app, privKey, &gasPrice, &msg)
 					Expect(err).To(BeNil())
-					Expect(res.IsOK()).To(BeFalse(), "transaction should have failed")
-					Expect(
-						strings.Contains(res.Log,
-							"invalid transaction type"),
-					).To(BeTrue())
+					Expect(res.IsOK()).To(BeTrue(), res.Log)
 				})
 			})
 		})

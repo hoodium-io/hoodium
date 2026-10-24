@@ -318,12 +318,12 @@ func (suite *AnteTestSuite) TestRejectMsgsInAuthz() {
 		{
 			name:         "a MsgGrant with MsgEthereumTx typeURL on the authorization field is blocked",
 			msgs:         []sdk.Msg{newMsgGrant(sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}))},
-			expectedCode: sdkerrors.ErrUnknownRequest.ABCICode(),
+			expectedCode: sdkerrors.ErrUnauthorized.ABCICode(),
 		},
 		{
 			name:         "a MsgGrant with MsgCreateVestingAccount typeURL on the authorization field is blocked",
 			msgs:         []sdk.Msg{newMsgGrant(sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}))},
-			expectedCode: sdkerrors.ErrUnknownRequest.ABCICode(),
+			expectedCode: sdkerrors.ErrUnauthorized.ABCICode(),
 		},
 		{
 			name:         "a MsgGrant with MsgEthereumTx typeURL on the authorization field included on EIP712 tx is blocked",
@@ -346,7 +346,7 @@ func (suite *AnteTestSuite) TestRejectMsgsInAuthz() {
 					},
 				),
 			},
-			expectedCode: sdkerrors.ErrUnknownRequest.ABCICode(),
+			expectedCode: sdkerrors.ErrUnauthorized.ABCICode(),
 		},
 		{
 			name: "a MsgExec with nested MsgExec messages that has invalid messages is blocked",
@@ -359,7 +359,7 @@ func (suite *AnteTestSuite) TestRejectMsgsInAuthz() {
 					},
 				),
 			},
-			expectedCode: sdkerrors.ErrUnknownRequest.ABCICode(),
+			expectedCode: sdkerrors.ErrUnauthorized.ABCICode(),
 		},
 		{
 			name: "a MsgExec with more nested MsgExec messages than allowed and with valid messages is blocked",
@@ -376,7 +376,7 @@ func (suite *AnteTestSuite) TestRejectMsgsInAuthz() {
 					},
 				),
 			},
-			expectedCode: sdkerrors.ErrUnknownRequest.ABCICode(),
+			expectedCode: sdkerrors.ErrUnauthorized.ABCICode(),
 		},
 		{
 			name: "two MsgExec messages NOT containing a blocked msg but between the two have more nesting than the allowed. Then, is blocked",
@@ -404,7 +404,7 @@ func (suite *AnteTestSuite) TestRejectMsgsInAuthz() {
 					},
 				),
 			},
-			expectedCode: sdkerrors.ErrUnknownRequest.ABCICode(),
+			expectedCode: sdkerrors.ErrUnauthorized.ABCICode(),
 		},
 	}
 
@@ -453,7 +453,7 @@ func (suite *AnteTestSuite) TestRejectMsgsInAuthz() {
 				},
 			)
 			suite.Require().NoError(err)
-			suite.Require().Equal(resCheckTx.Code, tc.expectedCode, resCheckTx.Log)
+			suite.Require().Equal(tc.expectedCode, resCheckTx.Code, resCheckTx.Log)
 
 			resFinalizeBlock, err := suite.app.FinalizeBlock(
 				&abci.RequestFinalizeBlock{
@@ -463,7 +463,7 @@ func (suite *AnteTestSuite) TestRejectMsgsInAuthz() {
 			)
 			suite.Require().NoError(err)
 			resDeliverTx := resFinalizeBlock.TxResults[0]
-			suite.Require().Equal(resDeliverTx.Code, tc.expectedCode, resDeliverTx.Log)
+			suite.Require().Equal(tc.expectedCode, resDeliverTx.Code, resDeliverTx.Log)
 		})
 	}
 }

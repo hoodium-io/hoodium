@@ -25,6 +25,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	sdkvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	anteutils "github.com/hoodium-io/hoodium/app/ante/utils"
 
 	cosmosante "github.com/hoodium-io/hoodium/app/ante/cosmos"
@@ -160,8 +161,16 @@ func newCosmosAnteHandler(options HandlerOptions) sdk.AnteHandler {
 		// performs the gas refund) handles it.
 		cosmosante.RejectMessagesDecorator{},
 		// Block msg types that must never be nested inside an authz.MsgExec.
+		//
+		// MsgEthereumTx must arrive on the EVM path (it needs the Ethereum ante
+		// chain to perform the gas refund). MsgCreateVestingAccount is included
+		// for the same reason upstream Evmos includes it: Hoodium wires no
+		// vesting module, so a vesting account can never be created here, and
+		// granting authority to create one is a privilege that must not be
+		// delegable through authz.
 		cosmosante.NewAuthzLimiterDecorator(
 			sdk.MsgTypeURL(&evmtypes.MsgEthereumTx{}),
+			sdk.MsgTypeURL(&sdkvesting.MsgCreateVestingAccount{}),
 		),
 		// Outermost decorator: SetUpContext must run first.
 		ante.NewSetUpContextDecorator(),
