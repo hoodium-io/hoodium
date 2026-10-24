@@ -117,6 +117,7 @@ Full documentation lives in [`docs/`](./docs/):
 | [Networks](./docs/networks.md) | Mainnet / Testnet / Devnet identities and ports |
 | [Node setup](./docs/node-setup.md) | `runed setup` — guided first-run bootstrap |
 | [Validator setup](./docs/validator.md) | Joining an official network as a validator |
+| [Sending transactions](./docs/tx-cmd.md) | `runed tx` — transfers, EVM txs, fees, delegation |
 | [Precompile](./docs/precompile.md) | The EVM precompile set |
 | [Upgrades](./docs/upgrades.md) | Scheduling chain-software upgrades |
 
