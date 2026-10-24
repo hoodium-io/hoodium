@@ -239,3 +239,105 @@ await walletClient.writeContract({
 > The method simply forwards to `x/slashing`'s unjail, so the usual preconditions
 > apply: the jail period must have elapsed, and your self-delegation must still be
 > at or above `min-self-delegation`. Calling it early fails with a clear error.
+
+## Securing the node and keeping it running
+
+A validator that stops is a validator that gets jailed. Two things keep it up:
+a **systemd unit** so it starts on boot and restarts if it crashes, and sensible
+host hardening so the node key is not exposed.
+
+### 1. Run it as a dedicated user
+
+Do not run a validator as `root`. Create a service account and give it the node
+home only:
+
+```bash
+sudo useradd --system --home /home/runed --create-home --shell /usr/sbin/nologin runed
+sudo chown -R runed:runed ~/.runed
+sudo chmod 700 ~/.runed
+```
+
+Then move the node home under that account (or create it there from the start with
+`runed setup --home /home/runed/.runed`).
+
+> ⚠️ **`~/.runed/key_seed.json` holds your mnemonic in plaintext.** If that account
+> is compromised, the premine and the validator's funds are gone. Keep the file mode
+> `0600`, and keep the keyring directory (`~/.runed/keyring-file/`) at `0700`.
+
+### 2. systemd service
+
+Create `/etc/systemd/system/runed.service`:
+
+```ini
+[Unit]
+Description=Hoodium node (runed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=runed
+Group=runed
+# Raise if your node holds many open peers / RPC clients.
+LimitNOFILE=65535
+ExecStart=/usr/local/bin/runed start --home /home/runed/.runed
+Restart=always
+RestartSec=5
+# Graceful shutdown so the last state is flushed before exit.
+TimeoutStopSec=30
+KillSignal=SIGINT
+# Modest hardening; the node needs its own home writable.
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/runed/.runed
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable runed      # start on boot
+sudo systemctl start runed
+systemctl status runed           # confirm it is running
+sudo journalctl -u runed -f      # follow the logs
+```
+
+> **Adjust `ExecStart`** to the real binary path (`which runed`) and home directory.
+> `ProtectHome=read-only` plus `ReadWritePaths` is what keeps the service account
+> from writing anywhere except its node home.
+
+### 3. Restart on reboot
+
+`systemctl enable runed` already handles reboots — that is its purpose. If you
+cannot use systemd, a **cron `@reboot`** entry is the fallback:
+
+```bash
+crontab -e -u runed
+```
+
+```cron
+@reboot sleep 30 && /usr/local/bin/runed start --home /home/runed/.runed >> /home/runed/runed.log 2>&1
+```
+
+> Prefer systemd. `@reboot` gives you no restart-on-crash, no log integration and no
+> graceful shutdown — it only covers the boot case.
+
+### 4. Keep the validator signing
+
+- **Back up `~/.runed/config/priv_validator_key.json`** and keep it offline. It is
+  plaintext, and losing it means you can never sign again; leaking it means someone
+  else can double-sign on your behalf.
+- **Never copy a validator key to a second machine.** Running the same key twice
+  produces an equivocation, which is slashed at **10%** and **tombstoned** — the
+  validator is permanently removed from the set.
+- **Monitor liveness.** Miss more than 50% of a 10,000-block window and you are
+  jailed. `runed status --home ~/.runed` shows `catching_up` and the latest height.
+- **Firewall the RPC ports.** `26657` (CometBFT RPC) and `8545` (EVM JSON-RPC) should
+  not be exposed publicly unless you intend to serve them. Keep `26656` (p2p) open.
+- **Do not enable the `personal` JSON-RPC namespace** — see
+  [`evm-wallets.md`](./evm-wallets.md).

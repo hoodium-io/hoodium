@@ -71,3 +71,58 @@ node keys) and your **wallet key**.
 
 - **Joining an official network as a validator** → [Validator Setup](./validator.md)
   (full guide: init → official genesis → peers → wallet → sync → `create-validator`).
+
+## Keeping a seed node running
+
+A seed node is only useful while it is reachable, so run it under **systemd** —
+that gives you start-on-boot, restart-on-crash and proper logging in one step.
+
+Create `/etc/systemd/system/runed.service`:
+
+```ini
+[Unit]
+Description=Hoodium seed node (runed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=runed
+Group=runed
+LimitNOFILE=65535
+ExecStart=/usr/local/bin/runed start --home /home/runed/.runed
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGINT
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/runed/.runed
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable runed     # start on boot
+sudo systemctl start runed
+sudo journalctl -u runed -f
+```
+
+If systemd is unavailable, the **cron** fallback is a single line — run
+`crontab -e -u runed` and add:
+
+```cron
+@reboot sleep 30 && /usr/local/bin/runed start --home /home/runed/.runed >> /home/runed/runed.log 2>&1
+```
+
+> `systemctl enable` is what covers reboots; the `@reboot` entry is only a
+> substitute for it. Neither one restarts the node after a *crash* except
+> `Restart=always`.
+
+A seed node **does not** need a funded wallet, a stake, or `validator.json` — it
+relays p2p traffic only. See [Validator Setup](./validator.md) for the validator
+path, including key handling and liveness requirements.
