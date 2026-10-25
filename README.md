@@ -85,7 +85,7 @@ in [`docs/technologies/`](./docs/technologies/README.md).
 | **`x/pona`** | Custom module owning the 1B RUNE validator reward pool, the emission schedule and the PoNA activity policy: funds the reserve, computes the block reward, and routes it to the fee pool. | [`pona.md`](./docs/technologies/pona.md) |
 | **PoNA (Proof of Network Activity)** | Activity-scaled reward engine. Captures the block's transaction count in the app's `PreBlock` hook, stores it, and selects the tier's full / low / zero rate in `EndBlock`. Pure and deterministic. | [`pona.md`](./docs/technologies/pona.md) |
 | **EVM precompiles** (5 registered) | Native Go precompiles exposed at fixed addresses: **RUNE token** `0x19be...0000`, **HOODI token** `0x19be...0001`, **PriceOracle** `0x19be...0002`, **Staking** `0x19be...0003`, **TestBed** `0x19BE10...0000`. | [`precompile.md`](./docs/precompile.md) |
-| **Two-gas-price model** | `x/feemarket` extension adding `MinRegularGasPrice` / `MinDeploymentGasPrice` on top of the EIP-1559 base fee. | [`tx-fees.md`](./docs/features/tx-fees.md) |
+| **Two-gas-price model** | `x/feemarket` extension adding `MinRegularGasPrice` / `MinDeploymentGasPrice` on top of the EIP-1559 base fee. | [`tx-fees.md`](./docs/tx-fees.md) |
 | **EVM + fee market** | Full EVM execution (`x/evm`, forked from Cosmos EVM) with a working EIP-1559 fee market (`x/feemarket`). | [`evm-compatibility.md`](./docs/evm-compatibility.md) |
 | **Custom chain identity** | Chain-IDs `6590`/`6591`, `arune` denom, `rune` bech32 prefix, precompile address space prefixed `0x19be` (derived from the chain ID). | — |
 | **RUNE genesis model** | 9B premine + 1B reward reserve, both derived at runtime — no hardcoded addresses. | [`networks.md`](./docs/networks.md) |
@@ -118,6 +118,7 @@ Full documentation lives in [`docs/`](./docs/):
 | [Node setup](./docs/node-setup.md) | `runed setup` — guided first-run bootstrap |
 | [Validator setup](./docs/validator.md) | Joining an official network as a validator |
 | [Sending transactions](./docs/tx-cmd.md) | `runed tx` — transfers, EVM txs, fees, delegation |
+| [Transaction fees](./docs/tx-fees.md) | The two-gas-price model (regular vs contract deployment) |
 | [Precompile](./docs/precompile.md) | The EVM precompile set |
 | [Upgrades](./docs/upgrades.md) | Scheduling chain-software upgrades |
 

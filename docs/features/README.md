@@ -5,7 +5,7 @@ things Hoodium does differently from a stock Cosmos/EVM chain.
 
 | Feature | Doc |
 |---|---|
-| Two-gas-price model | [`tx-fees.md`](./tx-fees.md) |
+| Two-gas-price model | [`tx-fees.md`](../tx-fees.md) |
 | Slashing & validator accountability | [`slashing.md`](./slashing.md) |
 | Multisig keys (K-of-N threshold accounts) | [`keys-multisig.md`](./keys-multisig.md) |
 | Guided first-run setup (`runed setup`) | [`../node-setup.md`](../node-setup.md) |

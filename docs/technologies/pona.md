@@ -309,7 +309,7 @@ mechanism has a single reference point:
 
 ## 8. Interaction with the fee market
 
-The two-gas-price model ([`../features/tx-fees.md`](../features/tx-fees.md)) is
+The two-gas-price model ([`../tx-fees.md`](../tx-fees.md)) is
 **independent** of PoNA:
 
 | Flow | Source | Recipient | Shaped by PoNA? |

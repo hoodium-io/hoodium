@@ -182,7 +182,7 @@ only be used deliberately.
 
 ## Related
 
-- [`tx-fees.md`](./tx-fees.md) — the fee model applied to any multisig spend
+- [`tx-fees.md`](../tx-fees.md) — the fee model applied to any multisig spend
 - [`../validator.md`](../validator.md) — validator operator keys
 - Solidity multisig (public/community use) — roadmap item **B16**
 

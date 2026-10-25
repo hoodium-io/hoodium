@@ -54,7 +54,7 @@ directly spendable, and ERC-20 tokens deployed on Hoodium behave normally.
 The chain runs EIP-1559 with a fee market. Wallets estimate gas automatically via
 `eth_estimateGas` and read the current base fee via `eth_gasPrice` /
 `eth_feeHistory`. A minimum gas price floor applies (see
-[`features/tx-fees.md`](./features/tx-fees.md) for the two-gas-price model), so very low fee
+[`tx-fees.md`](./tx-fees.md) for the two-gas-price model), so very low fee
 settings will be rejected.
 
 ### Replay protection
@@ -90,6 +90,6 @@ The same applies to the other available-but-off namespaces: `debug`, `txpool`, a
 
 ## Related
 
-- [`features/tx-fees.md`](./features/tx-fees.md) — the two-gas-price model and fee floors
+- [`tx-fees.md`](./tx-fees.md) — the two-gas-price model and fee floors
 - [`evm-compatibility.md`](./evm-compatibility.md) — full JSON-RPC method reference
 - [`features/keys-multisig.md`](./features/keys-multisig.md) — Cosmos-side K-of-N multisig accounts

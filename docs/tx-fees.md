@@ -99,6 +99,6 @@ minimums guarantee a floor.
 ## Testing note
 
 The two minimums are **disabled by default in the test suite** (set to zero in
-`app/test_helpers.go` `init()`), so unrelated tests can use small gas prices. The
-policy itself is covered by dedicated tests in
+`testutil/appsetup/setup.go`'s `init()`), so unrelated tests can use small gas
+prices. The policy itself is covered by dedicated tests in
 `app/ante/evm/deployment_fee_test.go`.

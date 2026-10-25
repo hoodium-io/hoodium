@@ -216,7 +216,7 @@ All standard methods are available: `eth_chainId`, `eth_blockNumber`,
 > ⚠️ **EVM fees use a different rule.** EVM transactions pay
 > `max(base fee + priority tip, applicable minimum)` under EIP-1559, where the
 > applicable minimum depends on whether the transaction **deploys a contract**
-> (see [tx-fees](./features/tx-fees.md)). Wallets handle this automatically.
+> (see [tx-fees](./tx-fees.md)). Wallets handle this automatically.
 
 ### Precompiles (chain-native features over EVM)
 
@@ -406,7 +406,7 @@ runed query tx <TX_HASH> --home ~/.runed
 
 - [validator.md](./validator.md) — full validator onboarding
 - [node-setup.md](./node-setup.md) — running a node
-- [features/tx-fees.md](./features/tx-fees.md) — the two-gas-price model (EVM)
+- [tx-fees.md](./tx-fees.md) — the two-gas-price model (EVM)
 - [evm-wallets.md](./evm-wallets.md) — connecting EVM wallets
 - [precompile.md](./precompile.md) — precompile reference
 
