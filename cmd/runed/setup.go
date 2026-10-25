@@ -276,7 +276,7 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 			// --- 1. Network -----------------------------------------------------
 			if network == "" {
 				var err error
-				network, err = input.GetString("Select the network [mainnet/testnet/devnet]", inBuf)
+				network, err = input.GetString("Select the network, type: [mainnet | testnet | devnet]", inBuf)
 				if err != nil {
 					return err
 				}
@@ -587,7 +587,7 @@ func runSetupAutomated(
 	case nodeType == nodeTypeValidator && network != "":
 		// Validator joining a live network. The network is already running by
 		// definition — setup is only ever run to join one.
-		fmt.Println("  ⚠️  You are now ready to join Hoodium " + strings.ToUpper(network))
+		fmt.Println("  ⚠️  You are now ready to join Hoodium Mainchain" + strings.ToUpper(network))
 		fmt.Println()
 		fmt.Println("  Next steps:")
 		fmt.Println()
@@ -608,13 +608,14 @@ func runSetupAutomated(
 		fmt.Println("         runed tx staking create-validator validator.json \\")
 		fmt.Printf("           --from %s --keyring-backend %s \\\n", keyName, keyringBackend)
 		fmt.Println("           --gas auto --gas-adjustment 1.3 --gas-prices " + deps.validatorGasPrice + " -y")
-		fmt.Println("    6. Secure the node and set up systemd + cron so it restarts on reboot.")
+		fmt.Println("    6. Secure the node and set up (systemd + cronjob) to keep your Validator node alive.")
+		fmt.Println("    Please check out the Full guide below on how to proceed with (systemd + cronjob).")
 		fmt.Println()
 		fmt.Println("  Full guide: docs/validator.md")
 	case nodeType == nodeTypeSeed && network != "":
 		// Seed node joining a live network. No validator is created, so there is
 		// no stake, no validator.json and no create-validator step.
-		fmt.Println("  ⚠️  You are now ready to join Hoodium " + strings.ToUpper(network) + " as a seed node")
+		fmt.Println("  ⚠️  You are now ready to join Hoodium Mainchain" + strings.ToUpper(network) + " as a seed node")
 		fmt.Println()
 		fmt.Println("  Next steps:")
 		fmt.Println()
@@ -625,7 +626,8 @@ func runSetupAutomated(
 			"       chains/mainchain/%s/seeds.md in %s/config/config.toml.\n", network, home)
 		fmt.Println("    3. Start the node and let it FULLY sync.")
 		fmt.Printf("         runed start --home %s\n", home)
-		fmt.Println("    4. Secure the node and set up systemd + cron so it restarts on reboot.")
+		fmt.Println("    4. Secure the node and set up (systemd + cronjob) to keep your node alive.")
+		fmt.Println("    Please check out the Full guide below on how to proceed with (systemd + cronjob).")
 		fmt.Println()
 		fmt.Println("  A seed node does not stake or produce blocks — it relays p2p traffic.")
 		fmt.Println()
