@@ -37,7 +37,7 @@ max-tx-gas-wanted = {{ .EVM.MaxTxGasWanted }}
 
 [json-rpc]
 
-# Enable defines if the gRPC server should be enabled.
+# Enable defines if the JSON-RPC (EVM) server should be enabled.
 enable = {{ .JSONRPC.Enable }}
 
 # SimulateDisabled hides the eth_simulateV1 method on the JSON-RPC API
