@@ -240,7 +240,27 @@ func AppConfig(denom string) (string, interface{}) {
 	// - if you set srvCfg.MinGasPrices non-empty, validators CAN tweak their
 	//   own app.toml to override, or use this default value.
 	//
-	// In rune, we set the min gas prices to 0.
+	// Hoodium sets this to "0<base_denom>", i.e. "0arune". Each part is
+	// deliberate, and each was verified against SDK v0.50.15 rather than
+	// assumed from the comment above it:
+	//
+	//  1. It must CARRY A DENOM. A bare "0" PANICS at startup —
+	//     `baseapp.SetMinGasPrices("0")` -> "invalid minimum gas prices:
+	//     invalid decimal coin expression: 0". This is why the denom is
+	//     concatenated instead of leaving the value as "0".
+	//  2. Zero makes it NON-BINDING, which is the point: the real fee floor is
+	//     the x/feemarket `MinGasPrice` parameter (app.MainnetMinGasPrices,
+	//     20e9 arune/gas), enforced by the ante decorators for BOTH EVM and
+	//     native Cosmos transactions.
+	//  3. Keeping this at 0 leaves ONE source of truth. If a node also
+	//     hard-coded the floor here, a later governance change to the feemarket
+	//     parameter would be silently overridden by this local file, and the
+	//     two could drift apart invisibly.
+	//
+	// NOTE: the "if left empty, the node will halt on startup" warning in the
+	// inherited comment above is STALE for v0.50.15 — verified:
+	// `baseapp.SetMinGasPrices("")` does not panic. Non-empty is kept anyway
+	// because an explicit "0arune" documents intent and survives older SDKs.
 	if denom != "" {
 		srvCfg.MinGasPrices = "0" + denom
 	}
