@@ -77,7 +77,14 @@ continuing — if it does not match, you are on the wrong network.
 
 1. Replace the placeholder `genesis.json` with the **official** one
 2. Set the published seeds / `persistent_peers`
-3. **Fund your wallet** (≥ 500,001 RUNE)
+3. **Fund your wallet** (≥ 500,001 RUNE): <br>
+Your account has ONE balance reachable as both its 0x and rune1 
+address. Export the key once and import it into an EVM wallet,
+then send RUNE to that address from anywhere - cmd:
+```
+runed keys unsafe-export-eth-key test-node \
+--keyring-backend file --home /home/muroko/.runed
+```
 4. Start the node and let it **fully sync**
 5. Broadcast **`create-validator`**
 

@@ -253,7 +253,7 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 				var err error
 				var answer string
 				answer, err = input.GetString(
-					"Do you want the setup to be [a]utomated (run it for you) or [m]anual (print the steps)?",
+					"Do you want the setup to be [a]utomated (run it for you) or [m]anual (print the steps)? (type: a or m)",
 					inBuf,
 				)
 				if err != nil {
@@ -276,7 +276,8 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 			// --- 1. Network -----------------------------------------------------
 			if network == "" {
 				var err error
-				network, err = input.GetString("Select the network, type: [mainnet | testnet | devnet]", inBuf)
+				//network, err = input.GetString("Select the network: [mainnet | testnet | devnet] (type: mainnet or testnet or devnet)", inBuf)
+				network, err = input.GetString("Select the network: [devnet] (type: devnet)", inBuf)
 				if err != nil {
 					return err
 				}
@@ -295,7 +296,7 @@ func NewSetupCmd(deps setupDeps) *cobra.Command {
 				var err error
 				var answer string
 				answer, err = input.GetString(
-					"Set up a [v]alidator node or a [s]eed (non-validating) node?", inBuf,
+					"Set up a [v]alidator node or a [s]eed (non-validating) node? (type: v or s)", inBuf,
 				)
 				if err != nil {
 					return err
@@ -587,7 +588,7 @@ func runSetupAutomated(
 	case nodeType == nodeTypeValidator && network != "":
 		// Validator joining a live network. The network is already running by
 		// definition — setup is only ever run to join one.
-		fmt.Println("  ⚠️  You are now ready to join Hoodium Mainchain" + strings.ToUpper(network))
+		fmt.Println("  ⚠️  You are now ready to join Hoodium Mainchain - " + strings.ToUpper(network))
 		fmt.Println()
 		fmt.Println("  Next steps:")
 		fmt.Println()
@@ -615,7 +616,7 @@ func runSetupAutomated(
 	case nodeType == nodeTypeSeed && network != "":
 		// Seed node joining a live network. No validator is created, so there is
 		// no stake, no validator.json and no create-validator step.
-		fmt.Println("  ⚠️  You are now ready to join Hoodium Mainchain" + strings.ToUpper(network) + " as a seed node")
+		fmt.Println("  ⚠️  You are now ready to join Hoodium Mainchain - " + strings.ToUpper(network) + " as a seed node")
 		fmt.Println()
 		fmt.Println("  Next steps:")
 		fmt.Println()
