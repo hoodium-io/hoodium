@@ -749,6 +749,49 @@ func initGenesisFiles(
 	stakingGenState.LastTotalPower = sdkmath.NewInt(lastTotalPower)
 	appGenState[stakingtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(stakingGenState)
 
+	// Seed x/slashing signing info for every genesis validator.
+	//
+	// Without this the node HALTS at the first FinalizeBlock with
+	// "no validator signing info found" and CometBFT panics with
+	// CONSENSUS FAILURE. This is not a cosmetic omission:
+	//
+	//   - x/slashing creates signing info in the AfterValidatorBonded hook.
+	//   - x/staking's InitGenesis calls AfterValidatorCreated (which only writes
+	//     the addr->pubkey relation via AddPubkey) but NEVER calls
+	//     AfterValidatorBonded. It merely sums tokens for validators already
+	//     declared Bonded.
+	//   - A validator manufactured already-Bonded in genesis therefore has no
+	//     signing info, and the very first block's liveness tracking calls
+	//     GetValidatorSigningInfo -> ErrNoSigningInfoFound.
+	//
+	// The gentx path masks this: x/genutil's InitGenesis runs the gentxs through
+	// the REAL MsgCreateValidator handler, which bonds the validator and fires
+	// AfterValidatorBonded. Hoodium has NO gentx step (the genesis is authored in
+	// one pass by this command), so that hook never runs and the entry must be
+	// written here.
+	//
+	// StartHeight is intentionally 0, matching what AfterValidatorBonded would
+	// record at genesis (staking's InitGenesis rewinds the context to
+	// 1-ValidatorUpdateDelay, i.e. height 0). Setting it to 1 instead would treat
+	// block 1 as already-signed-before-start and skew the signed-blocks window.
+	signingInfos := make([]slashingtypes.SigningInfo, 0, len(validators))
+	for i := range validators {
+		consAddr, err := validators[i].GetConsAddr()
+		if err != nil {
+			return fmt.Errorf("failed to derive consensus address for validator %s: %w", validators[i].OperatorAddress, err)
+		}
+
+		signingInfos = append(signingInfos, slashingtypes.SigningInfo{
+			Address: sdk.ConsAddress(consAddr).String(),
+			ValidatorSigningInfo: slashingtypes.ValidatorSigningInfo{
+				Address:     sdk.ConsAddress(consAddr).String(),
+				StartHeight: 0,
+			},
+		})
+	}
+	slashingGenState.SigningInfos = signingInfos
+	appGenState[slashingtypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&slashingGenState)
+
 	if err := mbm.ValidateGenesis(clientCtx.Codec, clientCtx.TxConfig, appGenState); err != nil {
 		return fmt.Errorf("failed to validate genesis file: %w", err)
 	}
