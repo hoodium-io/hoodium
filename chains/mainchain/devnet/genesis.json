@@ -1,7 +1,7 @@
 {
   "app_name": "runed",
-  "app_version": "0.3.9",
-  "genesis_time": "2026-11-06T15:39:57.952279267Z",
+  "app_version": "0.4.1",
+  "genesis_time": "2026-11-06T22:27:49.037408436Z",
   "chain_id": "rune_6592-1",
   "initial_height": 1,
   "app_hash": null,
@@ -18,7 +18,7 @@
         {
           "@type": "/ethermint.types.v1.EthAccount",
           "base_account": {
-            "address": "rune1xdyd86dvge5u58fxuwl8thcc99jn0qjtmlt40k",
+            "address": "rune1p6t8auw9lpem54h9qz45hy6k5u4tj8v93zj5nf",
             "pub_key": null,
             "account_number": "0",
             "sequence": "0"
@@ -37,7 +37,7 @@
       },
       "balances": [
         {
-          "address": "rune1xdyd86dvge5u58fxuwl8thcc99jn0qjtmlt40k",
+          "address": "rune1p6t8auw9lpem54h9qz45hy6k5u4tj8v93zj5nf",
           "coins": [
             {
               "denom": "ahoodi",
@@ -245,14 +245,26 @@
         "slash_fraction_double_sign": "0.100000000000000000",
         "slash_fraction_downtime": "0.010000000000000000"
       },
-      "signing_infos": [],
+      "signing_infos": [
+        {
+          "address": "runevalcons1hqmly4wezkq2vg6dujddtxf2z8y3p0apcqu7k9",
+          "validator_signing_info": {
+            "address": "runevalcons1hqmly4wezkq2vg6dujddtxf2z8y3p0apcqu7k9",
+            "start_height": "0",
+            "index_offset": "0",
+            "jailed_until": "0001-01-01T00:00:00Z",
+            "tombstoned": false,
+            "missed_blocks_counter": "0"
+          }
+        }
+      ],
       "missed_blocks": []
     },
     "staking": {
       "delegations": [
         {
-          "delegator_address": "rune1xdyd86dvge5u58fxuwl8thcc99jn0qjtmlt40k",
-          "validator_address": "runevaloper1xdyd86dvge5u58fxuwl8thcc99jn0qjt30fqph",
+          "delegator_address": "rune1p6t8auw9lpem54h9qz45hy6k5u4tj8v93zj5nf",
+          "validator_address": "runevaloper1p6t8auw9lpem54h9qz45hy6k5u4tj8v9mjspag",
           "shares": "500000000000000000000000.000000000000000000"
         }
       ],
@@ -260,7 +272,7 @@
       "last_total_power": "500000",
       "last_validator_powers": [
         {
-          "address": "runevaloper1xdyd86dvge5u58fxuwl8thcc99jn0qjt30fqph",
+          "address": "runevaloper1p6t8auw9lpem54h9qz45hy6k5u4tj8v9mjspag",
           "power": "500000"
         }
       ],
@@ -285,7 +297,7 @@
           },
           "consensus_pubkey": {
             "@type": "/cosmos.crypto.ed25519.PubKey",
-            "key": "XKl7BiMDKuVGUu+OjirWNKDjLcYmE7gBp8fjf0dKp6w="
+            "key": "jQq7lpIAVrX91TrxmtbWzas79Cx+46KEY+IXY5237/4="
           },
           "delegator_shares": "500000000000000000000000.000000000000000000",
           "description": {
@@ -297,7 +309,7 @@
           },
           "jailed": false,
           "min_self_delegation": "500000000000000000000000",
-          "operator_address": "runevaloper1xdyd86dvge5u58fxuwl8thcc99jn0qjt30fqph",
+          "operator_address": "runevaloper1p6t8auw9lpem54h9qz45hy6k5u4tj8v9mjspag",
           "status": "BOND_STATUS_BONDED",
           "tokens": "500000000000000000000000",
           "unbonding_height": "0",
