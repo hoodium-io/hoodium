@@ -79,6 +79,27 @@ var (
 	flagStartingIPAddress = "starting-ip-address"
 )
 
+// minGasPriceDefault is the value written into every generated app.toml as
+// `minimum-gas-prices`, expressed in the BASE denom (arune) and WITHOUT the
+// denom suffix — the suffix is appended from cmdcfg.BaseDenom.
+//
+// It is the "Regular (non-deployment)" tier of Hoodium's two-gas-price model:
+//
+//	0.0000025 RUNE per gas × 10^18 arune/RUNE = 2_500_000_000_000 arune per gas
+//
+// which is exactly x/feemarket's DefaultMinRegularGasPrice
+// (x/feemarket/types/params.go). The deployment tier (0.000005 RUNE per gas =
+// 5_000_000_000_000 arune) is deliberately NOT settable here: app.toml carries a
+// single global floor, and the higher deployment floor is enforced by the
+// EthDeploymentGasPriceDecorator from the governance-adjustable
+// MinDeploymentGasPrice param.
+//
+// ⚠️ The magnitude MUST be in arune, not RUNE. `minimum-gas-prices` is parsed by
+// sdk.ParseDecCoins, which does NOT normalise denominations, so the old
+// "0.0000025arune" meant 2.5e-24 RUNE/gas — 10^18 too small. Do not "simplify"
+// this back to the RUNE spelling.
+const minGasPriceDefault = "2500000000000"
+
 type initArgs struct {
 	algo              string
 	chainID           string
@@ -95,7 +116,7 @@ func addGenesisInitFlagsToCmd(cmd *cobra.Command, defaultNodeHome string) {
 	cmd.Flags().String(flags.FlagHome, defaultNodeHome, "Node home directory (the node's home; in single-node mode this IS the node home)")
 	cmd.Flags().Int(flagNumValidators, 1, "Number of nodes to generate. 1 (default) writes a single production node home; >1 generates a multi-node local network layout")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
-	cmd.Flags().String(srvflags.MinGasPrices, fmt.Sprintf("0.0000025%s", cmdcfg.BaseDenom), "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (e.g. 0.0000025arune)") //nolint:lll
+	cmd.Flags().String(srvflags.MinGasPrices, minGasPriceDefault+cmdcfg.BaseDenom, "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (in the base denom, e.g. 2500000000000arune = 0.0000025 RUNE per gas)") //nolint:lll
 	cmd.Flags().String(flags.FlagKeyType, string(hd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
 }
 
