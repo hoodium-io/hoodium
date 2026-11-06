@@ -1114,13 +1114,13 @@ const (
 	seedsCommentOld = "# Comma separated list of seed nodes to connect to\n"
 	seedsCommentNew = `# Comma separated list of seed nodes to connect to.
 # Node_Key, Node_IP and port are required with separated with a comma.
-# Example: node_key@node_ip:26656,node_key@node_ip.93:26656
+# Example: node_key@node_ip:26656,node_key@node_ip:26656
 `
 
 	persistentPeersCommentOld = "# Comma separated list of nodes to keep persistent connections to\n"
 	persistentPeersCommentNew = `# Comma separated list of nodes to keep persistent connections to.
 # Node_Key, Node_IP and port are required with separated with a comma.
-# Example: node_key@node_ip:26656,node_key@node_ip.93:26656
+# Example: node_key@node_ip:26656,node_key@node_ip:26656
 `
 )
 
