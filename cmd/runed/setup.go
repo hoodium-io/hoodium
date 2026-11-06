@@ -596,7 +596,7 @@ func runSetupAutomated(
 		fmt.Println("       (a) git clone https://github.com/hoodium-io/chains")
 		fmt.Printf("       (b) cp chains/mainchain/%s/genesis.json %s/config/genesis.json\n", network, home)
 		fmt.Printf("    2. Set the published seeds / persistent_peers from\n"+
-			"       chains/mainchain/%s/seeds.md in %s/config/config.toml.\n", network, home)
+			"       chains/mainchain/%s/seeds.txt in %s/config/config.toml.\n", network, home)
 		fmt.Println("    3. Fund your wallet (>= 500,000 RUNE self-delegation).")
 		fmt.Println("       Your account has ONE balance reachable as both its 0x and rune1")
 		fmt.Println("       address. Export the key once and import it into an EVM wallet,")
@@ -624,7 +624,7 @@ func runSetupAutomated(
 		fmt.Println("       (a) git clone https://github.com/hoodium-io/chains")
 		fmt.Printf("       (b) cp chains/mainchain/%s/genesis.json %s/config/genesis.json\n", network, home)
 		fmt.Printf("    2. Set the published seeds / persistent_peers from\n"+
-			"       chains/mainchain/%s/seeds.md in %s/config/config.toml.\n", network, home)
+			"       chains/mainchain/%s/seeds.txt in %s/config/config.toml.\n", network, home)
 		fmt.Println("    3. Start the node and let it FULLY sync.")
 		fmt.Printf("         runed start --home %s\n", home)
 		fmt.Println("    4. Secure the node and set up (systemd + cronjob) to keep your node alive.")

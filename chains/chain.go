@@ -10,17 +10,20 @@ import (
 	"github.com/hoodium-io/hoodium/utils"
 )
 
-//go:embed all:mainnet
-//go:embed all:testnet
-//go:embed all:devnet
+//go:embed all:mainchain/mainnet
+//go:embed all:mainchain/testnet
+//go:embed all:mainchain/devnet
 var fs embed.FS
 
 const (
-	mainnetPath = "mainnet"
-	testnetPath = "testnet"
-	devnetPath  = "devnet"
-	genesisFile = "genesis.json"
-	seedsFile   = "seeds.txt"
+	// mainchainDir is the parent folder holding every Mainchain network.
+	// (The L2 Yieldchain lives in a sibling folder, chains/yieldchain.)
+	mainchainDir = "mainchain"
+	mainnetPath  = mainchainDir + "/mainnet"
+	testnetPath  = mainchainDir + "/testnet"
+	devnetPath   = mainchainDir + "/devnet"
+	genesisFile  = "genesis.json"
+	seedsFile    = "seeds.txt"
 )
 
 // Config represents the chain config like genesis file and seeds.

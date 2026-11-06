@@ -93,8 +93,14 @@ That is Steps 1–7 above. There is **no gentx** anywhere in this flow.
 ### Step 2 — configure peers
 
 Add the seeds/persistent peers the team published, in `~/.runed/config/config.toml`.
-They are listed in `chains/mainchain/<network>/seeds.md` in the cloned
+They are the raw peer list for your network, published in the
 `hoodium-io/chains` repository:
+
+| Network | Seeds file |
+|---|---|
+| **devnet** | https://github.com/hoodium-io/chains/mainchain/devnet/seeds.txt |
+| **testnet** | https://github.com/hoodium-io/chains/mainchain/testnet/seeds.txt |
+| **mainnet** | https://github.com/hoodium-io/chains/mainchain/mainnet/seeds.txt |
 
 ```toml
 persistent_peers = "<nodeID>@<host>:26656,..."

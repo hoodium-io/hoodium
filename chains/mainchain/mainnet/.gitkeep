@@ -1,1 +1,1 @@
-placeholder to keep //go:embed all:mainnet valid; real Hoodium mainnet genesis goes in mainnet/<chain-id>/
+placeholder to keep //go:embed all:mainchain/mainnet valid; real Hoodium mainnet genesis goes in mainchain/mainnet/<chain-id>/

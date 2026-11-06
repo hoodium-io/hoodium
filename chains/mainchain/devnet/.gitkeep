@@ -1,0 +1,1 @@
+placeholder to keep //go:embed all:mainchain/devnet valid; real Hoodium devnet genesis goes in mainchain/devnet/<chain-id>/
