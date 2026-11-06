@@ -39,6 +39,7 @@ import (
 	"github.com/cosmos/go-bip39"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	clientconfig "github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -47,6 +48,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+
+	cmdcfg "github.com/hoodium-io/hoodium/cmd/config"
 )
 
 const flagIgnorePredefined = "ignore-predefined"
@@ -105,6 +108,16 @@ func NewInitCmd(mbm module.BasicManager) *cobra.Command {
 			chainID, _ := cmd.Flags().GetString(flags.FlagChainID)
 			if !types.IsValidChainID(chainID) {
 				return fmt.Errorf("invalid chain-id format: %s", chainID)
+			}
+
+			// --keyring-backend is normally inherited from the root command,
+			// but `runed setup` executes `init` standalone (with the flag
+			// re-registered by ensureInheritedFlags). Fall back to the Hoodium
+			// default rather than the SDK's "os" if the flag is somehow absent,
+			// so client.toml never ends up pointing at an OS keyring.
+			keyringBackend, _ := cmd.Flags().GetString(flags.FlagKeyringBackend)
+			if keyringBackend == "" {
+				keyringBackend = cmdcfg.DefaultKeyringBackend
 			}
 
 			var predefinedChainConfig chain.Config
@@ -191,6 +204,33 @@ func NewInitCmd(mbm module.BasicManager) *cobra.Command {
 				"config.toml",
 			)
 			cfg.WriteConfigFile(configTomlPath, config)
+
+			// Write client.toml with the Hoodium keyring backend.
+			//
+			// This is NOT optional bookkeeping. The SDK's client config defaults
+			// to KeyringBackend: "os" (client/config/config.go DefaultConfig),
+			// and clientconfig.ReadFromClientConfig creates client.toml with
+			// those defaults the first time ANY command runs against this home.
+			// With "os" on a headless server there is no OS keyring, so
+			// `runed keys list` silently opens an empty store and prints
+			// "No records were found in keyring" — even though `setup` just
+			// created the key under <home>/keyring-file/.
+			//
+			// `runed genesis init-files` has always written client.toml itself;
+			// `runed init` did not, which is why the same keyring looked fine
+			// on an init-files home and broken on a setup/init home.
+			//
+			// chain-id is written too: `runed start` reads it from here when
+			// --chain-id is absent, and the EVM precompiles parse it for the
+			// EIP-712 domain separator.
+			clientConfig := clientconfig.DefaultConfig()
+			clientConfig.SetChainID(chainID)
+			clientConfig.SetKeyringBackend(keyringBackend)
+			if err := writeClientConfigFile(
+				filepath.Join(config.RootDir, "config", "client.toml"), clientConfig,
+			); err != nil {
+				return err
+			}
 
 			// CometBFT's template ships `seeds` / `persistent_peers` comments
 			// that do not explain the node_key@node_ip:port format. Annotate
