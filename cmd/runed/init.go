@@ -185,13 +185,24 @@ func NewInitCmd(mbm module.BasicManager) *cobra.Command {
 				return errors.Wrap(err, "Failed to export gensis file")
 			}
 
-			cfg.WriteConfigFile(
-				filepath.Join(
-					config.RootDir,
-					"config",
-					"config.toml",
-				), config,
+			configTomlPath := filepath.Join(
+				config.RootDir,
+				"config",
+				"config.toml",
 			)
+			cfg.WriteConfigFile(configTomlPath, config)
+
+			// CometBFT's template ships `seeds` / `persistent_peers` comments
+			// that do not explain the node_key@node_ip:port format. Annotate
+			// them now that the file exists. A failure here must not sink the
+			// init — the node home is already valid — so warn and carry on.
+			if err := annotateP2PPeerComments(configTomlPath); err != nil {
+				fmt.Fprintf(
+					cmd.ErrOrStderr(),
+					"warning: could not annotate seeds/persistent_peers comments in %s: %v\n",
+					configTomlPath, err,
+				)
+			}
 
 			return displayInfo(
 				newPrintInfo(

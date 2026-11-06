@@ -406,7 +406,15 @@ func initGenesisFilesForNetwork(
 		nodeConfig.P2P.PersistentPeers = persistentPeers
 		nodeConfig.P2P.AddrBookStrict = getAddrBookStrict(args.startingIPAddress)
 		nodeConfig.P2P.AllowDuplicateIP = getAllowDuplicateIP(args.startingIPAddress)
-		tmconfig.WriteConfigFile(filepath.Join(nodeDir, "config/config.toml"), nodeConfig)
+		configTomlPath := filepath.Join(nodeDir, "config/config.toml")
+		tmconfig.WriteConfigFile(configTomlPath, nodeConfig)
+
+		// CometBFT's template (an unexported const in the dependency) ships
+		// comments that do not explain the node_key@node_ip:port format, so
+		// annotate them now that the file exists. See annotateP2PPeerComments.
+		if err := annotateP2PPeerComments(configTomlPath); err != nil {
+			return err
+		}
 
 		appConfig := config.DefaultConfig()
 		appConfig.MinGasPrices = args.minGasPrices
@@ -1091,6 +1099,59 @@ node = "{{ .Node }}"
 # Transaction broadcasting mode (sync|async)
 broadcast-mode = "{{ .BroadcastMode }}"
 `
+
+// The `seeds` / `persistent_peers` comment blocks that CometBFT ships are terse
+// ("Comma separated list of seed nodes to connect to") and never say what an
+// entry must actually look like, which is the one thing an operator needs when
+// filling them in. These two blocks spell out the node_key@node_ip:port shape and
+// give an example.
+//
+// The anchors deliberately INCLUDE the trailing newline and the original text has
+// no trailing period. That makes the rewrite naturally idempotent: once a line
+// reads "connect to." a second pass no longer matches "connect to\n", so the file
+// is never re-annotated and the inserted lines cannot be duplicated.
+const (
+	seedsCommentOld = "# Comma separated list of seed nodes to connect to\n"
+	seedsCommentNew = `# Comma separated list of seed nodes to connect to.
+# Node_Key, Node_IP and port are required with separated with a comma.
+# Example: node_key@node_ip:26656,node_key@node_ip.93:26656
+`
+
+	persistentPeersCommentOld = "# Comma separated list of nodes to keep persistent connections to\n"
+	persistentPeersCommentNew = `# Comma separated list of nodes to keep persistent connections to.
+# Node_Key, Node_IP and port are required with separated with a comma.
+# Example: node_key@node_ip:26656,node_key@node_ip.93:26656
+`
+)
+
+// annotateP2PPeerComments rewrites the `seeds` and `persistent_peers` comment
+// blocks in an already-written config.toml with a description of the required
+// node_key@node_ip:port format plus an example.
+//
+// It must run AFTER CometBFT's WriteConfigFile, because the comment text lives in
+// an unexported `const defaultConfigTemplate` inside the CometBFT dependency
+// (config/toml.go) and cannot be overridden — the package exposes only
+// WriteConfigFile, no template setter. Post-processing the rendered file is the
+// only way to change those comments without forking the dependency.
+//
+// The VALUES (`seeds = "…"`, `persistent_peers = "…"`) are left untouched; only
+// the comment lines are replaced. If the expected original wording is not found
+// (e.g. a future CometBFT bump changed it), the file is left exactly as written
+// rather than being rewritten blind.
+func annotateP2PPeerComments(configFilePath string) error {
+	contents, err := os.ReadFile(configFilePath)
+	if err != nil {
+		return err
+	}
+
+	updated := strings.ReplaceAll(string(contents), seedsCommentOld, seedsCommentNew)
+	updated = strings.ReplaceAll(updated, persistentPeersCommentOld, persistentPeersCommentNew)
+	if updated == string(contents) {
+		return nil
+	}
+
+	return os.WriteFile(configFilePath, []byte(updated), 0o600)
+}
 
 // writeClientConfigFile renders the client.toml template with the given config
 // and writes it to configFilePath.
