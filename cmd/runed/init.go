@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/hoodium-io/hoodium/chains"
 
@@ -43,6 +42,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/cosmos/cosmos-sdk/server"
+	srvconfig "github.com/cosmos/cosmos-sdk/server/config"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
@@ -205,6 +205,21 @@ func NewInitCmd(mbm module.BasicManager) *cobra.Command {
 			)
 			cfg.WriteConfigFile(configTomlPath, config)
 
+			// Write app.toml from the SAME builder `runed genesis init-files`
+			// uses, so a `setup`/`init` home and an `init-files` home are
+			// configured identically.
+			//
+			// Without this the SDK creates app.toml itself (interceptConfigs)
+			// from initAppConfig(), which cannot know the chain-id — the root
+			// pre-run handler fires before this command derives it. The result
+			// was a setup home with an empty `global-labels` while an
+			// init-files home carried `["chain_id", "<chain-id>"]`.
+			appConfig := DefaultAppConfig(cmdcfg.BaseDenom)
+			appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", chainID}}
+			srvconfig.WriteConfigFile(
+				filepath.Join(config.RootDir, "config", "app.toml"), *appConfig,
+			)
+
 			// Write client.toml with the Hoodium keyring backend.
 			//
 			// This is NOT optional bookkeeping. The SDK's client config defaults
@@ -292,13 +307,11 @@ func buildCometConfig(
 
 	config.Moniker = moniker
 
-	// Set peers in and out to an 8:1 ratio to prevent choking
-	config.P2P.MaxNumInboundPeers = 240
-	config.P2P.MaxNumOutboundPeers = 30
 	config.P2P.Seeds = strings.Join(seeds, ",")
 
-	config.Mempool.Size = 10000
-	config.StateSync.TrustPeriod = 112 * time.Hour
+	// Node-wide P2P/mempool/state-sync settings live in one place so that
+	// `runed genesis init-files` cannot drift from this command.
+	ApplyHoodiumCometDefaults(config)
 
 	return config
 }

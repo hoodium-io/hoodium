@@ -18,7 +18,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -256,19 +255,18 @@ func txCommand(encodingConfig params.EncodingConfig) *cobra.Command {
 
 // initAppConfig helps to override default appConfig template and configs.
 // return "", nil if no custom configuration is required for the application.
+//
+// The config itself comes from DefaultAppConfig so that a home created by
+// `runed init` / `runed setup` (which never writes app.toml itself — the SDK
+// creates it from this template+config) is byte-identical to one written
+// directly by `runed genesis init-files`. Keeping the two in sync matters:
+// a divergence made setup nodes accept zero-fee transactions.
 func initAppConfig() (string, interface{}) {
-	customAppTemplate, customAppConfig := servercfg.AppConfig(cmdcfg.BaseDenom)
+	customAppTemplate, _ := servercfg.AppConfig(cmdcfg.BaseDenom)
 
-	srvCfg, ok := customAppConfig.(servercfg.Config)
-	if !ok {
-		panic(fmt.Errorf("unknown app config type %T", customAppConfig))
-	}
+	srvCfg := DefaultAppConfig(cmdcfg.BaseDenom)
 
-	srvCfg.StateSync.SnapshotInterval = 5000
-	srvCfg.StateSync.SnapshotKeepRecent = 2
-	srvCfg.IAVLDisableFastNode = false
-
-	return customAppTemplate, srvCfg
+	return customAppTemplate, *srvCfg
 }
 
 type appCreator struct {

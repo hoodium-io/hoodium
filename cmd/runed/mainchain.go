@@ -61,6 +61,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/hoodium-io/hoodium/crypto/hd"
 	"github.com/hoodium-io/hoodium/server/config"
+	servercfg "github.com/hoodium-io/hoodium/server/config"
 	srvflags "github.com/hoodium-io/hoodium/server/flags"
 	"github.com/hoodium-io/hoodium/utils"
 
@@ -79,7 +80,7 @@ var (
 	flagStartingIPAddress = "starting-ip-address"
 )
 
-// minGasPriceDefault is the value written into every generated app.toml as
+// MinGasPriceDefault is the value written into every generated app.toml as
 // `minimum-gas-prices`, expressed in the BASE denom (arune) and WITHOUT the
 // denom suffix — the suffix is appended from cmdcfg.BaseDenom.
 //
@@ -98,7 +99,7 @@ var (
 // sdk.ParseDecCoins, which does NOT normalise denominations, so the old
 // "0.0000025arune" meant 2.5e-24 RUNE/gas — 10^18 too small. Do not "simplify"
 // this back to the RUNE spelling.
-const minGasPriceDefault = "2500000000000"
+const MinGasPriceDefault = "2500000000000"
 
 type initArgs struct {
 	algo              string
@@ -116,7 +117,7 @@ func addGenesisInitFlagsToCmd(cmd *cobra.Command, defaultNodeHome string) {
 	cmd.Flags().String(flags.FlagHome, defaultNodeHome, "Node home directory (the node's home; in single-node mode this IS the node home)")
 	cmd.Flags().Int(flagNumValidators, 1, "Number of nodes to generate. 1 (default) writes a single production node home; >1 generates a multi-node local network layout")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
-	cmd.Flags().String(srvflags.MinGasPrices, minGasPriceDefault+cmdcfg.BaseDenom, "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (in the base denom, e.g. 2500000000000arune = 0.0000025 RUNE per gas)") //nolint:lll
+	cmd.Flags().String(srvflags.MinGasPrices, MinGasPriceDefault+cmdcfg.BaseDenom, "Minimum gas prices to accept for transactions; All fees in a tx must meet this minimum (in the base denom, e.g. 2500000000000arune = 0.0000025 RUNE per gas)") //nolint:lll
 	cmd.Flags().String(flags.FlagKeyType, string(hd.EthSecp256k1Type), "Key signing algorithm to generate keys for")
 }
 
@@ -394,6 +395,11 @@ func initGenesisFilesForNetwork(
 		persistentPeers = strings.Join(memos, ",")
 	}
 
+	// Apply the same node-wide CometBFT settings a `runed setup`/`runed init`
+	// home gets, so an init-files node and a joining node share one P2P/mempool
+	// profile. See ApplyHoodiumCometDefaults.
+	ApplyHoodiumCometDefaults(nodeConfig)
+
 	// Initialize config files for each validator node.
 	for i := range validators {
 		nodeDir := nodeDirs[i]
@@ -416,18 +422,21 @@ func initGenesisFilesForNetwork(
 			return err
 		}
 
-		appConfig := config.DefaultConfig()
+		// Build from the SAME base as `runed setup`/`runed init` (see
+		// DefaultAppConfig). That builder already pins the gas floor, the
+		// externally-bound API/gRPC/JSON-RPC addresses, telemetry and state-sync,
+		// so the two generators cannot drift apart again.
+		//
+		// Only the fields that are genuinely PER-NODE are overridden here: the
+		// bind ports for a multi-node layout, and the chain-id telemetry label.
+		appConfig := DefaultAppConfig(cmdcfg.BaseDenom)
 		appConfig.MinGasPrices = args.minGasPrices
-		appConfig.API.Enable = true
 		appConfig.API.Address = getAPIAddress(i, args.startingIPAddress)
 		appConfig.GRPC.Address = getGRPCAddress(i, args.startingIPAddress)
-		appConfig.Telemetry.Enabled = true
-		appConfig.Telemetry.PrometheusRetentionTime = 60
-		appConfig.Telemetry.EnableHostnameLabel = false
 		appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
 		appConfig.JSONRPC.Address = getJSONRPCAddress(i, args.startingIPAddress)
 		appConfig.JSONRPC.WsAddress = getJSONRPCWsAddress(i, args.startingIPAddress)
-		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), appConfig)
+		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), *appConfig)
 
 		// Write client.toml with the chain-id set. Without this, the node's
 		// client.toml has an empty chain-id, and `runed start` reads it (via the
@@ -1120,6 +1129,124 @@ func calculateIP(ip string, i int) (string, error) {
 	}
 
 	return ipv4.String(), nil
+}
+
+// Default listen addresses shared by every generated app.toml.
+//
+// These bind on all interfaces rather than loopback: a Hoodium node is normally
+// remote, and loopback binds make its RPC/REST/gRPC surface unreachable to
+// wallets and operators. `init-files` already behaved this way; `runed setup`
+// homes used to inherit the SDK's loopback defaults instead.
+const (
+	DefaultAPIAddress       = "tcp://0.0.0.0:1317"
+	DefaultGRPCAddress      = "0.0.0.0:9090"
+	DefaultJSONRPCAddress   = "0.0.0.0:8545"
+	DefaultJSONRPCWsAddress = "0.0.0.0:8546"
+)
+
+// ApplyHoodiumCometDefaults applies the Hoodium node-wide CometBFT settings that
+// must be identical no matter how a node home was created.
+//
+// These were previously applied ONLY by `buildCometConfig` for `runed init` /
+// `runed setup`, while `runed genesis init-files` wrote bare CometBFT defaults.
+// The result was a genesis node running with max_num_inbound_peers=40,
+// max_num_outbound_peers=10, mempool size 5000, trust_period 168h and
+// addr_book_strict=true, next to a setup node with 240/30, 10000, 112h and
+// strict off — two different P2P/mempool profiles for the same network.
+//
+// Kept deliberately peer/mempool only: consensus timing is a separate concern
+// (see initTendermintConfig, which owns TimeoutCommit/CreateEmptyBlocksInterval).
+func ApplyHoodiumCometDefaults(cfg *tmconfig.Config) {
+	// An 8:1 inbound:outbound ratio prevents outbound connection choking.
+	cfg.P2P.MaxNumInboundPeers = 240
+	cfg.P2P.MaxNumOutboundPeers = 30
+	// Deeper mempool: Hoodium targets 6s blocks, so a burst of EVM transactions
+	// must survive a slow block. The CometBFT default (5000) is tuned for 1s.
+	cfg.Mempool.Size = 10000
+	cfg.StateSync.TrustPeriod = 112 * time.Hour
+	// Bind the RPC endpoint on all interfaces, like the app.toml API/gRPC/JSON-RPC
+	// servers. CometBFT's default is loopback, which leaves a remote node's RPC
+	// (needed for status queries, seed/peer discovery and `--node tcp://…`)
+	// unreachable. Multi-node layouts override the port per node.
+	cfg.RPC.ListenAddress = DefaultCometRPCAddress
+}
+
+// DefaultCometRPCAddress is the CometBFT RPC bind address shared by every
+// generated home: port 26657 on all interfaces. Multi-node layouts override the
+// port per node.
+const DefaultCometRPCAddress = "tcp://0.0.0.0:26657"
+
+// DefaultSnapshotInterval is the state-sync snapshot cadence (in blocks) shared
+// by every Hoodium config path. 5000 blocks at 6s ≈ 8.3 hours.
+const DefaultSnapshotInterval = 5000
+
+// DefaultSnapshotKeepRecent is how many snapshots to retain alongside
+// DefaultSnapshotInterval.
+const DefaultSnapshotKeepRecent = 2
+
+// DefaultAppConfig returns the app.toml configuration that EVERY Hoodium node
+// must start from, regardless of how its home was created.
+//
+// # Why this is a single function
+//
+// There are two ways a node home is produced:
+//
+//   - `runed setup` / `runed init` — neither writes app.toml itself. The SDK's
+//     `interceptConfigs` creates it from the template+config returned by
+//     `initAppConfig()` (cmd/runed/root.go), i.e. from THIS function.
+//   - `runed genesis init-files` — writes app.toml directly, and used to build
+//     its config from `serverconfig.DefaultConfig()` instead.
+//
+// Having two builders meant the two paths silently diverged: a setup home ended
+// up with `minimum-gas-prices = "0arune"`, telemetry/api disabled and empty
+// global-labels, while an init-files home had the real fee floor, telemetry on
+// and a chain_id label. A validator bootstrapped with `setup` would therefore
+// accept zero-fee transactions.
+//
+// Both paths now derive from this one builder; `init-files` still overrides the
+// per-node fields (bind addresses, telemetry chain-id label, min gas price).
+func DefaultAppConfig(denom string) *config.Config {
+	_, customAppConfig := servercfg.AppConfig(denom)
+
+	srvCfg, ok := customAppConfig.(servercfg.Config)
+	if !ok {
+		panic("unexpected app config type returned by servercfg.AppConfig")
+	}
+
+	// --- Fields the SDK/AppConfig does NOT set for us -----------------------
+	//
+	// servercfg.AppConfig deliberately hardcodes MinGasPrices to "0"+denom and
+	// leaves the RPC/API/gRPC/telemetry surface at the SDK defaults, which are
+	// tuned for a LOCAL dev node (loopback binds, everything off). Both edges
+	// were the source of the setup-vs-init-files drift, so they are pinned here
+	// and both generators inherit them.
+
+	// The Hoodium regular-tier gas floor (0.0000025 RUNE/gas = 2.5e12 arune),
+	// matching x/feemarket's DefaultMinRegularGasPrice. A node that ships
+	// "0arune" accepts zero-fee transactions into its mempool.
+	srvCfg.MinGasPrices = MinGasPriceDefault + denom
+
+	// Bind externally: a node on a remote host must be reachable for RPC,
+	// REST and gRPC. init-files already did this for multi-node layouts; doing
+	// it for every home keeps a `setup` node usable as published.
+	srvCfg.API.Enable = true
+	srvCfg.API.Address = DefaultAPIAddress
+	srvCfg.GRPC.Address = DefaultGRPCAddress
+	srvCfg.JSONRPC.Address = DefaultJSONRPCAddress
+	srvCfg.JSONRPC.WsAddress = DefaultJSONRPCWsAddress
+
+	// Telemetry: on, with a 60s Prometheus retention window.
+	srvCfg.Telemetry.Enabled = true
+	srvCfg.Telemetry.PrometheusRetentionTime = 60
+	srvCfg.Telemetry.EnableHostnameLabel = false
+
+	// State-sync defaults. Set here rather than in each caller so a generated
+	// home cannot end up with snapshotting disabled by accident.
+	srvCfg.StateSync.SnapshotInterval = DefaultSnapshotInterval
+	srvCfg.StateSync.SnapshotKeepRecent = DefaultSnapshotKeepRecent
+	srvCfg.IAVLDisableFastNode = false
+
+	return &srvCfg
 }
 
 // clientConfigTemplate mirrors the Cosmos SDK's client.toml template so the file
