@@ -551,7 +551,14 @@ func runSetupAutomated(
 	}
 
 	// 1. init -----------------------------------------------------------------
-	initArgs := append([]string{moniker, "--" + flags.FlagChainID, chainID}, commonArgs...)
+	// Forward the resolved node profile so `init` can write an app.toml whose
+	// service surface matches the operator's v/s choice. Without this the
+	// profile never reaches the command that writes the file.
+	initArgs := append([]string{
+		moniker,
+		"--" + flags.FlagChainID, chainID,
+		"--" + flagSetupNodeType, nodeType,
+	}, commonArgs...)
 	if err := run("runed init", NewInitCmd(deps.mbm), initArgs); err != nil {
 		return fmt.Errorf("init failed: %w", err)
 	}

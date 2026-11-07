@@ -54,6 +54,15 @@ import (
 
 const flagIgnorePredefined = "ignore-predefined"
 
+// flagInitNodeType carries the operator's node-profile choice from `runed setup`
+// into `runed init`, which is the command that actually writes app.toml.
+//
+// It exists because `setup` resolves the v/s answer during its own prompts, but
+// the file writes happen in the `init` child command, which has no notion of node
+// types. Without this flag the profile could not reach the app.toml writer.
+// A bare `runed init` omits it and gets DefaultNodeProfile (validator-safe).
+const flagInitNodeType = "node-type"
+
 type printInfo struct {
 	Moniker     string `json:"moniker" yaml:"moniker"`
 	ChainID     string `json:"chain_id" yaml:"chain_id"`
@@ -120,6 +129,22 @@ func NewInitCmd(mbm module.BasicManager) *cobra.Command {
 				keyringBackend = cmdcfg.DefaultKeyringBackend
 			}
 
+			// Resolve the node profile. `runed setup` forwards the operator's
+			// v/s choice as --node-type; anything else (a bare `runed init`)
+			// falls back to validator-safe. Resolved here, before both the
+			// CometBFT config and app.toml are built, so the two cannot
+			// disagree about the node's service surface.
+			profile := DefaultNodeProfile
+			if rawNodeType, _ := cmd.Flags().GetString(flagInitNodeType); rawNodeType != "" {
+				profile = NodeProfile(strings.ToLower(strings.TrimSpace(rawNodeType)))
+				if !profile.IsValid() {
+					return fmt.Errorf(
+						"invalid --%s %q (expected %q or %q)",
+						flagInitNodeType, rawNodeType, NodeProfileValidator, NodeProfileSeed,
+					)
+				}
+			}
+
 			var predefinedChainConfig chain.Config
 			if ignorePredefined, _ := cmd.Flags().GetBool(flagIgnorePredefined); !ignorePredefined {
 				var err error
@@ -137,7 +162,7 @@ func NewInitCmd(mbm module.BasicManager) *cobra.Command {
 			clientCtx := client.GetClientContextFromCmd(cmd)
 			serverCtx := server.GetServerContextFromCmd(cmd)
 
-			config := buildCometConfig(clientCtx, serverCtx, args[0], seeds)
+			config := buildCometConfig(clientCtx, serverCtx, args[0], seeds, profile)
 
 			var mnemonic string
 			recoverMode, _ := cmd.Flags().GetBool(genutilcli.FlagRecover)
@@ -211,10 +236,11 @@ func NewInitCmd(mbm module.BasicManager) *cobra.Command {
 			//
 			// Without this the SDK creates app.toml itself (interceptConfigs)
 			// from initAppConfig(), which cannot know the chain-id — the root
-			// pre-run handler fires before this command derives it. The result
-			// was a setup home with an empty `global-labels` while an
-			// init-files home carried `["chain_id", "<chain-id>"]`.
-			appConfig := DefaultAppConfig(cmdcfg.BaseDenom)
+			// pre-run handler fires before this command derives it — nor the
+			// node type. The result was a setup home with an empty
+			// `global-labels` while an init-files home carried
+			// `["chain_id", "<chain-id>"]`.
+			appConfig := DefaultAppConfig(cmdcfg.BaseDenom, profile)
 			appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", chainID}}
 			srvconfig.WriteConfigFile(
 				filepath.Join(config.RootDir, "config", "app.toml"), *appConfig,
@@ -275,6 +301,11 @@ func NewInitCmd(mbm module.BasicManager) *cobra.Command {
 		"",
 		"The client Keyring directory; if omitted, the default 'home' directory will be used",
 	)
+	cmd.Flags().String(
+		flagInitNodeType,
+		"",
+		"Node profile: validator (default, no REST API / EVM JSON-RPC) or seed (both enabled)",
+	)
 	cmd.Flags().Bool(
 		flagIgnorePredefined,
 		false,
@@ -300,6 +331,7 @@ func buildCometConfig(
 	serverCtx *server.Context,
 	moniker string,
 	seeds []string,
+	profile NodeProfile,
 ) *cfg.Config {
 	config := serverCtx.Config
 
@@ -311,7 +343,7 @@ func buildCometConfig(
 
 	// Node-wide P2P/mempool/state-sync settings live in one place so that
 	// `runed genesis init-files` cannot drift from this command.
-	ApplyHoodiumCometDefaults(config)
+	ApplyHoodiumCometDefaults(config, profile)
 
 	return config
 }

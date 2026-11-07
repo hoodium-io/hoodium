@@ -397,8 +397,8 @@ func initGenesisFilesForNetwork(
 
 	// Apply the same node-wide CometBFT settings a `runed setup`/`runed init`
 	// home gets, so an init-files node and a joining node share one P2P/mempool
-	// profile. See ApplyHoodiumCometDefaults.
-	ApplyHoodiumCometDefaults(nodeConfig)
+	// profile. Genesis/bootstrap validators are validator-safe: loopback RPC.
+	ApplyHoodiumCometDefaults(nodeConfig, DefaultNodeProfile)
 
 	// Initialize config files for each validator node.
 	for i := range validators {
@@ -406,7 +406,7 @@ func initGenesisFilesForNetwork(
 
 		nodeConfig.SetRoot(nodeDir)
 		nodeConfig.Moniker = nodeDirNames[i]
-		nodeConfig.RPC.ListenAddress = getRPCAddress(i, args.startingIPAddress)
+		nodeConfig.RPC.ListenAddress = getRPCAddress(i, args.startingIPAddress, DefaultNodeProfile)
 		nodeConfig.P2P.ListenAddress = getP2PAddress(i, args.startingIPAddress)
 		nodeConfig.RPC.PprofListenAddress = getPprofAddress(i, args.startingIPAddress)
 		nodeConfig.P2P.PersistentPeers = persistentPeers
@@ -423,13 +423,15 @@ func initGenesisFilesForNetwork(
 		}
 
 		// Build from the SAME base as `runed setup`/`runed init` (see
-		// DefaultAppConfig). That builder already pins the gas floor, the
-		// externally-bound API/gRPC/JSON-RPC addresses, telemetry and state-sync,
-		// so the two generators cannot drift apart again.
+		// DefaultAppConfig). That builder pins the gas floor, telemetry and
+		// state-sync, and applies the node profile's service surface.
 		//
-		// Only the fields that are genuinely PER-NODE are overridden here: the
-		// bind ports for a multi-node layout, and the chain-id telemetry label.
-		appConfig := DefaultAppConfig(cmdcfg.BaseDenom)
+		// PROFILE: always validator-safe. These homes are network bootstrap /
+		// genesis validators, so they get no REST API and no EVM JSON-RPC —
+		// dedicated public API and JSON-RPC nodes serve those. Only the fields
+		// that are genuinely PER-NODE are overridden here: the bind ports for a
+		// multi-node layout, and the chain-id telemetry label.
+		appConfig := DefaultAppConfig(cmdcfg.BaseDenom, DefaultNodeProfile)
 		appConfig.MinGasPrices = args.minGasPrices
 		appConfig.API.Address = getAPIAddress(i, args.startingIPAddress)
 		appConfig.GRPC.Address = getGRPCAddress(i, args.startingIPAddress)
@@ -1029,14 +1031,24 @@ func getMemo(nodeID string, i int, startingIPAddr string) (string, error) {
 	return fmt.Sprintf("%s@%s:26656", nodeID, ip), nil
 }
 
-func getRPCAddress(i int, startingIPAddr string) string {
+// getRPCAddress returns the CometBFT RPC bind address for node i.
+//
+// The HOST comes from the node profile: a validator binds loopback (it only needs
+// RPC locally for create-validator), a seed binds all interfaces. Only the PORT is
+// laid out per node in a multi-node local network.
+func getRPCAddress(i int, startingIPAddr string, profile NodeProfile) string {
 	port := 26657
 
 	if startingIPAddr == localhost {
 		port += 2 * i
 	}
 
-	return fmt.Sprintf("tcp://0.0.0.0:%d", port)
+	host := "0.0.0.0"
+	if profile != NodeProfileSeed {
+		host = "127.0.0.1"
+	}
+
+	return fmt.Sprintf("tcp://%s:%d", host, port)
 }
 
 func getP2PAddress(i int, startingIPAddr string) string {
@@ -1156,7 +1168,7 @@ const (
 //
 // Kept deliberately peer/mempool only: consensus timing is a separate concern
 // (see initTendermintConfig, which owns TimeoutCommit/CreateEmptyBlocksInterval).
-func ApplyHoodiumCometDefaults(cfg *tmconfig.Config) {
+func ApplyHoodiumCometDefaults(cfg *tmconfig.Config, profile NodeProfile) {
 	// An 8:1 inbound:outbound ratio prevents outbound connection choking.
 	cfg.P2P.MaxNumInboundPeers = 240
 	cfg.P2P.MaxNumOutboundPeers = 30
@@ -1164,17 +1176,36 @@ func ApplyHoodiumCometDefaults(cfg *tmconfig.Config) {
 	// must survive a slow block. The CometBFT default (5000) is tuned for 1s.
 	cfg.Mempool.Size = 10000
 	cfg.StateSync.TrustPeriod = 112 * time.Hour
-	// Bind the RPC endpoint on all interfaces, like the app.toml API/gRPC/JSON-RPC
-	// servers. CometBFT's default is loopback, which leaves a remote node's RPC
-	// (needed for status queries, seed/peer discovery and `--node tcp://…`)
-	// unreachable. Multi-node layouts override the port per node.
-	cfg.RPC.ListenAddress = DefaultCometRPCAddress
+	// RPC bind depends on the profile: loopback for validators (local CLI only),
+	// all interfaces for seeds. See ApplyCometNodeProfile.
+	ApplyCometNodeProfile(cfg, profile)
 }
 
-// DefaultCometRPCAddress is the CometBFT RPC bind address shared by every
-// generated home: port 26657 on all interfaces. Multi-node layouts override the
-// port per node.
+// Loopback CometBFT RPC address: the safe default for validators. It is still
+// enough for the operator to run `runed tx staking create-validator` (which
+// broadcasts over this RPC via --node), without exposing block queries, tx
+// submission and /debug/metrics/prometheus to the internet.
+const DefaultValidatorCometRPCAddress = "tcp://127.0.0.1:26657"
+
+// DefaultCometRPCAddress is the CometBFT RPC bind address for NON-validating
+// (seed) nodes: port 26657 on all interfaces, matching their enabled JSON-RPC /
+// REST surface.
 const DefaultCometRPCAddress = "tcp://0.0.0.0:26657"
+
+// ApplyCometNodeProfile binds the CometBFT RPC listener according to the node
+// profile.
+//
+// A validator only needs this endpoint locally — enough to submit its own
+// create-validator — so it binds loopback. Seed nodes, which are the ones meant
+// to serve clients, bind all interfaces.
+func ApplyCometNodeProfile(cfg *tmconfig.Config, profile NodeProfile) {
+	if profile == NodeProfileSeed {
+		cfg.RPC.ListenAddress = DefaultCometRPCAddress
+		return
+	}
+
+	cfg.RPC.ListenAddress = DefaultValidatorCometRPCAddress
+}
 
 // DefaultSnapshotInterval is the state-sync snapshot cadence (in blocks) shared
 // by every Hoodium config path. 5000 blocks at 6s ≈ 8.3 hours.
@@ -1183,6 +1214,71 @@ const DefaultSnapshotInterval = 5000
 // DefaultSnapshotKeepRecent is how many snapshots to retain alongside
 // DefaultSnapshotInterval.
 const DefaultSnapshotKeepRecent = 2
+
+// NodeProfile selects which network services a node home exposes.
+//
+// The default is NodeProfileValidator on every code path: a validator only needs
+// P2P (26656) to reach consensus and a LOOPBACK CometBFT RPC (26657) so the
+// operator can submit their own create-validator. Everything else — the EVM
+// JSON-RPC surface and the REST API — is off. Validators are therefore safe by
+// default and never depend on those services, since dedicated public API and
+// JSON-RPC nodes serve them.
+//
+// NodeProfileSeed is for non-validating nodes: the same config plus the REST API
+// and EVM JSON-RPC (HTTP + WebSocket) enabled, bound to loopback. A seed operator
+// who intends to serve the endpoints publicly rebinds the addresses; the profile
+// does not expose them to the internet by itself.
+type NodeProfile string
+
+const (
+	// NodeProfileValidator is the safe default: consensus + loopback RPC only.
+	NodeProfileValidator NodeProfile = "validator"
+	// NodeProfileSeed additionally enables the REST API and EVM JSON-RPC.
+	NodeProfileSeed NodeProfile = "seed"
+)
+
+// IsValid reports whether p is a recognised node profile.
+func (p NodeProfile) IsValid() bool {
+	return p == NodeProfileValidator || p == NodeProfileSeed
+}
+
+// DefaultNodeProfile is the profile every generator falls back to. It is
+// validator-safe on purpose: forgetting to pass a profile must never widen a
+// validator's attack surface.
+const DefaultNodeProfile = NodeProfileValidator
+
+// ApplyNodeProfile configures the network-service surface of an app.toml config
+// for the given node profile.
+//
+// Deliberate decisions worth preserving:
+//
+//   - TELEMETRY stays ENABLED for BOTH profiles. It opens no listening socket:
+//     cosmos-sdk's telemetry.Config has no address field at all (only Enabled and
+//     PrometheusRetentionTime), and metrics are scraped over the CometBFT RPC
+//     /debug/metrics/prometheus path. Disabling it would not harden anything,
+//     but it WOULD remove the uptime visibility an operator needs: missing more
+//     than min_signed_per_window of the 10,000-block window gets a validator
+//     jailed, which is a consensus-liveness failure, not a networking one.
+//
+//   - The REST API is disabled on validators because they do not need it:
+//     `create-validator` broadcasts over CometBFT RPC, not REST. Public API
+//     nodes exist to serve it.
+//
+//   - JSON-RPC is disabled on validators because `eth_sendRawTransaction` on a
+//     publicly reachable validator turns it into an open transaction relay —
+//     a mempool-flooding and DoS vector.
+func ApplyNodeProfile(cfg *config.Config, profile NodeProfile) {
+	if profile == NodeProfileSeed {
+		cfg.API.Enable = true
+		cfg.JSONRPC.Enable = true
+		return
+	}
+
+	// Validator-safe: no REST, no EVM JSON-RPC. Both are served by dedicated
+	// public nodes; a validator needs neither to validate or to onboard.
+	cfg.API.Enable = false
+	cfg.JSONRPC.Enable = false
+}
 
 // DefaultAppConfig returns the app.toml configuration that EVERY Hoodium node
 // must start from, regardless of how its home was created.
@@ -1204,8 +1300,12 @@ const DefaultSnapshotKeepRecent = 2
 // accept zero-fee transactions.
 //
 // Both paths now derive from this one builder; `init-files` still overrides the
-// per-node fields (bind addresses, telemetry chain-id label, min gas price).
-func DefaultAppConfig(denom string) *config.Config {
+// per-node fields (bind ports, telemetry chain-id label, min gas price).
+//
+// `profile` selects the network-service surface — see ApplyNodeProfile. Callers
+// that do not know the node type MUST pass DefaultNodeProfile, which is
+// validator-safe.
+func DefaultAppConfig(denom string, profile NodeProfile) *config.Config {
 	_, customAppConfig := servercfg.AppConfig(denom)
 
 	srvCfg, ok := customAppConfig.(servercfg.Config)
@@ -1216,26 +1316,32 @@ func DefaultAppConfig(denom string) *config.Config {
 	// --- Fields the SDK/AppConfig does NOT set for us -----------------------
 	//
 	// servercfg.AppConfig deliberately hardcodes MinGasPrices to "0"+denom and
-	// leaves the RPC/API/gRPC/telemetry surface at the SDK defaults, which are
-	// tuned for a LOCAL dev node (loopback binds, everything off). Both edges
-	// were the source of the setup-vs-init-files drift, so they are pinned here
-	// and both generators inherit them.
+	// leaves the service surface at the SDK defaults, which are tuned for a
+	// LOCAL dev node. Both edges were the source of the setup-vs-init-files
+	// drift, so they are pinned here and every generator inherits them.
 
 	// The Hoodium regular-tier gas floor (0.0000025 RUNE/gas = 2.5e12 arune),
 	// matching x/feemarket's DefaultMinRegularGasPrice. A node that ships
 	// "0arune" accepts zero-fee transactions into its mempool.
 	srvCfg.MinGasPrices = MinGasPriceDefault + denom
 
-	// Bind externally: a node on a remote host must be reachable for RPC,
-	// REST and gRPC. init-files already did this for multi-node layouts; doing
-	// it for every home keeps a `setup` node usable as published.
-	srvCfg.API.Enable = true
+	// Bind addresses are recorded for BOTH profiles; whether the servers run at
+	// all is governed by the Enable flags applied below. Keeping the addresses
+	// means an operator can flip `enable = true` without also having to look up
+	// the right host/port — but the default posture never listens.
 	srvCfg.API.Address = DefaultAPIAddress
 	srvCfg.GRPC.Address = DefaultGRPCAddress
 	srvCfg.JSONRPC.Address = DefaultJSONRPCAddress
 	srvCfg.JSONRPC.WsAddress = DefaultJSONRPCWsAddress
 
-	// Telemetry: on, with a 60s Prometheus retention window.
+	// Turn the network services on/off for this node profile. Validators (the
+	// default) get none of them.
+	ApplyNodeProfile(&srvCfg, profile)
+
+	// Telemetry: on for BOTH profiles, with a 60s Prometheus retention window.
+	// It opens no listening socket — metrics are scraped over the CometBFT RPC
+	// /debug/metrics/prometheus path — and it is what lets an operator see
+	// uptime before a missed-block window jails the validator.
 	srvCfg.Telemetry.Enabled = true
 	srvCfg.Telemetry.PrometheusRetentionTime = 60
 	srvCfg.Telemetry.EnableHostnameLabel = false

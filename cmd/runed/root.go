@@ -261,10 +261,16 @@ func txCommand(encodingConfig params.EncodingConfig) *cobra.Command {
 // creates it from this template+config) is byte-identical to one written
 // directly by `runed genesis init-files`. Keeping the two in sync matters:
 // a divergence made setup nodes accept zero-fee transactions.
+//
+// PROFILE: DefaultNodeProfile (validator-safe). At this point the root pre-run
+// handler runs before the command body, so the node type is not known yet; the
+// safe default is the correct fallback. `runed init` overwrites app.toml with
+// the resolved profile (see --node-type), so this template value only survives
+// for commands that never call init.
 func initAppConfig() (string, interface{}) {
 	customAppTemplate, _ := servercfg.AppConfig(cmdcfg.BaseDenom)
 
-	srvCfg := DefaultAppConfig(cmdcfg.BaseDenom)
+	srvCfg := DefaultAppConfig(cmdcfg.BaseDenom, DefaultNodeProfile)
 
 	return customAppTemplate, *srvCfg
 }
