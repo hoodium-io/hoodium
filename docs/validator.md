@@ -202,6 +202,129 @@ runed query staking validators --home ~/.runed
 
 Your validator is **bonded** once it is in the top **101** by voting power.
 
+## Querying your validator
+
+Every command below is read-only. `--home ~/.runed` and `--node tcp://localhost:26657`
+are assumed; add them if your home or RPC address differ.
+
+> Your validator's **JSON-RPC (8545) and REST API (1317) are disabled by default** —
+> see [Node profiles](#node-profiles-what-runs-on-your-node). All queries here go
+> through the **CometBFT RPC on 26657**, which stays bound to `127.0.0.1`.
+
+### Identity
+
+```bash
+runed tendermint show-node-id     # node ID  — the <nodeID> in persistent_peers
+runed tendermint show-address     # consensus address (runevalcons1…) — used by signing-info
+runed tendermint show-validator   # consensus ed25519 pubkey
+runed keys show <key-name> --bech val -a   # operator address (runevaloper1…)
+```
+
+### Liveness and jail risk — the most important checks
+
+```bash
+# Live status: height, catching_up, voting power.
+runed status
+
+# Signing info: the direct answer to "am I about to be jailed?"
+runed query slashing signing-info $(runed tendermint show-address)
+```
+
+`signing-info` returns `index_offset` (blocks tracked in the current window) and
+`missed_blocks_counter`. With a **10,000-block** window at 50% required, you are
+jailed once `missed_blocks_counter` exceeds **5,000**. At 6s blocks the window is
+~16.7h, so ~8.3h of downtime jails you.
+
+```bash
+runed query slashing signing-infos   # every validator at once
+runed query slashing params          # window size, slash fractions, jail duration
+```
+
+> `Enumerable` missed-block bitmaps are **not** exposed by the gRPC query — only the
+> counters above. `missed_blocks_counter` is the number that matters.
+
+### Validator set
+
+```bash
+runed query staking validators                     # all validators, full detail
+runed query staking validator <runevaloper…>       # just yours
+runed query staking params                         # max validators, bond denom, unbonding time
+runed query staking pool                           # bonded / not-bonded totals
+runed query comet-validator-set                    # consensus set + voting power (CometBFT view)
+runed query comet-validator-set 12345              # at a specific height
+```
+
+### Delegations and rewards
+
+```bash
+runed query staking delegations <rune1…>                    # your delegations
+runed query staking delegations-to <runevaloper…>           # everyone delegating to you
+runed query staking unbonding-delegations-from <runevaloper…>
+runed query distribution rewards <rune1…>                   # claimable rewards
+runed query distribution commission <runevaloper…>          # your commission
+runed query distribution validator-outstanding-rewards <runevaloper…>
+runed query distribution slashes <runevaloper…>             # slash history
+```
+
+### Balance and blocks
+
+```bash
+runed query bank balances <rune1…>
+runed query bank balance <rune1…> arune
+runed query block                 # latest block
+runed query block 12345           # a specific height
+runed query tx <HASH>
+```
+
+### Raw CometBFT RPC
+
+Useful for monitoring scripts, since it returns JSON:
+
+```bash
+curl -s localhost:26657/status                | jq '.result.validator_info, .result.sync_info'
+curl -s localhost:26657/validators            | jq '.result.validators'
+curl -s localhost:26657/net_info              | jq '.result.n_peers'
+curl -s localhost:26657/dump_consensus_state  | jq '.result.round_state.height'
+```
+
+`dump_consensus_state` is the quickest way to see a **stalled** chain: a height that
+stops incrementing with `step` stuck at `RoundStepPropose` means validators are not
+reaching agreement.
+
+### Node profiles — what runs on your node
+
+`runed setup` writes one of two profiles, chosen by your `v` (validator) or `s`
+(seed) answer. **Validator is the default** and is deliberately locked down:
+
+| Service | Port | Validator | Seed |
+|---|---|---|---|
+| p2p | 26656 | open | open |
+| CometBFT RPC | 26657 | `127.0.0.1` only | `0.0.0.0` |
+| REST API | 1317 | **disabled** | enabled |
+| EVM JSON-RPC | 8545 / 8546 | **disabled** | enabled |
+| telemetry | (scraped via 26657) | enabled | enabled |
+
+A validator needs none of the disabled services: `create-validator` broadcasts over
+**26657**, not REST, and dedicated public API / JSON-RPC nodes serve those endpoints.
+Telemetry stays on because it opens no listening socket — it is scraped over the
+loopback RPC path — and it is what lets you see uptime before a missed-block window
+jails you.
+
+To re-enable a service on a node you intend to publish, edit `~/.runed/config/app.toml`:
+
+```toml
+[api]
+enable = true
+address = "tcp://0.0.0.0:1317"
+
+[json-rpc]
+enable = true
+address = "0.0.0.0:8545"
+ws-address = "0.0.0.0:8546"
+```
+
+Only do this on a node you intend to expose — and firewall the ports accordingly.
+
 ## Staking parameters (Hoodium)
 
 | Parameter | Value |

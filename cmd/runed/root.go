@@ -41,6 +41,8 @@ import (
 	tmcli "github.com/cometbft/cometbft/libs/cli"
 	dbm "github.com/cosmos/cosmos-db"
 
+	autocliv1 "cosmossdk.io/api/cosmos/autocli/v1"
+	autocli "cosmossdk.io/client/v2/autocli"
 	"cosmossdk.io/simapp/params"
 	"cosmossdk.io/store"
 	"cosmossdk.io/store/snapshots"
@@ -54,13 +56,23 @@ import (
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	auth "github.com/cosmos/cosmos-sdk/x/auth"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
-	"github.com/cosmos/cosmos-sdk/x/auth/types"
+	authcodec "github.com/cosmos/cosmos-sdk/x/auth/codec"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	authzcli "github.com/cosmos/cosmos-sdk/x/authz/client/cli"
+	bank "github.com/cosmos/cosmos-sdk/x/bank"
 	bankcli "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/crisis"
+	distr "github.com/cosmos/cosmos-sdk/x/distribution"
 	distrcli "github.com/cosmos/cosmos-sdk/x/distribution/client/cli"
+	distrtypes "github.com/cosmos/cosmos-sdk/x/distribution/types"
+	slashing "github.com/cosmos/cosmos-sdk/x/slashing"
+	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
+	staking "github.com/cosmos/cosmos-sdk/x/staking"
 	stakingcli "github.com/cosmos/cosmos-sdk/x/staking/client/cli"
+	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	runeclient "github.com/hoodium-io/hoodium/client"
 	"github.com/hoodium-io/hoodium/encoding"
 	"github.com/hoodium-io/hoodium/evm/eip712"
@@ -88,7 +100,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 		WithTxConfig(encodingConfig.TxConfig).
 		WithLegacyAmino(encodingConfig.Amino).
 		WithInput(os.Stdin).
-		WithAccountRetriever(types.AccountRetriever{}).
+		WithAccountRetriever(authtypes.AccountRetriever{}).
 		WithBroadcastMode(flags.BroadcastSync).
 		WithHomeDir(app.DefaultNodeHome).
 		WithKeyringOptions(runekr.Option()).
@@ -165,7 +177,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 	// add keybase, auxiliary RPC, query, and tx child commands
 	rootCmd.AddCommand(
 		sdkserver.StatusCommand(),
-		queryCommand(),
+		queryCommand(encodingConfig),
 		txCommand(encodingConfig),
 		runeclient.KeyCommands(app.DefaultNodeHome),
 	)
@@ -181,7 +193,7 @@ func addModuleInitFlags(startCmd *cobra.Command) {
 	crisis.AddModuleInitFlags(startCmd)
 }
 
-func queryCommand() *cobra.Command {
+func queryCommand(encodingConfig params.EncodingConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                        "query",
 		Aliases:                    []string{"q"},
@@ -198,10 +210,117 @@ func queryCommand() *cobra.Command {
 		authcmd.QueryTxCmd(),
 	)
 
+	// Module query commands.
+	//
+	// Two layers are needed, because SDK v0.50 split the old GetQueryCmd pattern:
+	//
+	//  1. AddQueryCommands enumerates ModuleBasics and calls GetQueryCmd. That
+	//     still yields `query evm`, `query feemarket`, `query marketmap`,
+	//     `query oracle`, `query params`, `query authz`, `query upgrade`.
+	//
+	//  2. Writing the APP UP in queryCommand used to come from the modules we are
+	//     not adding here.
+	//
+	// The SDK's own staking/distribution/slashing/bank no longer implement
+	// GetQueryCmd AT ALL in v0.50 (their client/cli packages ship only tx.go), so
+	// layer 1 silently omits them. Their query subtrees live in AutoCLIOptions and
+	// are generated from the modules' gRPC Query services. Layer 2 below runs
+	// autocli to materialise them.
 	app.ModuleBasics.AddQueryCommands(cmd)
 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
 
+	// layer 2: autocli. EnhanceRootCommand only ADDS commands that are missing, so
+	// anything registered above is left untouched. Failures are non-fatal: a node
+	// whose gRPC surface is unreachable must still be able to run every command
+	// registered in layer 1.
+	if err := addAutoCLIQueryCommands(cmd, encodingConfig); err != nil {
+		cmd.PrintErrf("warning: could not register autocli query commands: %v\n", err)
+	}
+
 	return cmd
+}
+
+// addAutoCLIQueryCommands materialises the SDK's autocli-generated query subtrees
+// (staking, distribution, slashing, bank, …) onto queryCmd.
+//
+// Autocli builds each command from the module's protobuf Query service, which is
+// why it can offer `query staking validator <valoper>` and `query slashing
+// signing-info <consaddr>` even though those modules ship NO query CLI code in
+// SDK v0.50 (their client/cli packages contain only tx.go).
+//
+// # Why zero-value AppModules are enough
+//
+// AutoCLIOptions() is pure static configuration in all four modules — it returns a
+// descriptor referencing the gRPC service name and never touches keeper fields
+// (verified: zero `am.` references in each autocli.go). So a zero-value
+// `staking.AppModule{}` produces exactly the same options as a fully wired one.
+// That matters because query commands run WITHOUT building the app, so no keeper
+// instances exist at this point.
+//
+// # Why not ModuleBasics
+//
+// AutoCLIOptions is declared on AppModule, not AppModuleBasic. app.ModuleBasics
+// holds zero-value AppModuleBasic structs whose only method is GetTxCmd, so
+// passing it to autocli would register nothing at all — silently.
+func addAutoCLIQueryCommands(queryCmd *cobra.Command, encodingConfig params.EncodingConfig) error {
+	// AutoCLIOptions() is pure static data on these four modules (it never reads
+	// keeper fields), so a zero-value AppModule can be asked for its options
+	// directly. Call ONLY AutoCLIOptions here, never GetTxCmd: the full
+	// AppModule.GetTxCmd dereferences nil codecs on a zero value and panics.
+	//
+	// The options are then handed to autocli as ModuleOptions, with Modules left
+	// EMPTY. That is essential: EnhanceRootCommand iterates appOptions.Modules and
+	// unconditionally calls GetTxCmd()/GetQueryCmd() on every entry, which would
+	// re-introduce the nil-codec panic we are avoiding by not passing modules.
+	sourceModules := map[string]interface{}{
+		stakingtypes.ModuleName:  staking.AppModule{},
+		distrtypes.ModuleName:    distr.AppModule{},
+		slashingtypes.ModuleName: slashing.AppModule{},
+		banktypes.ModuleName:     bank.AppModule{},
+		authtypes.ModuleName:     auth.AppModule{},
+	}
+
+	moduleOptions := make(map[string]*autocliv1.ModuleOptions, len(sourceModules))
+	for name, mod := range sourceModules {
+		if autoCLIOpts, ok := mod.(interface {
+			AutoCLIOptions() *autocliv1.ModuleOptions
+		}); ok {
+			if opts := autoCLIOpts.AutoCLIOptions(); opts != nil && opts.Query != nil {
+				moduleOptions[name] = opts
+			}
+		}
+	}
+
+	if len(moduleOptions) == 0 {
+		return nil
+	}
+
+	signingCtx := encodingConfig.InterfaceRegistry.SigningContext()
+
+	opts := autocli.AppOptions{
+		ModuleOptions:         moduleOptions,
+		AddressCodec:          signingCtx.AddressCodec(),
+		ValidatorAddressCodec: signingCtx.ValidatorAddressCodec(),
+		// signing.Context exposes only the account and validator codecs, so the
+		// consensus one is built the same way app.go does (app/app.go:387) from the
+		// configured bech32 prefix. Autocli needs it to render consensus addresses
+		// in `query slashing signing-info` output.
+		ConsensusAddressCodec: authcodec.NewBech32Codec(
+			sdk.GetConfig().GetBech32ConsensusAddrPrefix(),
+		),
+		// EnhanceRootCommand derives the proto FileResolver from
+		// ClientCtx.InterfaceRegistry. Without it, builder validation fails with
+		// "file resolver is required in flag builder" and NO commands are added.
+		ClientCtx: client.Context{}.WithInterfaceRegistry(encodingConfig.InterfaceRegistry),
+	}
+
+	// EnhanceRootCommand looks for a "query" child on a root command, so build a
+	// throwaway root. It only ADDS missing commands, leaving everything already
+	// registered on queryCmd untouched.
+	root := &cobra.Command{Use: app.Name}
+	root.AddCommand(queryCmd)
+
+	return opts.EnhanceRootCommand(root)
 }
 
 // txCommand builds the `tx` command tree: the auth helpers for signing and
