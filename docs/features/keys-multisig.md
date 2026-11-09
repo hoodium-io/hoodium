@@ -100,7 +100,6 @@ Fund it like any account:
 
 ```bash
 runed tx bank send <your-key> <multisig-address> 1000rune \
-  --chain-id rune_6590-1 --keyring-backend file --home ~/.runed \
   --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
 ```
 
@@ -120,8 +119,6 @@ A multisig spend is **not** a single command. The flow is: build once, sign by
 # 1. Generate the unsigned transaction
 runed tx bank send <multisig-address> <recipient> 100rune \
   --from foundation \
-  --chain-id rune_6590-1 \
-  --keyring-backend file --home ~/.runed \
   --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune \
   --generate-only > unsigned.json
 
@@ -130,21 +127,24 @@ runed tx sign unsigned.json \
   --from alice \
   --multisig <multisig-address> \
   --chain-id rune_6590-1 \
-  --keyring-backend file --home ~/.runed \
   --output-document alice-sig.json
 # ... repeat with bob / carol until K signatures exist
 
 # 3. Combine the signatures into one multisig signature
 runed tx multi-sign unsigned.json foundation alice-sig.json bob-sig.json \
   --chain-id rune_6590-1 \
-  --keyring-backend file --home ~/.runed \
   --output-document signed.json
 
 # 4. Broadcast
 runed tx broadcast signed.json \
-  --chain-id rune_6590-1 \
-  --keyring-backend file --home ~/.runed
+  --chain-id rune_6590-1
 ```
+
+> ⚠️ **`--chain-id` is required here, unlike ordinary commands.** Steps 2–4 sign and
+> broadcast **off-chain** (`--offline` / `--generate-only`), so the node cannot be
+> queried for its chain-id and `client.toml` may describe a different network than the
+> one you intend. Every signer must use the **same** value, which is why it is spelled
+> out explicitly rather than left to the config file.
 
 > ⚠️ **All members must sign the identical `unsigned.json`.** If the transaction
 > body, fee, sequence, or account number differ between signers, the combined

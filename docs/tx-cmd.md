@@ -121,22 +121,22 @@ the same amount:
 
 ```bash
 runed tx bank send mykey rune1dx67l23hz9l0k9hcher8xz04uj7wf3yuckl253 1000rune \
-  --chain-id rune_6590-1 \
-  --keyring-backend file \
-  --home ~/.runed \
   --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune \
   -y
 ```
 
 | Flag | Why |
 |---|---|
-| `--chain-id` | Must match the network, else the signature is rejected. |
-| `--keyring-backend file` | Where the key lives. `file` is the Hoodium default (headless-safe). |
-| `--home` | Node home directory (`~/.runed` by default). |
 | `--gas auto` | Simulate to estimate gas. |
 | `--gas-adjustment 1.3` | 30% headroom over the simulation. |
 | `--gas-prices` | The fee floor (see [Fees](#fees--read-this-first)). |
 | `-y` | Skip the interactive confirmation. |
+
+> **`--chain-id`, `--keyring-backend` and `--home` are omitted on purpose.** `runed init`
+> writes all three into `~/.runed/config/client.toml`, and every CLI command falls back
+> to it. If you *do* pass `--chain-id`, a value that does not match the node **overrides**
+> the file and the tx fails with `signature verification failed … please verify chain-id`.
+> Copy-pasting `rune_6590-1` (mainnet) onto a devnet node is the classic way to hit this.
 
 ### Multi-send (one tx, many recipients)
 
@@ -316,12 +316,14 @@ Equivalent to the precompile method above, using a JSON file.
 ```bash
 runed tx staking create-validator validator.json \
   --from mykey \
-  --keyring-backend file \
-  --home ~/.runed \
-  --chain-id rune_6590-1 \
-  --gas auto --gas-adjustment 1.3 --gas-prices 50000000000arune \
+  --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune \
   -y
 ```
+
+> `--home`, `--keyring-backend` and `--chain-id` are omitted on purpose — `runed init`
+> already wrote all three into `~/.runed/config/client.toml`, and the CLI reads it.
+> Passing a `--chain-id` that does not match the node **overrides** that file and the
+> tx dies with `signature verification failed`.
 
 `validator.json`:
 
@@ -349,7 +351,7 @@ See [validator.md](./validator.md) for the full onboarding flow.
 
 ```bash
 runed tx staking delegate <validator-operator-address> 1000rune \
-  --from mykey --keyring-backend file --home ~/.runed \
+  --from mykey \
   --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
 ```
 
@@ -357,7 +359,7 @@ Get the operator address (note the `--bech val` — validators use a different
 prefix from accounts):
 
 ```bash
-runed keys show mykey --bech val -a --keyring-backend file --home ~/.runed
+runed keys show mykey --bech val -a
 ```
 
 Minimum delegation is **0.1 RUNE**. It is enforced at **both** delegation entry

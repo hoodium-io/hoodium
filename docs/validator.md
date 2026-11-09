@@ -164,22 +164,34 @@ Optional fields: `identity`, `website`, `security`, `details`.
 ```bash
 runed tx staking create-validator validator.json \
   --from <key-name> \
-  --keyring-backend file \
-  --home ~/.runed \
-  --gas auto --gas-adjustment 1.3 --gas-prices 50000000000arune \
+  --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune \
   -y
 ```
 
+> **`--home`, `--keyring-backend` and `--chain-id` are omitted on purpose.** All three
+> are already in `~/.runed/config/client.toml` (written when you ran `runed init`), and
+> every CLI command falls back to it. Passing `--chain-id` **overrides** that file: if
+> the value does not match your node you get
+> `signature verification failed … please verify chain-id (rune_…-1)` and the tx never
+> reaches a block. Copy-pasting `rune_6590-1` (mainnet) onto a devnet/testnet node is
+> the usual cause — let the config file supply it instead.
+
 > **Why `--gas-prices` and not `--fees`?** The chain rejects any transaction whose
-> fee is below `min_gas_price × gas`, where `min_gas_price` is **20 × 10⁹ arune per
-> gas**. With `--gas auto` the SDK first *simulates* the gas limit, then multiplies
-> it by `--gas-prices` — so the fee always clears the floor and you never have to
-> guess the gas. A fixed `--fees` amount cannot do that, and any amount below the
-> floor is rejected outright before the message runs.
+> fee is below `min_gas_price × gas`. With `--gas auto` the SDK first *simulates* the
+> gas limit, then multiplies it by `--gas-prices` — so the fee always clears the floor
+> and you never have to guess the gas. A fixed `--fees` amount cannot do that, and any
+> amount below the floor is rejected outright before the message runs.
 >
-> `50000000000arune` is **2× the floor** (0.00000005 RUNE per gas). At ~300,000 gas
-> that is **0.015 RUNE**. The margin is deliberate: a failed `create-validator`
-> costs you a full sync cycle, so it is worth overpaying by a hundredth of a RUNE.
+> `25000000000arune` is **1.25× the Cosmos-path floor of 20 × 10⁹ arune per gas**.
+> At ~300,000 gas that is ~0.0075 RUNE. If you prefer a wider margin for a one-shot
+> operation like this, `50000000000arune` (2×) also works.
+>
+> ⚠️ This value is tuned for **Cosmos CLI transactions** (`runed tx …`), which are
+> checked against `min_gas_price`. **EVM transactions** (`eth_sendRawTransaction`, raw
+> `runed tx evm raw`) are checked against the higher `min_regular_gas_price`
+> (`2 500 000 000 000` arune/gas) and a `25 × 10⁹` price is **100× too low** there —
+> see [tx-fees.md](./tx-fees.md). Wallets handle the EVM side; you only need this for
+> `runed tx`.
 >
 > ⚠️ **The denom must be `arune`, not `rune`.** `--gas-prices` is parsed without
 > denom normalization, so `rune`-denominated values never match the `arune`
