@@ -12,7 +12,14 @@ const (
 	AttributeKeyHeight    = "height"
 	AttributeKeyValidator = "validator"
 	AttributeKeyAmount    = "amount"
-	// AttributeKeyTxCount is the number of transactions in the rewarded block,
-	// which Proof of Network Activity used to select the reward.
+	// AttributeKeyTxCount is the number of REGULAR transactions in the rewarded
+	// block (the injected app-level pseudo-transaction is excluded), which
+	// Proof of Network Activity used to select the reward.
 	AttributeKeyTxCount = "tx_count"
+	// AttributeKeyBand is the PoNA activity band that was paid: "full", "low"
+	// or "zero".
+	AttributeKeyBand = "band"
+	// AttributeKeyTier is the index of the emission-schedule tier that covered
+	// the rewarded height.
+	AttributeKeyTier = "tier"
 )

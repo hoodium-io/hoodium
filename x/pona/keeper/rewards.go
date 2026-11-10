@@ -10,6 +10,61 @@ import (
 	"github.com/hoodium-io/hoodium/x/pona/types"
 )
 
+// BlockRewardBreakdown describes how the block reward for a given height and
+// transaction count was determined. It is the single source of truth shared by
+// the payout path (DistributeRuneBlockReward), the emitted event and the
+// `query pona` CLI commands, so the number a validator sees in a log line, in an
+// event and in a query is always produced by the same computation.
+type BlockRewardBreakdown struct {
+	// Height is the block height the reward applies to.
+	Height uint64
+	// TxCount is the number of REGULAR transactions in the block (the injected
+	// app-level pseudo-transaction is excluded).
+	TxCount uint64
+	// TierIndex is the index of the schedule tier covering Height, or -1 when
+	// no tier covers it (emission ended).
+	TierIndex int
+	// Tier is the schedule tier covering Height.
+	Tier types.Tier
+	// Band is the PoNA band selected by TxCount.
+	Band types.ActivityBand
+	// Reward is the amount actually scheduled for payment.
+	Reward sdkmath.Int
+}
+
+// HasTier reports whether a schedule tier covers the queried height.
+func (b BlockRewardBreakdown) HasTier() bool {
+	return b.TierIndex >= 0
+}
+
+// ComputeBlockReward resolves the PoNA reward for a height and transaction
+// count without touching state.
+//
+// It is deterministic and side-effect free, which is what lets the CLI answer
+// "what would this block pay?" for any height, including one that has not been
+// produced yet.
+func ComputeBlockReward(params types.Params, height, txCount uint64) BlockRewardBreakdown {
+	idx, tier, ok := params.TierForHeight(height)
+
+	breakdown := BlockRewardBreakdown{
+		Height:    height,
+		TxCount:   txCount,
+		TierIndex: -1,
+		Band:      types.BandNone,
+		Reward:    sdkmath.ZeroInt(),
+	}
+	if !ok {
+		return breakdown
+	}
+
+	breakdown.TierIndex = idx
+	breakdown.Tier = tier
+	breakdown.Band = tier.BandForTxCount(txCount)
+	breakdown.Reward = tier.RewardForTxCount(txCount)
+
+	return breakdown
+}
+
 // DistributeRuneBlockReward pays the block reward for the current block from the
 // validator reward pool into the distribution fee pool.
 //
@@ -44,7 +99,8 @@ func (k Keeper) DistributeRuneBlockReward(
 
 	height := uint64(ctx.BlockHeight()) //nolint:gosec // block height is always positive
 	txCount := k.BlockTxCount(ctx)
-	reward := params.RewardForHeightAndTxCount(height, txCount)
+	breakdown := ComputeBlockReward(params, height, txCount)
+	reward := breakdown.Reward
 	if reward.IsZero() {
 		// Fee-only: emission has ended (no tier covers this height).
 		return sdkmath.ZeroInt(), nil
@@ -89,6 +145,8 @@ func (k Keeper) DistributeRuneBlockReward(
 		sdk.NewAttribute(types.AttributeKeyHeight, fmt.Sprintf("%d", height)),
 		sdk.NewAttribute(types.AttributeKeyAmount, reward.String()),
 		sdk.NewAttribute(types.AttributeKeyTxCount, fmt.Sprintf("%d", txCount)),
+		sdk.NewAttribute(types.AttributeKeyBand, string(breakdown.Band)),
+		sdk.NewAttribute(types.AttributeKeyTier, fmt.Sprintf("%d", breakdown.TierIndex)),
 	)
 	if proposer.OperatorAddress != "" {
 		event = event.AppendAttributes(

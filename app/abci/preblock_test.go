@@ -409,6 +409,125 @@ func (s *PreBlockHandlerTestSuite) TestPreBlocker() {
 	}
 }
 
+// TestCountRegularTxs covers the transaction counting that Proof of Network
+// Activity depends on.
+//
+// The critical case is "pseudo-tx only": Hoodium enables vote extensions at
+// height 1, so every block carries the app-level injected pseudo-transaction.
+// If it were counted, the block would look like it had 1 transaction, the zero
+// band would be unreachable and an idle chain would pay the low-activity rate
+// forever.
+func (s *PreBlockHandlerTestSuite) TestCountRegularTxs() {
+	// A real, minimal injected pseudo-tx as PrepareProposal builds it.
+	pseudoTx := func(parts map[uint32][]byte) []byte {
+		bz, err := (&types.InjectedTx{Parts: parts}).Marshal()
+		s.Require().NoError(err)
+
+		return bz
+	}
+
+	// A decoder that accepts a payload when `valid` is true.
+	decoder := func(valid bool) TxDecoder {
+		return func([]byte) (sdk.Tx, error) {
+			if !valid {
+				return nil, fmt.Errorf("not a transaction")
+			}
+
+			return nil, nil
+		}
+	}
+
+	tests := []struct {
+		name       string
+		height     int64
+		txs        [][]byte
+		def        TxDecoder
+		want       uint64
+		wantPseudo bool
+	}{
+		{
+			name:   "empty block",
+			height: 101,
+			txs:    nil,
+			want:   0,
+		},
+		{
+			name:       "pseudo-tx only is zero regular transactions",
+			height:     101,
+			txs:        [][]byte{pseudoTx(map[uint32][]byte{1: []byte("connect-part")})},
+			want:       0,
+			wantPseudo: true,
+		},
+		{
+			name:   "pseudo-tx plus two regular txs",
+			height: 101,
+			txs: [][]byte{
+				pseudoTx(map[uint32][]byte{1: []byte("connect-part")}),
+				[]byte("tx1"),
+				[]byte("tx2"),
+			},
+			want:       2,
+			wantPseudo: true,
+		},
+		{
+			name:   "regular txs only, no pseudo-tx",
+			height: 101,
+			txs:    [][]byte{[]byte("tx1"), []byte("tx2")},
+			want:   2,
+		},
+		{
+			name: "pseudo-tx shape with no parts is NOT a pseudo-tx",
+			// gogoproto ignores unknown fields, so an arbitrary payload can
+			// decode into an InjectedTx with an empty Parts map. Treating that
+			// as a pseudo-tx would silently drop a real transaction.
+			height: 101,
+			txs:    [][]byte{pseudoTx(map[uint32][]byte{})},
+			want:   1,
+		},
+		{
+			name:   "vote extensions disabled: nothing is stripped",
+			height: 100, // == VoteExtensionsEnableHeight, so not enabled yet
+			txs: [][]byte{
+				pseudoTx(map[uint32][]byte{1: []byte("connect-part")}),
+				[]byte("tx1"),
+			},
+			want: 2,
+		},
+		{
+			name:       "decoder can never turn the pseudo-tx into a transaction",
+			height:     101,
+			txs:        [][]byte{pseudoTx(map[uint32][]byte{1: []byte("connect-part")})},
+			def:        decoder(false),
+			want:       0,
+			wantPseudo: true,
+		},
+		{
+			name:       "ambiguous payload that also decodes as a tx is counted",
+			height:     101,
+			txs:        [][]byte{pseudoTx(map[uint32][]byte{1: []byte("connect-part")})},
+			def:        decoder(true),
+			want:       1,
+			wantPseudo: true,
+		},
+	}
+
+	for _, tc := range tests {
+		s.Run(tc.name, func() {
+			s.SetupTest()
+
+			injected, regular := SplitBlockTxs(s.ctx, tc.height, tc.txs)
+			s.Require().Equal(tc.wantPseudo, injected != nil, "pseudo-tx detection")
+
+			got := CountRegularTxs(s.ctx, tc.height, tc.txs, tc.def)
+			s.Require().Equal(tc.want, got, "regular tx count")
+
+			if injected == nil {
+				s.Require().Equal(len(tc.txs), len(regular), "regular txs are not stripped")
+			}
+		})
+	}
+}
+
 type mockModuleManager struct {
 	mock.Mock
 }

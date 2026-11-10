@@ -25,17 +25,28 @@ func (p Params) RewardForHeight(height uint64) sdkmath.Int {
 	return tier.RewardPerBlock
 }
 
-// tierForHeight returns the tier covering the given height and whether one was
-// found.
-func (p Params) tierForHeight(height uint64) (Tier, bool) {
-	for _, t := range p.Tiers {
+// TierForHeight returns the schedule tier covering the given height, together
+// with its index in Params.Tiers, and reports whether one was found.
+//
+// It returns ok == false only when no tier covers the height, which for a valid
+// schedule (first tier at height 0, last tier open-ended) can never happen. The
+// index is returned so callers can report "tier N of M" without re-deriving it.
+func (p Params) TierForHeight(height uint64) (int, Tier, bool) {
+	for i, t := range p.Tiers {
 		if height < t.StartHeight {
 			continue
 		}
 		if t.EndHeight != 0 && height >= t.EndHeight {
 			continue
 		}
-		return t, true
+		return i, t, true
 	}
-	return Tier{}, false
+	return -1, Tier{}, false
+}
+
+// tierForHeight returns the tier covering the given height and whether one was
+// found.
+func (p Params) tierForHeight(height uint64) (Tier, bool) {
+	_, tier, ok := p.TierForHeight(height)
+	return tier, ok
 }

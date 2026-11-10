@@ -13,6 +13,106 @@ import (
 	"github.com/hoodium-io/hoodium/app/abci/types"
 )
 
+// TxDecoder decodes a raw transaction into an sdk.Tx.
+//
+// It is the single source of truth for "is this entry in the block a real
+// transaction?". The application's own decoder (baseapp's txDecoder) is the
+// right implementation, because it is exactly what BaseApp uses when it decides
+// whether to deliver an entry (see BaseApp.FinalizeBlock).
+type TxDecoder func(txBytes []byte) (sdk.Tx, error)
+
+// SplitBlockTxs separates the entries of a finalized block into the app-level
+// injected pseudo-transaction (if present) and the regular chain transactions.
+//
+// It returns a nil `injected` when the block carries no app-level pseudo-tx,
+// and `regularTxs` always aliases rawTxs when nothing was stripped.
+//
+// # Why this is not just "skip the first element"
+//
+// The app-level pseudo-tx is injected at index 0 during PrepareProposal, but
+// only when vote extensions are enabled AND at least one sub-handler succeeded
+// (see ProposalHandler.PrepareProposalHandler). So index 0 is *not* reliably a
+// pseudo-tx: when every sub-handler fails, or before vote extensions activate,
+// the first entry is an ordinary transaction.
+//
+// # Two independent tests, and why both are needed
+//
+//  1. Vote extensions must be enabled at this height. Without them PrepareProposal
+//     short-circuits and injects nothing at all.
+//  2. The payload must actually be an InjectedTx. This is the decisive test:
+//     `len(injectedTx.Parts) > 0`.
+//
+// Test 2 alone is not sufficient. gogoproto skips unknown fields, so the
+// `InjectedTx.Unmarshal` of an arbitrary Cosmos transaction can succeed with
+// an EMPTY Parts map — the pre-block handler must treat that as "no pseudo-tx"
+// (see PreBlockHandler.PreBlocker, where the same check gates the sub-handlers).
+// Requiring at least one part both mirrors that logic and keeps the answer
+// consistent: a pseudo-tx that no sub-handler vouched for is not a pseudo-tx.
+//
+// A real transaction can never satisfy both tests, because a genuine Cosmos
+// transaction does not carry a repeated message field at proto field number 1,
+// which is what would be needed to populate Parts.
+func SplitBlockTxs(ctx sdk.Context, height int64, rawTxs [][]byte) (injected *types.InjectedTx, regularTxs [][]byte) {
+	if len(rawTxs) == 0 {
+		return nil, rawTxs
+	}
+
+	if !isVoteExtensionsEnabled(ctx, height) {
+		return nil, rawTxs
+	}
+
+	var candidate types.InjectedTx
+	if err := candidate.Unmarshal(rawTxs[0]); err != nil {
+		return nil, rawTxs
+	}
+	if len(candidate.Parts) == 0 {
+		// Decoded into the right wire shape but carries nothing: this is not a
+		// pseudo-tx (see the function comment).
+		return nil, rawTxs
+	}
+
+	return &candidate, rawTxs[1:]
+}
+
+// CountRegularTxs returns the number of regular chain transactions in a
+// finalized block, excluding the app-level injected pseudo-transaction.
+//
+// # Why the count matters
+//
+// Proof of Network Activity (x/pona) scales the RUNE block reward by how many
+// transactions the block contains, and the zero-activity band pays a nominal
+// 1 RUNE precisely so an idle chain does not drain the reserve at the full
+// rate. That band is only reachable if a block containing nothing but the
+// injected pseudo-tx counts as ZERO transactions.
+//
+// Hoodium activates vote extensions at height 1 (genesis consensus params), so
+// every block after genesis carries the pseudo-tx. Counting the raw block
+// length — len(req.Txs) — therefore reports at least 1 for every block ever
+// produced: the zero band is unreachable and every quiet block is paid the
+// *low activity* rate (20 RUNE in tier 1) instead of 1 RUNE.
+//
+// count is the number of regular transactions. The optional def decoder is used
+// to make the identification of the pseudo-tx airtight: an entry that decodes
+// as a real sdk.Tx can never be the pseudo-tx, so it is always counted.
+func CountRegularTxs(
+	ctx sdk.Context, height int64, rawTxs [][]byte, def TxDecoder,
+) uint64 {
+	first, regular := SplitBlockTxs(ctx, height, rawTxs)
+
+	count := len(regular)
+	if first != nil && def != nil {
+		// Defence in depth: a payload that both looks like an InjectedTx and
+		// decodes as a valid transaction is ambiguous, so treat it as a real
+		// transaction (the conservative choice: it is counted rather than
+		// silently free).
+		if _, err := def(rawTxs[0]); err == nil {
+			count++
+		}
+	}
+
+	return uint64(count) //nolint:gosec // bounded by the block's transaction list
+}
+
 // IModuleManager is an interface representing the module manager.
 type IModuleManager interface {
 	// PreBlock returns the pre-block logic for the module manager.

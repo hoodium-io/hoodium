@@ -37,6 +37,29 @@ import (
 //	tx_count == 0                          -> zero activity     (0)
 const DefaultTxCountThreshold = uint64(10)
 
+// ActivityBand identifies which Proof of Network Activity band a block falls
+// into. The band, not the raw transaction count, decides which of the tier's
+// three rates is paid, so the decision lives in exactly one place
+// (Tier.BandForTxCount) and is shared by the payout path, the emitted event and
+// the CLI.
+type ActivityBand string
+
+const (
+	// BandFull is the band of a busy block: txCount >= TxCountThreshold.
+	BandFull ActivityBand = "full"
+	// BandLow is the band of a block with some, but not enough, activity:
+	// 0 < txCount < TxCountThreshold.
+	BandLow ActivityBand = "low"
+	// BandZero is the band of a block that contains no regular transactions.
+	// It pays the tier's nominal ZeroActivityReward so an idle chain still
+	// pays the proposer something while draining the reserve as slowly as
+	// possible.
+	BandZero ActivityBand = "zero"
+	// BandNone means no tier covers the height: emission has ended and no
+	// activity-scaled reward applies.
+	BandNone ActivityBand = "none"
+)
+
 // PoNAEnabled reports whether the tier scales its reward by block activity.
 //
 // A TxCountThreshold of 0 is the "PoNA off" sentinel: it disables the activity
@@ -48,18 +71,33 @@ func (t Tier) PoNAEnabled() bool {
 	return t.TxCountThreshold > 0
 }
 
-// RewardForTxCount returns the reward this tier pays for a block containing
-// `txCount` transactions, applying its PoNA bands.
-func (t Tier) RewardForTxCount(txCount uint64) sdkmath.Int {
-	// PoNA disabled: always the full reward.
+// BandForTxCount returns the PoNA band that applies to a block containing
+// txCount regular transactions.
+//
+// A tier with PoNA disabled (TxCountThreshold == 0) always reports BandFull,
+// because its full reward is paid regardless of the block's activity.
+func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
 	if !t.PoNAEnabled() {
-		return t.RewardPerBlock
+		return BandFull
 	}
 
 	switch {
 	case txCount >= t.TxCountThreshold:
-		return t.RewardPerBlock
+		return BandFull
 	case txCount == 0:
+		return BandZero
+	default:
+		return BandLow
+	}
+}
+
+// RewardForTxCount returns the reward this tier pays for a block containing
+// `txCount` transactions, applying its PoNA bands.
+func (t Tier) RewardForTxCount(txCount uint64) sdkmath.Int {
+	switch t.BandForTxCount(txCount) {
+	case BandFull:
+		return t.RewardPerBlock
+	case BandZero:
 		return t.ZeroActivityReward
 	default:
 		return t.LowActivityReward
@@ -84,6 +122,22 @@ func (p Params) RewardForHeightAndTxCount(height, txCount uint64) sdkmath.Int {
 		return sdkmath.ZeroInt()
 	}
 	return tier.RewardForTxCount(txCount)
+}
+
+// BandForHeightAndTxCount returns the PoNA band that applies at the given block
+// height for a block containing `txCount` regular transactions.
+//
+// It returns BandNone when no tier covers the height, which is the fee-only
+// end state (emission has ended). The transaction count must be the number of
+// REGULAR chain transactions: the app-level injected pseudo-transaction that
+// vote extensions put in every block must not be counted, otherwise the zero
+// band is unreachable (see app.Hoodium.PreBlocker).
+func (p Params) BandForHeightAndTxCount(height, txCount uint64) ActivityBand {
+	tier, ok := p.tierForHeight(height)
+	if !ok {
+		return BandNone
+	}
+	return tier.BandForTxCount(txCount)
 }
 
 // validatePoNA checks the activity-scaled reward fields of a single tier.

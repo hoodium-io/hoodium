@@ -689,19 +689,39 @@ func (app *Hoodium) setPostHandler() {
 // application hook with access to the block's transaction list (the module-level
 // PreBlock hooks receive only an sdk.Context).
 //
-// It records the number of transactions in the block being finalised so that
-// x/pona can apply Proof of Network Activity when it pays the block
+// It records the number of REGULAR transactions in the block being finalised so
+// that x/pona can apply Proof of Network Activity when it pays the block
 // reward in EndBlock (see x/pona/keeper.SetBlockTxCount).
+//
+// # Why the pseudo-transaction is excluded
+//
+// Vote extensions are enabled from height 1 on Hoodium, so ProposalHandler
+// injects an app-level pseudo-transaction at index 0 of every block. That entry
+// is not a transaction: BaseApp never delivers it. Counting the raw block length
+// would therefore report >= 1 for every block, making PoNA's zero-activity band
+// (1 RUNE/block) unreachable and paying the low-activity rate (20 RUNE in tier 1)
+// on a completely idle chain — burning the 1B RUNE reserve ~20x faster than
+// intended.
+//
+// appabci.CountRegularTxs strips the pseudo-transaction using the same rules as
+// the pre-block handler, so PoNA counts exactly the transactions the chain
+// actually executed.
 func (app *Hoodium) PreBlocker(
 	ctx sdk.Context,
 	req *abci.RequestFinalizeBlock,
 ) (*sdk.ResponsePreBlock, error) {
-	// Count the transactions in this block for Proof of Network Activity.
-	// NOTE: req.Txs includes every entry in the proposal, including any
-	// app-level injected pseudo-transaction. PoNA counts what the proposer
-	// included, so this matches the "transactions included in the block"
-	// semantics documented in docs/technologies/pona.md.
-	app.PonaKeeper.SetBlockTxCount(ctx, uint64(len(req.Txs))) //nolint:gosec // tx count is bounded by the block
+	// Count the regular transactions in this block for Proof of Network
+	// Activity. The app's tx decoder is passed so that an entry which decodes as
+	// a valid transaction can never be mistaken for the pseudo-transaction.
+	txCount := appabci.CountRegularTxs(ctx, req.Height, req.Txs, app.TxDecode)
+	app.PonaKeeper.SetBlockTxCount(ctx, txCount)
+
+	app.Logger().Debug(
+		"recorded block transaction count for PoNA",
+		"height", req.Height,
+		"block_txs", len(req.Txs),
+		"regular_txs", txCount,
+	)
 
 	return app.preBlockHandler.PreBlocker(app.mm)(ctx, req)
 }

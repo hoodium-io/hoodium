@@ -29,8 +29,12 @@ x/distribution  →  validator commission + delegator rewards
 ```
 
 Because the last hop is ordinary `x/distribution`, **every standard query works**.
-`x/pona` itself exposes **no query service** (`GetQueryCmd` returns `nil`; its only proto is
-`genesis.proto`) — there is nothing pona-specific to query.
+`x/pona` exposes **no gRPC query service** (its only proto is `genesis.proto`),
+but `runed query pona` reads the module's KV store directly, so the reward
+schedule, the current band and the remaining reserve are all queried with plain
+Walk-through: `runed query pona block-reward` reports the band, the amount and a
+one-line explanation, so the log line and the paid reward can always be
+reconciled — see [PoNA-specific queries](#pona-specific-queries) below.
 
 > **Transaction fees** land in the same fee collector, so what you see is
 > *block rewards + fees* combined. On a quiet chain fees are negligible; under load they matter.
@@ -236,7 +240,131 @@ runed query tendermint-validator-set
 
 See [validator.md](./validator.md#unjailing-after-downtime) for unjailing.
 
-## Known limitation — `x/pona` has no queries
+## PoNA-specific queries
+
+`runed query pona` answers everything about the RUNE block-reward system itself:
+which tier is active, what a block pays and why, and how much of the 1B RUNE
+reserve is left.
+
+| Command | Answers |
+|---|---|
+| `runed query pona params` | the full emission schedule and the PoNA rates of every tier |
+| `runed query pona tier` | which tier is active now, and how many blocks until the next one |
+| `runed query pona block-reward` | what the last block paid, which band applied, and why |
+| `runed query pona block-reward --tx-count 25` | what a block with 25 transactions *would* pay |
+| `runed query pona tx-count` | the transaction count PoNA used for the last block |
+| `runed query pona pool` | reserve balance, and how long it lasts at the current tier |
+
+All of them accept the standard query flags: `--height` to ask about a specific
+block, and `-o json` for machine-readable output (`-o text` is the default and
+renders YAML).
+
+### What a block pays right now
+
+```bash
+runed query pona block-reward
+```
+
+```yaml
+band: zero
+band_explanation: the block contains no regular transactions, so the zero-activity rate of 1 RUNE applies
+height: 32495
+reward: "1000000000000000000"
+reward_rune: "1"
+tier:
+  full_reward: {arune: "50000000000000000000", rune: "50"}
+  low_reward: {arune: "20000000000000000000", rune: "20"}
+  zero_reward: {arune: "1000000000000000000", rune: "1"}
+  pona_enabled: true
+  tx_count_threshold: 10
+  tier_index: 0
+  tier_count: 3
+tx_count: 0
+tx_count_source: chain (recorded for the last finalized block)
+```
+
+The three bands are selected by the number of **regular** transactions in the
+block:
+
+| Band | Condition | Tier 1 pays |
+|---|---|---|
+| `full` | `tx_count >= 10` | 50 RUNE |
+| `low` | `0 < tx_count < 10` | 20 RUNE |
+| `zero` | `tx_count == 0` | 1 RUNE |
+
+> **`num_txs=1` in the node log is not a transaction.** CometBFT's
+> `finalizing commit of block ... num_txs=1` counts every entry in the proposal,
+> and the app-level pseudo-transaction carrying oracle vote extensions is one of
+> them. It is never delivered as a transaction, so PoNA does not count it —
+> `tx_count` reads `0` on an idle chain, which is exactly what pays the 1 RUNE
+> zero-activity rate instead of 20. Use `runed query pona tx-count` whenever the
+> log and the reward seem to disagree.
+
+### Which tier is active, and when the next one starts
+
+```bash
+runed query pona tier
+```
+
+```yaml
+height: 32495
+tier:
+  start_height: 0
+  ends_at_height: 10519200
+  ends_at_height_meaning: exclusive
+  tier_index: 0
+  tier_count: 3
+  full_reward: {arune: "50000000000000000000", rune: "50"}
+blocks_until_next_tier: "10486705"
+time_until_next_tier: 1y 364d
+next_tier_full_reward: "25000000000000000000"
+next_tier_full_reward_rune: "25"
+```
+
+Estimates use Hoodium's 6-second target block time, the same constant the
+schedule's tier boundaries are defined in.
+
+### The remaining reserve
+
+```bash
+runed query pona pool
+```
+
+```yaml
+address: rune1...
+balance: "999999999999999..."
+balance_rune: "999999999..."
+remaining_blocks: "19999999"
+remaining_duration: 3y 295d
+```
+
+`remaining_blocks` assumes **every** future block pays the tier's full rate, so
+it is a *lower* bound: quiet blocks pay less and make the reserve last longer.
+When the balance reaches zero, emission stops and the chain runs on fees only.
+
+### Why the pool still needs the module address
+
+The pool has no key and no operator; its address is derived from the module
+account name. To read the raw bank balance without `query pona`:
+
+```bash
+runed query bank balance <validator-reward-pool-addr> arune
+```
+
+The address is deterministic — it does not depend on genesis or on the network —
+so it is safe to derive it locally:
+
+```
+sha256("validator_reward_pool") first 20 bytes, then bech32-encoded with the rune HRP
+```
+
+> **Watch out:** the derivation is **sha256 truncated to 20 bytes**, *not*
+> ripemd160. Several older comments in this repository (including
+> `cmd/runed/mainchain.go`) still say `ripemd160(sha256(...))` and give the
+> resulting wrong address. `authtypes.NewModuleAddress` → `address.Module` →
+> `crypto.AddressHash` → `tmhash.SumTruncated`, which is sha256[:20]. Using the
+> ripemd160 form yields an account that exists but holds **zero**, which
+> silently misleads you.
 
 There is **no command to inspect the validator reward pool balance** or the emission tier
 boundaries directly, because `x/pona` exposes no query service. To read the remaining reserve,

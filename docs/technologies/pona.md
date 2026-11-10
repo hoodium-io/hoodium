@@ -191,13 +191,44 @@ Key properties:
 
 ### 4.1 Which transactions are counted?
 
-For the current (pre-pseudo-tx) implementation the count is the raw block length.
-If Hoodium re-introduces an **app-level injected pseudo-transaction** during
-`PrepareProposal`, PoNA must **exclude it** and count **only regular chain
-transactions** — otherwise every block would look like it had ≥1 tx and the Zero
-band could never be reached. The existing `app/abci/preblock.go` already
-distinguishes an injected first tx from regular txs and provides the pattern to
-reuse.
+**Regular chain transactions only.** The app-level injected
+**pseudo-transaction** that vote extensions put at index 0 of every block is
+**excluded**, because it is not a transaction: `BaseApp` never delivers it (it
+does not decode as an `sdk.Tx`), and counting it would make every block look like
+it had ≥1 tx, making the Zero band unreachable.
+
+Hoodium enables vote extensions at **height 1** (genesis consensus params), so
+this exclusion is not theoretical — before it existed, every block on an idle
+chain was counted as `tx_count = 1` and paid the **low-activity** rate.
+
+The split lives in `app/abci/preblock.go`:
+
+| Function | Responsibility |
+|---|---|
+| `SplitBlockTxs` | separates the injected pseudo-tx from the regular txs |
+| `CountRegularTxs` | the count stored for PoNA (`app.Hoodium.PreBlocker`) |
+
+Detection requires **both** conditions, which is what makes it safe:
+
+1. vote extensions are enabled at that height (`isVoteExtensionsEnabled`), and
+2. the payload decodes as an `InjectedTx` **with at least one part**
+   (`len(injectedTx.Parts) > 0`).
+
+Condition 2's "at least one part" clause is not cosmetic: gogoproto skips
+unknown fields, so `InjectedTx.Unmarshal` of an arbitrary payload can succeed
+with an **empty** `Parts` map. Treating that as a pseudo-tx would silently drop a
+real transaction from the count. The pre-block handler applies the same check
+before running its sub-handlers.
+
+As a final guard, `CountRegularTxs` is given the app's tx decoder
+(`app.TxDecode`): a payload that decodes as a valid `sdk.Tx` is always counted as
+a real transaction, even if it also parses as an `InjectedTx`.
+
+> **`num_txs=1` in the CometBFT log is expected** and is *not* a PoNA bug.
+> `finalizing commit of block ... num_txs=1` counts every entry in the proposal,
+> and `finalized block ... num_txs_res=1` is the matching per-tx result from
+> `BaseApp`. Both count the pseudo-tx because it *is* an entry in the block. To
+> see what PoNA counted, use `runed query pona tx-count`.
 
 ## 5. Running example
 
@@ -320,13 +351,54 @@ The two-gas-price model ([`../tx-fees.md`](../tx-fees.md)) is
 PoNA must **not** key off gas used or fee revenue — only the **transaction count**
 — so the two mechanisms stay decoupled.
 
-## 9. Open questions / follow-ups
+## 9. Querying the module
 
-1. **Pseudo-tx counting** — the capture currently uses `len(req.Txs)`, which
-   *includes* any app-level injected pseudo-transaction. Hoodium's
-   `app/abci/preblock.go` distinguishes an injected first tx from regular txs;
-   if that path is ever re-enabled, PoNA must exclude the injected tx so the
-   zero band stays reachable. **Not yet wired** (see [§4.1](#41-which-transactions-are-counted)).
+`x/pona` still has **no gRPC Query service**, but that is no longer a limitation
+for operators: `runed query pona` reads the module's KV store directly through
+the `store/pona/key` ABCI path, so every question about the reward system is
+answerable without a new protobuf or a chain upgrade.
+
+| Command | Answers |
+|---|---|
+| `runed query pona params` | the whole emission schedule + PoNA rates per tier |
+| `runed query pona tier` | which tier is active **now**, and how far away the next one is |
+| `runed query pona block-reward` | what a block pays **now**, which band, and why |
+| `runed query pona block-reward --tx-count 25` | what a block with 25 txs *would* pay |
+| `runed query pona tx-count` | the regular-tx count PoNA used for the last block |
+| `runed query pona pool` | RUNE left in `validator_reward_pool`, and how long it lasts |
+
+Typical output:
+
+```console
+$ runed query pona block-reward
+band: zero
+band_explanation: the block contains no regular transactions, so the zero-activity
+  rate of 1 RUNE applies
+denom: arune
+height: 32495
+reward: "1000000000000000000"
+reward_rune: "1"
+tier:
+  full_reward: {arune: "50000000000000000000", rune: "50"}
+  low_reward:  {arune: "20000000000000000000", rune: "20"}
+  zero_reward: {arune: "1000000000000000000",  rune: "1"}
+  pona_enabled: true
+  tier_index: 0
+  tier_count: 3
+  tx_count_threshold: 10
+tx_count: 0
+tx_count_source: chain (recorded for the last finalized block)
+```
+
+Read it as: **the chain is idle, and it is paying 1 RUNE, not 20.** That is the
+behaviour the zero band exists for.
+
+## 10. Open questions / follow-ups
+
+1. **Pseudo-tx counting** — **resolved**. The injected pseudo-transaction is
+   excluded via `appabci.CountRegularTxs`, so an idle block counts as
+   `tx_count = 0` and reaches the zero band
+   (see [§4.1](#41-which-transactions-are-counted)).
 2. **Threshold configurability** — `TxCountThreshold` is a per-tier on-chain
    field (mutable via params), default `10`. Governance-adjustable in practice;
    no dedicated gov Msg exists yet.
@@ -338,3 +410,7 @@ PoNA must **not** key off gas used or fee revenue — only the **transaction cou
    (see [§7](#7-module-boundary)).
 5. **Genesis / first block** — before any `PreBlocker` has run, the stored tx
    count is absent and `BlockTxCount` returns `0` (the zero-activity band).
+6. **gRPC Query service** — not implemented, and not needed for operators
+   (`runed query pona` reads the store directly, see [§9](#9-querying-the-module)).
+   A real `Query` service is only worth adding when a proto-breaking change is
+   being made anyway.

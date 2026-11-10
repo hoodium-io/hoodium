@@ -216,7 +216,9 @@ func queryCommand(encodingConfig params.EncodingConfig) *cobra.Command {
 	//
 	//  1. AddQueryCommands enumerates ModuleBasics and calls GetQueryCmd. That
 	//     still yields `query evm`, `query feemarket`, `query marketmap`,
-	//     `query oracle`, `query params`, `query authz`, `query upgrade`.
+	//     `query oracle`, `query params`, `query authz`, `query upgrade`, and
+	//     `query pona` (whose commands read the module store directly, because
+	//     x/pona exposes no gRPC Query service).
 	//
 	//  2. Writing the APP UP in queryCommand used to come from the modules we are
 	//     not adding here.

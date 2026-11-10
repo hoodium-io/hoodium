@@ -18,6 +18,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/hoodium-io/hoodium/x/pona/client/cli"
 	"github.com/hoodium-io/hoodium/x/pona/keeper"
 	"github.com/hoodium-io/hoodium/x/pona/types"
 )
@@ -71,8 +72,13 @@ func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.Ser
 // GetTxCmd returns no root tx command for the pona module.
 func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
 
-// GetQueryCmd returns no root query command for the pona module.
-func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
+// GetQueryCmd returns the root query command for the pona module.
+//
+// The commands read the module's KV store directly (see x/pona/client/cli):
+// x/pona exposes no gRPC Query service, so AutoCLI cannot generate them.
+func (AppModuleBasic) GetQueryCmd() *cobra.Command {
+	return cli.GetQueryCmd()
+}
 
 // RegisterInterfaces registers interfaces and implementations of the pona module.
 func (AppModuleBasic) RegisterInterfaces(_ codectypes.InterfaceRegistry) {}

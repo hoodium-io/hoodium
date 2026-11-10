@@ -119,6 +119,124 @@ func TestRewardForHeightAndTxCountNoTier(t *testing.T) {
 	require.True(t, params.RewardForHeight(150).IsZero())
 }
 
+// TestBandForTxCount exercises the band selection that PoNA uses to decide
+// which of a tier's three rates is paid.
+//
+// The zero band is the important one: an idle chain must reach it, otherwise it
+// pays the low-activity rate forever (see CountRegularTxs in app/abci).
+func TestBandForTxCount(t *testing.T) {
+	tier := types.Tier{
+		RewardPerBlock:     rune(50),
+		TxCountThreshold:   10,
+		LowActivityReward:  rune(20),
+		ZeroActivityReward: rune(1),
+	}
+
+	testCases := []struct {
+		name    string
+		txCount uint64
+		want    types.ActivityBand
+	}{
+		{"no transactions is the zero band", 0, types.BandZero},
+		{"a single transaction is the low band", 1, types.BandLow},
+		{"threshold-1 is still the low band", 9, types.BandLow},
+		{"exactly the threshold is the full band", 10, types.BandFull},
+		{"above the threshold is the full band", 1000, types.BandFull},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, tier.BandForTxCount(tc.txCount))
+			// The band must agree with the amount that is actually paid.
+			require.Equal(
+				t,
+				tier.RewardForTxCount(tc.txCount).String(),
+				wantRewardForBand(tier, tc.want).String(),
+			)
+		})
+	}
+}
+
+// TestBandForTxCountPoNADisabled verifies that a tier with PoNA switched off
+// reports the full band for every transaction count.
+func TestBandForTxCountPoNADisabled(t *testing.T) {
+	tier := types.Tier{RewardPerBlock: rune(50)} // TxCountThreshold 0 => PoNA off
+
+	require.False(t, tier.PoNAEnabled())
+	for _, txCount := range []uint64{0, 1, 9, 10, 1000} {
+		require.Equal(t, types.BandFull, tier.BandForTxCount(txCount), "txCount %d", txCount)
+		require.Equal(t, rune(50).String(), tier.RewardForTxCount(txCount).String())
+	}
+}
+
+// TestBandForHeightAndTxCount pins the height-aware band lookup, including the
+// fee-only end state where no tier covers the height.
+func TestBandForHeightAndTxCount(t *testing.T) {
+	params := types.DefaultParams("arune")
+	threshold := types.DefaultTxCountThreshold
+
+	inTier1 := types.BlocksPerTwoYearsAt6s - 1
+	inTier2 := types.BlocksPerTwoYearsAt6s
+	inTier3 := 4 * types.BlocksPerYearAt6s
+
+	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier1, 0))
+	require.Equal(t, types.BandLow, params.BandForHeightAndTxCount(inTier1, 1))
+	require.Equal(t, types.BandFull, params.BandForHeightAndTxCount(inTier1, threshold))
+	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier2, 0))
+	require.Equal(t, types.BandLow, params.BandForHeightAndTxCount(inTier3, 5))
+	require.Equal(t, types.BandFull, params.BandForHeightAndTxCount(inTier3, threshold))
+
+	// A schedule with an explicit end height leaves later heights uncovered.
+	gapped := types.Params{
+		Denom: "arune",
+		Tiers: []types.Tier{{StartHeight: 0, EndHeight: 100, RewardPerBlock: rune(50)}},
+	}
+	require.Equal(t, types.BandNone, gapped.BandForHeightAndTxCount(100, 5))
+	require.Equal(t, types.BandFull, gapped.BandForHeightAndTxCount(99, 50))
+}
+
+// TestTierForHeight returns the index and the tier together, so callers can
+// report "tier N of M" without re-deriving the position.
+func TestTierForHeight(t *testing.T) {
+	params := types.DefaultParams("arune")
+
+	idx, tier, ok := params.TierForHeight(0)
+	require.True(t, ok)
+	require.Equal(t, 0, idx)
+	require.Equal(t, params.Tiers[0].RewardPerBlock.String(), tier.RewardPerBlock.String())
+
+	idx, _, ok = params.TierForHeight(types.BlocksPerTwoYearsAt6s)
+	require.True(t, ok)
+	require.Equal(t, 1, idx, "the first tier's end height is exclusive")
+
+	idx, _, ok = params.TierForHeight(4 * types.BlocksPerYearAt6s)
+	require.True(t, ok)
+	require.Equal(t, 2, idx)
+
+	idx, _, ok = params.TierForHeight(100 * types.BlocksPerYearAt6s)
+	require.True(t, ok)
+	require.Equal(t, 2, idx, "the last tier is open-ended")
+
+	// No tier covers this height.
+	idx, _, ok = types.Params{Tiers: []types.Tier{{StartHeight: 10, EndHeight: 20}}}.TierForHeight(20)
+	require.False(t, ok)
+	require.Equal(t, -1, idx)
+}
+
+// wantRewardForBand maps a band back to the tier rate it must select.
+func wantRewardForBand(tier types.Tier, band types.ActivityBand) sdkmath.Int {
+	switch band {
+	case types.BandFull:
+		return tier.RewardPerBlock
+	case types.BandLow:
+		return tier.LowActivityReward
+	case types.BandZero:
+		return tier.ZeroActivityReward
+	default:
+		return sdkmath.ZeroInt()
+	}
+}
+
 // TestParamsValidateRejectsBadPoNA verifies that an enabled tier with a missing
 // or negative PoNA rate is rejected, while a disabled (threshold 0) tier is not.
 func TestParamsValidateRejectsBadPoNA(t *testing.T) {
