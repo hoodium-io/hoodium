@@ -473,11 +473,18 @@ func initGenesisFilesForNetwork(
 	//     key automatically.
 	//
 	//   * validator_reward_pool is a Cosmos *module account*: its address is
-	//     always ripemd160(sha256("validator_reward_pool")) =
-	//     0x4967715BC2Ba5CC2A262054A5a893e2E90FCD3f9
-	//     (bech32 rune1f9nhzk7zhfwv9gnzq4994zf796g0e5lej732lk). It is created by
-	//     the auth module from the name alone - nothing to configure, and it is
-	//     NOT a precompile.
+	//     derived from the name alone as the first 20 bytes of
+	//     sha256("validator_reward_pool"), bech32-encoded with the chain HRP.
+	//     It is created by the auth module from the name alone - nothing to
+	//     configure, and it is NOT a precompile.
+	//
+	//     The derivation is sha256[:20] (SDK: authtypes.NewModuleAddress ->
+	//     address.Module -> crypto.AddressHash -> tmhash.SumTruncated), NOT
+	//     ripemd160(sha256(...)). An earlier revision of this comment claimed
+	//     ripemd160 and printed the resulting 0x/bech32 address; that address
+	//     exists but holds a zero balance, so it is actively misleading. The
+	//     address is NOT reproduced here on purpose - compute it for the
+	//     network you are operating rather than trusting a literal.
 	//
 	// NOTE: initial validator self-delegations are funded MANUALLY by the chain
 	// operator (not from these premine balances). A genesis EVM address that
