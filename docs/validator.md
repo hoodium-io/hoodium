@@ -371,6 +371,363 @@ inheriting the Cosmos default of 21 days).
 During the unbonding period the tokens are **locked and still slashable**; they
 return to the account once the period elapses.
 
+## Staking your validator — delegate, unbond, redelegate
+
+These three commands all operate on **stake (tokens)**, never on a validator's identity.
+
+> **`delegate` vs `redelegate` — they are not interchangeable.**
+>
+> | Command | Moves | When to use |
+> |---|---|---|
+> | `delegate` | **liquid** tokens (your wallet balance) → a validator | you hold RUNE and want to stake it |
+> | `redelegate` | **illiquid** stake, validator → validator | the stake is *already delegated* and you want it elsewhere |
+>
+> `redelegate` cannot pull coins from a liquid balance — there is nothing to *re*-delegate. It is
+> specifically a **validator-to-validator** move, which is why it skips the 14-day unbonding that a
+> `unbond` → `delegate` round trip would require. The CLI help says it plainly: *"Redelegate an
+> amount of **illiquid** staking tokens from one validator to another."*
+
+```bash
+# Add stake to a validator (self-delegation when signing with the validator's own key)
+runed tx staking delegate <valoper-addr> <amount>rune \
+  --from <key> --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
+
+# Remove stake (enters the 14-day unbonding queue)
+runed tx staking unbond <valoper-addr> <amount>rune \
+  --from <key> --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
+
+# Move stake between validators — INSTANT, no unbonding
+runed tx staking redelegate <src-valoper> <dst-valoper> <amount>rune \
+  --from <key> --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
+
+# Reverse a pending unbond
+runed tx staking cancel-unbond <valoper-addr> <amount>rune \
+  --from <key> --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
+```
+
+- `--from` is the **delegator**. Using the validator's own key makes it a self-delegation.
+- Get a valoper from `runed query staking validators` (`operator_address`).
+- **Minimum delegation is 0.1 RUNE**, enforced by Hoodium (`types/coin.go`), since the SDK
+  has no such parameter. Applied at both the CLI and the staking precompile.
+- `redelegate` cannot target a validator that is itself still mid-redelegation
+  (`ErrBadRedelegationDst`).
+
+> **`redelegate` moves STAKE, not a validator.** Delegating to validator B makes B
+> richer; it does **not** move validator A's identity, moniker, commission or consensus
+> key to B. To move a *validator* to a new server, see
+> [Relocating Validator](#relocating-validator).
+
+### How much stake do you actually need?
+
+`500,000 RUNE` is a **Hoodium CLI default** (`cmd/runed/setup.go`), not a chain rule.
+The real constraints are:
+
+| Requirement | Value |
+|---|---|
+| Consensus power ≥ 1 | **1 RUNE** (power = `floor(tokens / 10^18)`) |
+| `min_self_delegation` | **your choice**, must be **≤** your bonded tokens |
+| To be in the active set | must outrank others (max **101** validators) |
+| Minimum commission rate | **5%** (chain-wide parameter) |
+
+`min_self_delegation` is a **per-validator field**, not a chain parameter — set it in
+`validator.json` (or change it later with `edit-validator --min-self-delegation`).
+
+### Voting-power arithmetic — when does the chain halt?
+
+CometBFT requires signatures from **strictly more than** `floor(total_power * 2/3)`;
+it fails with `ErrNotEnoughVotingPowerSigned` when the tally is `<=` that threshold
+(`cometbft/types/validation.go`). This is why equally-staked sets are unforgiving:
+
+| Validators @ 500k | Total power | Needed (must exceed) | If 1 dies | Survives? |
+|---|---|---|---|---|
+| 1 | 500,000 | 333,333 | 0 | ❌ halts |
+| 2 | 1,000,000 | 666,666 | 500,000 | ❌ halts |
+| **3** | 1,500,000 | 1,000,000 | **1,000,000** | ❌ **halts — fails by exactly 0** |
+| **4** | 2,000,000 | 1,333,333 | 1,500,000 | ✅ survives |
+
+**With equal stakes you need 4 validators to tolerate one failure**, because 3 lands
+exactly on the 2/3 boundary and the comparison is strict. General rule: a set tolerates
+`floor((N-1)/3)` failures.
+
+**Unequal stake is the cheaper way to get fault tolerance with few validators.** If one
+validator holds more than 2/3 of a set-minus-one, it alone can carry consensus:
+
+| Split | Needed | Losing the small one | Losing the big one |
+|---|---|---|---|
+| 1,100,000 + 500,000 | > 1,066,666 | ✅ 1,100,000 carries | ❌ halts |
+| 700,000 + 700,000 | > 933,333 | ❌ halts | ❌ halts |
+
+So `1.1M + 500k` lets you retire the 500k node — but the 1.1M node becomes a **single
+point of failure**. That is asymmetric tolerance, not true redundancy.
+
+> **A single validator never "proved" 1-of-1 is safe.** One validator that is *up* signs
+> 100% of blocks, so the threshold is always met. The +2/3 rule only bites once someone
+> *stops* signing — with one validator, "one down" means zero signatures and an immediate
+> halt.
+
+## Relocating Validator
+
+There is **no consensus-key rotation**: `MsgEditValidator` carries only description,
+commission and min-self-delegation — **there is no pubkey field** in SDK v0.50. A validator
+*is* its key pair, so relocating one is never a plain staking operation.
+
+That leaves **two valid approaches**, and the right one depends on whether you have external
+delegators. Pick deliberately — this is a **tradeoff, not a single right answer**.
+
+**Approach B is the ONLY safe option on a production chain with external delegators.** Approach A
+is included because it is correct when the validator has *zero* external stake — otherwise it
+strands them (see the warning below).
+
+| | **A. Redelegate** (no external delegators only) | **B. Relocate the key** (production-safe) |
+|---|---|---|
+| Consensus key over the wire | ✅ never leaves the old box | ❌ plaintext transfer |
+| Double-sign risk | ✅ **none** (different keys) | ❌ **real** if both ever run |
+| Downtime | ✅ **none** | ⚠️ **~minutes** (sync first, swap last) |
+| Delegators preserved | ❌ must redelegate manually | ✅ **same valoper, zero action** |
+| Source-validator lock-up | ❌ **14 days** | ✅ n/a |
+| Works with external delegators | ❌ **NO — strands them** | ✅ yes |
+
+**Choose B whenever the validator has external delegators.** In that case A does not merely lose
+delegators — it actively harms them:
+
+> 🔴 **Why A fails with external delegators.** A validator leaves the active set only when its
+> *total* tokens drop below 1 RUNE (`x/staking/keeper/val_state_change.go` — `PotentialConsensusPower
+> == 0`). Redelegating **your own** self-delegation does not achieve that if other people's stake
+> remains:
+>
+> ```
+> before: 700,000 RUNE  (500k self + 200k external)
+> you redelegate 500,000 → 200,000 RUNE still bonded → power 200,000 ≠ 0
+> ```
+>
+> The old validator **stays in the active set**. If you then decommission its node because you
+> "moved", it misses blocks: **1% downtime slash on every delegator (yours and theirs)**, then a
+> 24h jail. Those delegators also cannot exit — `unbond` takes **14 days**. You would be running
+> two nodes forever, or slashing people who trusted you.
+>
+> A only works when the validator is **100% self-delegated**, verified first:
+> ```bash
+> runed query staking delegations-to <old-valoper>   # only your own address should appear
+> ```
+
+### Approach A — redelegate to a new validator (self-delegated validators only)
+
+> 🚫 **Prerequisite — verify this FIRST.** Approach A is only valid when the old validator has
+> **no external delegators**. Check:
+> ```bash
+> runed query staking delegations-to <old-valoper>
+> ```
+> If any address other than your own appears, **stop and use Approach B**. Their stake would
+> otherwise keep the old validator in the active set, and decommissioning its node slashes them.
+
+The old validator's stake moves to a **new** validator on the new server, which then drops
+out of the active set on its own — but **only because its total tokens reach zero**.
+
+```bash
+# ── 1. On the NEW server: bootstrap the node ──────────────────────────────
+runed setup            # automated → <network> → validator
+                       # setup writes a PLACEHOLDER genesis; replace it with the real one
+cp <real-genesis.json> ~/.runed/config/genesis.json
+runed start
+runed status           # wait for catching_up: false
+```
+
+Wait for a **fully synced** node before creating the validator — a validator that enters the
+set while behind will miss blocks.
+
+```bash
+# ── 2. Create the NEW validator with a minimal self-delegation ────────────
+#     min_self_delegation must be <= the amount you bond.
+#     1 RUNE is the practical minimum (power = floor(tokens / 10^18)).
+runed tx staking create-validator ~/.runed/validator.json \
+  --from <new-key> \
+  --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
+
+# ── 3. Confirm BOTH validators are visible ────────────────────────────────
+runed query staking validators
+runed query tendermint-validator-set
+```
+
+```bash
+# ── 4. Move the stake from old → new (INSTANT, no unbonding) ──────────────
+runed tx staking redelegate \
+  <old-valoper-addr> <new-valoper-addr> <amount>rune \
+  --from <delegator-key> \
+  --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune -y
+
+# ── 5. The old validator now has zero power and leaves the set by itself ──
+#     staking's ApplyAndReturnValidatorSetUpdates skips zero-power validators
+#     (x/staking/keeper/val_state_change.go), so CometBFT stops expecting it.
+runed query tendermint-validator-set     # old valoper gone, new one present
+
+# ── 6. Only now stop the old server ───────────────────────────────────────
+sudo systemctl stop runed && sudo systemctl disable runed    # on the OLD server
+```
+
+> ⚠️ **The source validator is locked for 14 days.** A redelegation writes an unbonding
+> record on the source, so you cannot redelegate *out of that validator again* until
+> `unbonding_time` (**1209600s = 14 days**) elapses. Plan one clean move, not a trial run.
+> `max_entries` is 10, and transitive redelegations are rejected.
+
+> ⚠️ **Delegators are not migrated.** Approach A creates a **different** validator under a new
+> valoper. If the old one had any external delegators, see the prerequisite check above — their
+> stake must be zero before you decommission the old node, otherwise you slash them.
+
+### Approach B — relocate the consensus key (preserves delegators, production-safe)
+
+Use this when the valoper address must stay the same — i.e. you have external delegators who
+would otherwise have to redelegate manually.
+
+**Sync first, swap last.** The new node is fully caught up *before* the old one is touched, so
+downtime is only the few minutes it takes to move two small files. The old node keeps signing
+the whole time the new one syncs.
+
+> **Two files must travel together, not one.** `config/priv_validator_key.json` is the key, but
+> `data/priv_validator_state.json` is the last-signed-height guard that stops the node from
+> signing the same height twice (`CheckHRS` rejects any height regression). Copy them as a pair,
+> captured while the old node is stopped, so they describe the same last-signed point.
+
+```bash
+# ── 1. On the NEW server: bootstrap and sync fully ─────────────────────────
+runed setup                        # automated → <network> → validator
+cp <real-genesis.json> ~/.runed/config/genesis.json
+runed start
+runed status                       # wait for catching_up: false
+```
+
+The old node is still signing during this phase — no downtime yet.
+
+```bash
+# ── 2. On the OLD server: stop it (new node is already synced) ────────────
+sudo systemctl stop runed
+sudo systemctl disable runed       # a reboot must NOT revive it
+pgrep -af runed                    # MUST print nothing before you continue
+
+# ── 3. Package BOTH validator files ──────────────────────────────────────
+cd ~/.runed
+tar czf /tmp/valkeys.tgz config/priv_validator_key.json data/priv_validator_state.json
+scp /tmp/valkeys.tgz new:/tmp/
+shred -u /tmp/valkeys.tgz          # do not leave key material in /tmp
+```
+
+```bash
+# ── 4. On the NEW server: STOP it before swapping the key ────────────────
+sudo systemctl stop runed          # swapping a key under a running node is unsafe
+
+# ── 5. Replace the throwaway key with the real one, plus its state ───────
+cd ~/.runed && tar xzf /tmp/valkeys.tgz
+ls -l config/priv_validator_key.json          # the REAL key is now in place
+cat  data/priv_validator_state.json           # height matches the old node's
+shred -u /tmp/valkeys.tgz
+```
+
+```bash
+# ── 6. Start the NEW node and verify it SIGNS ────────────────────────────
+sudo systemctl start runed
+runed status                                  # height must ADVANCE past the copied height
+runed query slashing signing-info $(runed tendermint show-address)
+```
+
+```bash
+# ── 7. Only now destroy the old node ─────────────────────────────────────
+# on the OLD server: the key is still there (only the tarball was shredded)
+shred -u ~/.runed/config/priv_validator_key.json
+shred -u ~/.runed/data/priv_validator_state.json
+# then decommission the VPS
+```
+
+**Why step 5 must run with the new node stopped:** the validator key is loaded into memory at
+startup. Replacing the file under a running process leaves the old (throwaway) key active, and
+the node would sign with the wrong identity until restarted.
+
+#### Hardening the key transfer (step 3)
+
+Step 3 is the only point where key material crosses a network, so treat it as the weakest link.
+`scp` encrypts in transit, but the file lands **decrypted** on any host it passes through — so a
+compromised or shared jump box sees the raw key. Pick the option that matches your threat model:
+
+**Option 1 — direct host-to-host (minimum viable).** No intermediate hop:
+
+```bash
+# run FROM the old server, pulling/pushing straight to the new one
+tar czf - -C ~/.runed config/priv_validator_key.json data/priv_validator_state.json \
+  | ssh new 'cat > /tmp/valkeys.tgz'
+```
+
+Never route the file through a third machine. If you must use a bastion, see Option 2.
+
+**Option 2 — encrypted archive (recommended).** The payload is unreadable even if the transport
+or an intermediate host is compromised. `age` is the simplest:
+
+```bash
+# on the OLD server: passphrase-encrypt the tarball
+tar czf - -C ~/.runed config/priv_validator_key.json data/priv_validator_state.json \
+  | age -p -o /tmp/valkeys.tar.gz.age
+scp /tmp/valkeys.tar.gz.age new:/tmp/
+shred -u /tmp/valkeys.tar.gz.age
+```
+
+```bash
+# on the NEW server: decrypt (prompts for the passphrase you chose)
+age -d -o - /tmp/valkeys.tar.gz.age | tar xzf - -C ~/.runed
+shred -u /tmp/valkeys.tar.gz.age
+```
+
+Store the passphrase **out of band** (a password manager, not the same SSH session), and transfer
+it by a different channel than the file itself.
+
+**Option 3 — external signer / HSM (strongest, biggest change).** Run a separate signer process
+(`tmkms`, or any remote signer speaking the CometBFT privval socket protocol) and point the node at
+it with `--priv_validator_laddr`:
+
+```bash
+runed start --priv_validator_laddr tcp://127.0.0.1:26659
+```
+
+The consensus key then lives in the signer (which can be backed by a YubiKey/HSM) instead of a
+plaintext file, so a compromised node host never exposes it. Costs: you must run, secure and
+monitor a second service, and the signer itself becomes the critical component.
+
+**After any of these:** verify the received file is intact before trusting it — compare a checksum
+computed on the old box with one computed on the new:
+
+```bash
+# before transfer (old)
+sha256sum ~/.runed/config/priv_validator_key.json ~/.runed/data/priv_validator_state.json
+
+# after extraction (new) — hashes must match exactly
+sha256sum ~/.runed/config/priv_validator_key.json ~/.runed/data/priv_validator_state.json
+```
+
+A truncated or partially-written key file is a silent failure: the node starts, then fails to sign,
+and you are burning your jail budget while you debug.
+
+### 🔴 The rule that applies to both approaches
+
+**Never run both nodes with the same `priv_validator_key.json` at the same time.**
+
+Two nodes signing with one consensus key is **equivocation (double-sign)**:
+
+- slashed **10%** of the validator's stake (`slash_fraction_double_sign: 0.10`)
+- **permanently tombstoned** — removed from the set, and **cannot be unjailed**
+
+Downtime is recoverable; tombstoning is permanent. This is also why Approach A is the safer
+default: two *different* keys can never equivocate.
+
+### Downtime budget
+
+`min_signed_per_window` is **0.50** over a **10,000-block** window (~16.7h at 6s blocks), so a
+validator can miss up to ~8.3h before being jailed. `downtime_jail_duration` is **24h** and the
+downtime slash is **1%**.
+
+- **Approach A:** effectively zero downtime — the old validator only loses power after the new
+  one is already producing blocks.
+- **Approach B:** downtime is only the swap window (a few minutes), because the new node is
+  already synced before the old one is stopped. Nothing needs to re-sync from genesis; only two
+  small files move.
+
+If you do get jailed, see [Unjailing after downtime](#unjailing-after-downtime).
+
 ## Operating notes
 
 - The bootstrap validator has **no special role** once others are bonded: if it
