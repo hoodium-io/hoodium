@@ -70,8 +70,8 @@ Hoodium accounts are **one account with two spellings of the same 20 bytes**:
 
 | Form | Example | Used by |
 |---|---|---|
-| **bech32** | `rune1mk89p6yppzvm9zys7ccg8r2jwx92ak260yjp7a` | Cosmos CLI (`runed tx …`) |
-| **EVM / 0x** | `0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD` | EVM wallets, JSON-RPC, Solidity |
+| **bech32** | `rune1<...>` | Cosmos CLI (`runed tx …`) |
+| **EVM / 0x** | `0x<...>` | EVM wallets, JSON-RPC, Solidity |
 
 Both point at the **same balance**. Send RUNE to either and it arrives.
 
@@ -120,7 +120,7 @@ the same amount:
 ### Example — send 1000 RUNE
 
 ```bash
-runed tx bank send mykey rune1dx67l23hz9l0k9hcher8xz04uj7wf3yuckl253 1000rune \
+runed tx bank send mykey <to-rune1-address> 1000rune \
   --gas auto --gas-adjustment 1.3 --gas-prices 25000000000arune \
   -y
 ```

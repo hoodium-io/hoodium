@@ -275,8 +275,12 @@ runed query staking unbonding-delegations-from <runevaloper…>
 runed query distribution rewards <rune1…>                   # claimable rewards
 runed query distribution commission <runevaloper…>          # your commission
 runed query distribution validator-outstanding-rewards <runevaloper…>
-runed query distribution slashes <runevaloper…>             # slash history
+runed query distribution slashes <runevaloper…> 0 <height>  # needs start+end height
 ```
+
+> 📘 **Full rewards reference:** [rewards-cmd.md](./rewards-cmd.md) — every query, how to withdraw
+> commission vs delegator rewards, the `--commission` gotcha, and where Hoodium's block rewards
+> actually come from (`x/pona` → distribution fee collector).
 
 ### Balance and blocks
 

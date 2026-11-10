@@ -56,7 +56,7 @@ runed query distribution commission <valoper-addr>
 ```yaml
 commission:
   commission:
-  - 18062601027437499999491.999839282500000000arune
+  - 12345.678901234567890123arune
 ```
 
 This is the **operator cut** (your `commission-rate`, minimum 5% on Hoodium). It is separate from
@@ -71,7 +71,7 @@ runed query distribution validator-outstanding-rewards <valoper-addr>
 ```yaml
 rewards:
   rewards:
-  - 361252020548749999989839.996785650000000000arune
+  - 123456.789012345678901234arune
 ```
 
 This is the **whole pot**: every delegator's pending rewards *plus* the commission, none of it
@@ -86,10 +86,10 @@ runed query distribution rewards <rune1-account-addr>
 ```yaml
 rewards:
 - reward:
-  - 343189419521312499500000.000000000000000000arune
-  validator_address: runevaloper1upqhyf2w64juryqu98g734ccem62j48602zv5m
+  - 123456.789012345678901234arune
+  validator_address: runevaloper1<...>
 total:
-- 343189419521312499500000.000000000000000000arune
+- 123456.789012345678901234arune
 ```
 
 One entry per validator you delegate to, plus a `total`.
@@ -239,16 +239,28 @@ See [validator.md](./validator.md#unjailing-after-downtime) for unjailing.
 ## Known limitation — `x/pona` has no queries
 
 There is **no command to inspect the validator reward pool balance** or the emission tier
-boundaries directly, because `x/pona` exposes no query service. To infer the remaining reserve,
-query the module account directly — its address is deterministic
-(`ripemd160(sha256("validator_reward_pool"))`):
+boundaries directly, because `x/pona` exposes no query service. To read the remaining reserve,
+query the pool's **module account**:
 
 ```bash
-runed query bank balance rune1f9nhzk7zhfwv9gnzq4994zf796g0e5lej732lk arune
+runed query bank balance <validator-reward-pool-addr> arune
 ```
 
+The address is deterministic — it does not depend on genesis or any particular network — so it is
+safe to derive it locally rather than copy it from a live chain:
+
+```
+sha256("validator_reward_pool") first 20 bytes, then bech32-encoded with the rune HRP
+```
+
+> **Watch out:** the derivation is **sha256 truncated to 20 bytes**, *not* ripemd160. Several older
+> comments in this repository (including `cmd/runed/mainchain.go`) still say
+> `ripemd160(sha256(...))` and give the resulting wrong address. `authtypes.NewModuleAddress` →
+> `address.Module` → `crypto.AddressHash` → `tmhash.SumTruncated`, which is sha256[:20]. Using the
+> ripemd160 form yields an account that exists but holds **zero**, which silently misleads you.
+
 > Pool exhaustion is logged at runtime: `"validator reward pool exhausted, switching to fee-only"`.
-> Once the 1B RUNE reserve is spent, rewards become **fees only** — the intended end state.
+> Once the reserve is spent, rewards become **fees only** — the intended end state.
 
 ## Common mistakes
 
