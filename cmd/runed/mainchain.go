@@ -204,6 +204,33 @@ const (
 	DowntimeJailDuration = 24 * time.Hour
 )
 
+// Validator description written into the staking genesis for every validator
+// created by `runed genesis init-files`.
+//
+// These are chain-wide identity fields, so they are hardcoded rather than
+// derived from the node directory: a genesis validator's public description must
+// describe the NETWORK, not the machine it happens to run on. Only the moniker
+// varies, because it names the individual validator.
+//
+// They are also the values an operator sees in explorers and wallets, and the
+// security contact is the address researchers are told to use, so they must be
+// correct at genesis rather than patched afterwards.
+const (
+	// DefaultValidatorIdentity is the identity tag other chains use to link a
+	// validator to its keybase/website identity.
+	DefaultValidatorIdentity = "mainchain evm"
+
+	// DefaultValidatorWebsite is the project website.
+	DefaultValidatorWebsite = "hoodium.io"
+
+	// DefaultValidatorSecurityContact is the address to report a security
+	// vulnerability to.
+	DefaultValidatorSecurityContact = "security@hoodium.io"
+
+	// DefaultValidatorDetails is the free-text description.
+	DefaultValidatorDetails = "hoodium is a dual-chain network from hoodinals"
+)
+
 // cleanupOnFailure removes partially generated output when generation fails.
 //
 // SAFETY: in single-node mode (the default) the output directory is the node's
@@ -375,9 +402,13 @@ func initGenesisFilesForNetwork(
 		validator, err := stakingtypes.NewValidator(
 			sdk.ValAddress(address).String(),
 			valPubKeys[i],
-			stakingtypes.Description{
-				Moniker: nodeDirNames[i],
-			},
+			stakingtypes.NewDescription(
+				nodeDirNames[i],
+				DefaultValidatorIdentity,
+				DefaultValidatorWebsite,
+				DefaultValidatorSecurityContact,
+				DefaultValidatorDetails,
+			),
 		)
 		if err != nil {
 			return err

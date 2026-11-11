@@ -305,10 +305,10 @@
           "delegator_shares": "500000000000000000000000.000000000000000000",
           "description": {
             "moniker": "runed",
-            "identity": "",
-            "website": "",
-            "security_contact": "",
-            "details": ""
+            "identity": "mainchain evm",
+            "website": "hoodium.io",
+            "security_contact": "security@hoodium.io",
+            "details": "hoodium is a dual-chain network from hoodinals"
           },
           "jailed": false,
           "min_self_delegation": "500000000000000000000000",
