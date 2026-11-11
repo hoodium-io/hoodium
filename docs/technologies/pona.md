@@ -346,13 +346,21 @@ it back into two modules is not planned.
 | `tiers[].end_height` | `Tier` | Tier boundary (`0` = open-ended) |
 | `tiers[].reward_per_block` | `Tier` | **Full** rate for that tier |
 | `tiers[].tx_count_threshold` | `Tier` | Txs at/above which the full rate is paid (`10`); `0` disables PoNA |
-| `tiers[].low_activity_reward` | `Tier` | Rate when `0 < tx < threshold` |
-| `tiers[].zero_activity_reward` | `Tier` | Rate when `tx == 0`; also the **floor** for every band |
+| `tiers[].low_activity_reward` | `Tier` | Rate when `1 < tx < threshold` |
 | `tiers[].single_activity_reward` | `Tier` | Rate when `tx == 1`; `0`/unset folds `tx == 1` into the low band |
+| `tiers[].zero_activity_reward` | `Tier` | Rate when `tx == 0`; also the **floor** for every band |
 
 The tx count itself is **not** a parameter: it is captured per block from
 `len(req.Txs)` in the app's `PreBlocker` and stored under
 `pona/types.KeyBlockTxCount`.
+
+> **Field numbering.** The band fields are numbered and declared in the order
+> they are evaluated: `low` = 5, `single` = 6, `zero` = 7. Declaration order is
+> also the order the generated Go struct — and therefore the JSON emitted for
+> genesis — lists them, which is why the genesis file reads
+> `... low_activity_reward, single_activity_reward, zero_activity_reward`.
+> Renumbering a field would swap what an already-stored value means, so treat
+> these numbers as fixed once a chain exists.
 
 ### 7.2 Code map
 
