@@ -105,6 +105,12 @@ func queryStoreKey(clientCtx client.Context, key []byte) ([]byte, int64, error) 
 	return clientCtx.QueryStore(key, types.StoreKey)
 }
 
+// queryStoreKeyAt reads a raw key from the pona store at a specific height.
+// A height of 0 means "latest" (the node's default).
+func queryStoreKeyAt(clientCtx client.Context, key []byte, height int64) ([]byte, int64, error) {
+	return clientCtx.WithHeight(height).QueryStore(key, types.StoreKey)
+}
+
 // queryParams returns the module params together with the height they were read
 // at. If the store holds no params yet, the compile-time defaults are returned
 // so the command still answers.
@@ -133,7 +139,13 @@ func queryParams(clientCtx client.Context) (types.Params, int64, error) {
 // queryBlockTxCount returns the transaction count recorded for the last
 // finalized block. It is 0 when no count has been recorded yet.
 func queryBlockTxCount(clientCtx client.Context) (uint64, error) {
-	value, _, err := queryStoreKey(clientCtx, types.KeyBlockTxCount)
+	return queryBlockTxCountAt(clientCtx, clientCtx.Height)
+}
+
+// queryBlockTxCountAt returns the PoNA transaction count recorded at the given
+// height. A height of 0 means "latest".
+func queryBlockTxCountAt(clientCtx client.Context, height int64) (uint64, error) {
+	value, _, err := queryStoreKeyAt(clientCtx, types.KeyBlockTxCount, height)
 	if err != nil {
 		return 0, err
 	}
@@ -143,6 +155,36 @@ func queryBlockTxCount(clientCtx client.Context) (uint64, error) {
 	}
 
 	return sdk.BigEndianToUint64(value), nil
+}
+
+// queryBlockTxEntries returns the number of entries physically present in the
+// block at the given height (0 = latest), i.e. exactly what CometBFT reports as
+// num_txs.
+//
+// It is the raw count, so it INCLUDES the app-level injected pseudo-transaction,
+// unlike queryBlockTxCountAt. Reporting both is what lets an operator reconcile
+// the node log ("num_txs=1") with PoNA ("tx_count=0") without guessing.
+func queryBlockTxEntries(ctx context.Context, clientCtx client.Context, height int64) (uint64, error) {
+	node, err := clientCtx.GetNode()
+	if err != nil {
+		return 0, err
+	}
+
+	var queryHeight *int64
+	if height > 0 {
+		queryHeight = &height
+	}
+
+	res, err := node.Block(ctx, queryHeight)
+	if err != nil {
+		return 0, err
+	}
+
+	if res == nil || res.Block == nil {
+		return 0, fmt.Errorf("node returned an empty block at height %d", height)
+	}
+
+	return uint64(len(res.Block.Txs)), nil //nolint:gosec // bounded by the block
 }
 
 // queryPoolBalance returns the validator reward pool balance in the given denom.
@@ -480,29 +522,30 @@ currently in effect, so it is clear what the neighbouring bands would pay.`,
 }
 
 // GetTxCountCmd returns the transaction count the chain recorded for the last
-// finalized block.
+// finalized block, next to the block's raw entry count.
 func GetTxCountCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tx-count",
-		Short: "Show the transaction count the chain recorded for the last block",
+		Short: "Show the PoNA transaction count vs the block's raw entry count",
 		Long: `Show the transaction count x/pona used to select the last block's reward.
 
-This is the number the node stored in PreBlock when it finalized the last block.
-It counts REGULAR transactions only: the app-level injected pseudo-transaction
-carrying vote extensions is excluded, because it is not a transaction and is
-never delivered.
+Two counts are reported, because they answer different questions:
 
-It is therefore normal to see 0 here while CometBFT logs num_txs=1 for the same
-block - CometBFT counts the pseudo-transaction as an entry in the proposal, PoNA
-counts only real activity. A 0 here means the zero-activity band was paid.`,
+  tx_count        what PoNA counted: REGULAR transactions only. This is the number
+                  the node stored in PreBlock and the one that selected the band.
+  block_tx_count  every ENTRY in the block, exactly as CometBFT reports it. It
+                  includes the app-level injected pseudo-transaction that carries
+                  vote extensions, because that entry is physically in the block.
+
+They normally differ by exactly 1 on a vote-extension chain (block_tx_count =
+tx_count + 1), and block_tx_count is what CometBFT logs as num_txs. Seeing
+block_tx_count=1 with tx_count=0 is therefore the expected, healthy idle case.
+
+Both counts are reported for the height that was queried (default: latest), so
+use --height to inspect an older block.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
-			if err != nil {
-				return err
-			}
-
-			txCount, err := queryBlockTxCount(clientCtx)
 			if err != nil {
 				return err
 			}
@@ -514,6 +557,13 @@ counts only real activity. A 0 here means the zero-activity band was paid.`,
 
 			height := resolveHeight(clientCtx, latestHeight)
 
+			// The PoNA count is stored for the block being finalised, so read it
+			// from the state at that height.
+			txCount, err := queryBlockTxCountAt(clientCtx, height)
+			if err != nil {
+				return err
+			}
+
 			report := txCountReport{
 				Height:      height,
 				TxCount:     txCount,
@@ -522,6 +572,15 @@ counts only real activity. A 0 here means the zero-activity band was paid.`,
 				Reward:      "0",
 				RewardRune:  "0",
 				TxCountNote: "regular transactions only; the injected vote-extension pseudo-tx is excluded",
+			}
+
+			// The raw block gives the honest "how many entries were in this block"
+			// number, the one CometBFT logs as num_txs.
+			if rawCount, err := queryBlockTxEntries(cmd.Context(), clientCtx, height); err == nil {
+				report.BlockTxCount = rawCount
+				report.BlockTxCountNote = "every entry in the block, including the injected pseudo-tx (CometBFT num_txs)"
+			} else {
+				report.BlockTxCountError = err.Error()
 			}
 
 			if height >= 0 {
@@ -810,12 +869,18 @@ type blockRewardReport struct {
 // txCountReport is the output of `query pona tx-count`.
 type txCountReport struct {
 	Height int64 `json:"height" yaml:"height"`
-	// TxCount is the number of REGULAR transactions in the last finalized block.
-	TxCount          uint64 `json:"tx_count" yaml:"tx_count"`
-	Band             string `json:"band" yaml:"band"`
-	TierIndex        int    `json:"tier_index" yaml:"tier_index"`
-	TxCountThreshold uint64 `json:"tx_count_threshold" yaml:"tx_count_threshold"`
-	Reward           string `json:"reward" yaml:"reward"`
-	RewardRune       string `json:"reward_rune" yaml:"reward_rune"`
-	TxCountNote      string `json:"note" yaml:"note"`
+	// TxCount is the number of REGULAR transactions in the block: what PoNA
+	// counted, and what selected the band.
+	TxCount uint64 `json:"tx_count" yaml:"tx_count"`
+	// BlockTxCount is every entry physically in the block, including the injected
+	// pseudo-transaction. It equals what CometBFT logs as num_txs.
+	BlockTxCount      uint64 `json:"block_tx_count" yaml:"block_tx_count"`
+	BlockTxCountNote  string `json:"block_tx_count_note,omitempty" yaml:"block_tx_count_note,omitempty"`
+	BlockTxCountError string `json:"block_tx_count_error,omitempty" yaml:"block_tx_count_error,omitempty"`
+	Band              string `json:"band" yaml:"band"`
+	TierIndex         int    `json:"tier_index" yaml:"tier_index"`
+	TxCountThreshold  uint64 `json:"tx_count_threshold" yaml:"tx_count_threshold"`
+	Reward            string `json:"reward" yaml:"reward"`
+	RewardRune        string `json:"reward_rune" yaml:"reward_rune"`
+	TxCountNote       string `json:"note" yaml:"note"`
 }
