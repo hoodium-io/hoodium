@@ -215,7 +215,8 @@
             "reward_per_block": "50000000000000000000",
             "tx_count_threshold": "10",
             "low_activity_reward": "20000000000000000000",
-            "zero_activity_reward": "1000000000000000000"
+            "single_activity_reward": "1000000000000000000",
+            "zero_activity_reward": "500000000000000000"
           },
           {
             "start_height": "10519200",
@@ -223,7 +224,8 @@
             "reward_per_block": "25000000000000000000",
             "tx_count_threshold": "10",
             "low_activity_reward": "10000000000000000000",
-            "zero_activity_reward": "1000000000000000000"
+            "single_activity_reward": "1000000000000000000",
+            "zero_activity_reward": "500000000000000000"
           },
           {
             "start_height": "21038400",
@@ -231,7 +233,8 @@
             "reward_per_block": "10000000000000000000",
             "tx_count_threshold": "10",
             "low_activity_reward": "5000000000000000000",
-            "zero_activity_reward": "1000000000000000000"
+            "single_activity_reward": "1000000000000000000",
+            "zero_activity_reward": "500000000000000000"
           }
         ],
         "denom": "arune"

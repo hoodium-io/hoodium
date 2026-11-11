@@ -41,10 +41,6 @@ const (
 	// types.BlocksPerYearAt6s), so duration estimates use the same constant.
 	targetBlockTime = 6 * time.Second
 
-	// runeDecimals is the exponent separating arune from RUNE
-	// (1 RUNE = 10^18 arune, see types.BaseDenomUnit).
-	runeDecimals = 18
-
 	// flagTxCount is the flag accepted by `query pona block-reward`.
 	flagTxCount = "tx-count"
 )
@@ -61,40 +57,12 @@ func printOutput(clientCtx client.Context, v interface{}) error {
 	return clientCtx.PrintRaw(raw)
 }
 
-// runeString formats an arune amount as a decimal RUNE string for readability,
-// without going through floating point. It never replaces the exact amount: the
-// arune value is always reported in the sibling field.
+// runeString formats an arune amount as a decimal RUNE string for readability.
+//
+// It delegates to types.RuneString so the CLI and the node's reward log render
+// amounts identically; there is exactly one implementation of the conversion.
 func runeString(amount sdkmath.Int) string {
-	if amount.IsNil() || amount.IsZero() {
-		return "0"
-	}
-
-	unit := sdkmath.NewIntWithDecimal(1, runeDecimals)
-	quo := amount.Quo(unit)
-	rem := amount.Mod(unit)
-
-	if rem.IsZero() {
-		return quo.String()
-	}
-
-	fraction := fmt.Sprintf("%0*s", runeDecimals, rem.String())
-
-	return fmt.Sprintf("%s.%s", quo, trimTrailingZeros(fraction))
-}
-
-// trimTrailingZeros removes the redundant trailing zeros of a fixed-width
-// fraction.
-func trimTrailingZeros(s string) string {
-	end := len(s)
-	for end > 0 && s[end-1] == '0' {
-		end--
-	}
-
-	if end == 0 {
-		return "0"
-	}
-
-	return s[:end]
+	return types.RuneString(amount)
 }
 
 // durationFromBlocks converts a block count into an approximate wall-clock
@@ -605,7 +573,8 @@ func newAmountReport(amount sdkmath.Int) amountReport {
 	}
 }
 
-// tierRates is the PoNA rate set of a single tier.
+// tierRates is the PoNA rate set of a single tier, in the order the bands are
+// applied.
 type tierRates struct {
 	// TxCountThreshold is the number of transactions needed for the full rate.
 	TxCountThreshold uint64 `json:"tx_count_threshold" yaml:"tx_count_threshold"`
@@ -613,33 +582,47 @@ type tierRates struct {
 	PoNAEnabled bool `json:"pona_enabled" yaml:"pona_enabled"`
 	// Full is the configured full rate, paid when tx_count >= tx_count_threshold.
 	Full amountReport `json:"full" yaml:"full"`
-	// Low is the configured low rate, paid when the block has 1..threshold-1 txs.
+	// Low is the configured low rate, paid when 1 < tx_count < tx_count_threshold.
 	Low amountReport `json:"low" yaml:"low"`
+	// Single is the configured rate for a block with exactly one transaction.
+	// Zero means the single band is not configured, so such a block pays Low.
+	Single amountReport `json:"single" yaml:"single"`
+	// SingleEnabled is true when the single band is configured.
+	SingleEnabled bool `json:"single_enabled" yaml:"single_enabled"`
 	// Zero is the configured zero-activity rate. It is also the FLOOR: no block
-	// is ever paid less than this, so it doubles as effective_low whenever the low
-	// rate is below it.
+	// is ever paid less than this.
 	Zero amountReport `json:"zero" yaml:"zero"`
-	// EffectiveLow is what a low-activity block is actually paid: the low rate,
-	// raised to the zero-activity floor.
-	EffectiveLow amountReport `json:"effective_low" yaml:"effective_low"`
-	// FloorApplied is true when the floor, not the low rate, sets the low-band
-	// amount. It is false for the default schedule.
+	// FloorApplied is true when the floor (rather than the band's own rate) is
+	// what a block in that band is paid.
 	FloorApplied bool `json:"floor_applied" yaml:"floor_applied"`
 }
 
 // newTierRates extracts the rates of a tier.
 func newTierRates(tier types.Tier) tierRates {
-	// The low band is a block with some, but not enough, activity.
-	lowPaid := tier.RewardForTxCount(1)
+	// floorApplied is true when some configured rate sits below the floor and is
+	// therefore clamped. Reported so a misconfiguration is visible, not silent.
+	floorApplied := false
+	if tier.PoNAEnabled() {
+		for _, band := range []types.ActivityBand{
+			types.BandFull, types.BandLow, types.BandSingle,
+		} {
+			if tier.RewardForBand(band).LT(tier.ZeroActivityReward) {
+				floorApplied = true
+
+				break
+			}
+		}
+	}
 
 	return tierRates{
 		TxCountThreshold: tier.TxCountThreshold,
 		PoNAEnabled:      tier.PoNAEnabled(),
 		Full:             newAmountReport(tier.RewardPerBlock),
 		Low:              newAmountReport(tier.LowActivityReward),
+		Single:           newAmountReport(tier.SingleActivityReward),
+		SingleEnabled:    tier.SingleActivityEnabled(),
 		Zero:             newAmountReport(tier.ZeroActivityReward),
-		EffectiveLow:     newAmountReport(lowPaid),
-		FloorApplied:     tier.PoNAEnabled() && tier.LowActivityReward.LT(tier.ZeroActivityReward),
+		FloorApplied:     floorApplied,
 	}
 }
 
@@ -649,30 +632,38 @@ func explainBand(tier types.Tier, txCount uint64) string {
 	band := tier.BandForTxCount(txCount)
 	paid := tier.RewardForTxCount(txCount)
 
-	switch band {
-	case types.BandZero:
-		return fmt.Sprintf(
-			"the block contains no regular transactions, so the zero-activity floor of %s RUNE applies",
-			runeString(paid),
-		)
-	case types.BandLow:
-		explanation := fmt.Sprintf(
-			"%d regular transaction(s) is below the threshold of %d, so the low-activity rate of %s RUNE applies",
-			txCount, tier.TxCountThreshold, runeString(tier.LowActivityReward),
-		)
-		// Say so explicitly when the floor, not the low rate, sets the amount.
-		if tier.LowActivityReward.LT(tier.ZeroActivityReward) {
-			explanation = fmt.Sprintf(
-				"%d regular transaction(s) is below the threshold of %d; the low-activity rate is below the zero-activity floor, so %s RUNE is paid",
-				txCount, tier.TxCountThreshold, runeString(paid),
+	// floored describes the amount when the configured rate was clamped up.
+	floored := func(configured sdkmath.Int) string {
+		if paid.GT(configured) {
+			return fmt.Sprintf(
+				"the configured rate of %s RUNE is below the zero-activity floor, so %s RUNE is paid",
+				runeString(configured), runeString(paid),
 			)
 		}
 
-		return explanation
+		return fmt.Sprintf("%s RUNE applies", runeString(paid))
+	}
+
+	switch band {
+	case types.BandZero:
+		return fmt.Sprintf(
+			"the block contains no regular transactions, so the zero-activity rate of %s RUNE applies",
+			runeString(paid),
+		)
+	case types.BandSingle:
+		return fmt.Sprintf(
+			"the block contains exactly 1 regular transaction, so the single-activity rate %s",
+			floored(tier.SingleActivityReward),
+		)
+	case types.BandLow:
+		return fmt.Sprintf(
+			"%d regular transaction(s) is below the threshold of %d, so the low-activity rate %s",
+			txCount, tier.TxCountThreshold, floored(tier.LowActivityReward),
+		)
 	default:
 		return fmt.Sprintf(
-			"%d regular transaction(s) meets the threshold of %d, so the full rate of %s RUNE applies",
-			txCount, tier.TxCountThreshold, runeString(paid),
+			"%d regular transaction(s) meets the threshold of %d, so the full rate %s",
+			txCount, tier.TxCountThreshold, floored(tier.RewardPerBlock),
 		)
 	}
 }

@@ -52,8 +52,13 @@ const (
 	// BandFull is the band of a busy block: txCount >= TxCountThreshold.
 	BandFull ActivityBand = "full"
 	// BandLow is the band of a block with some, but not enough, activity:
-	// 0 < txCount < TxCountThreshold.
+	// 1 < txCount < TxCountThreshold.
 	BandLow ActivityBand = "low"
+	// BandSingle is the band of a block carrying exactly ONE transaction, when
+	// the tier configures a single_activity_reward. It sits between the zero and
+	// low bands: one transaction is more activity than none, but a single
+	// transaction on its own is not a used chain.
+	BandSingle ActivityBand = "single"
 	// BandZero is the band of a block that contains no regular transactions.
 	// It pays the tier's nominal ZeroActivityReward so an idle chain still
 	// pays the proposer something while draining the reserve as slowly as
@@ -75,6 +80,16 @@ func (t Tier) PoNAEnabled() bool {
 	return t.TxCountThreshold > 0
 }
 
+// SingleActivityEnabled reports whether the tier has a dedicated rate for a
+// block carrying exactly one transaction.
+//
+// A zero (or unset) SingleActivityReward means "no single-transaction band": a
+// block with one transaction then pays LowActivityReward, exactly as it did
+// before this field existed. That keeps existing schedules working unchanged.
+func (t Tier) SingleActivityEnabled() bool {
+	return !t.SingleActivityReward.IsNil() && t.SingleActivityReward.IsPositive()
+}
+
 // BandForTxCount returns the PoNA band that applies to a block containing
 // txCount regular transactions.
 //
@@ -85,12 +100,20 @@ func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
 		return BandFull
 	}
 
-	switch {
-	case txCount >= t.TxCountThreshold:
-		return BandFull
-	case txCount == 0:
+	switch txCount {
+	case 0:
 		return BandZero
+	case 1:
+		if t.SingleActivityEnabled() {
+			return BandSingle
+		}
+
+		return BandLow
 	default:
+		if txCount >= t.TxCountThreshold {
+			return BandFull
+		}
+
 		return BandLow
 	}
 }
@@ -119,6 +142,8 @@ func (t Tier) RewardForBand(band ActivityBand) sdkmath.Int {
 		return t.RewardPerBlock
 	case BandLow:
 		return t.LowActivityReward
+	case BandSingle:
+		return t.SingleActivityReward
 	case BandZero:
 		return t.ZeroActivityReward
 	default:
@@ -185,22 +210,33 @@ func (p Params) BandForHeightAndTxCount(height, txCount uint64) ActivityBand {
 // A tier either disables PoNA (threshold 0) or enables it with a well-ordered,
 // non-negative rate set:
 //
-//	ZeroActivityReward <= LowActivityReward <= RewardPerBlock
+//	ZeroActivityReward <= SingleActivityReward <= LowActivityReward <= RewardPerBlock
 //
 // The zero rate is the FLOOR of the paid reward (see Tier.RewardForTxCount), so
-// a low rate below it would make the floor silently override the configured
-// low-activity rate — an operator mistake that is impossible to notice from the
-// chain's behaviour alone. It is rejected here instead.
+// a rate below it would make the floor silently override the configured value —
+// an operator mistake that is impossible to notice from the chain's behaviour
+// alone. It is rejected here instead.
+//
+// SingleActivityReward may be zero, which means "no single-transaction band" and
+// folds tx_count == 1 into the low band. If it is set, it must be ordered like
+// any other rate.
 func (t Tier) validatePoNA(idx int) error {
 	if t.TxCountThreshold == 0 {
-		// PoNA disabled: the low/zero fields are ignored, but must not be
+		// PoNA disabled: the activity fields are ignored, but must not be
 		// negative if set.
-		if !t.LowActivityReward.IsNil() && t.LowActivityReward.IsNegative() {
-			return fmt.Errorf("pona: tier %d low activity reward must be non-negative", idx)
+		for _, r := range []struct {
+			name   string
+			amount sdkmath.Int
+		}{
+			{"low activity", t.LowActivityReward},
+			{"single activity", t.SingleActivityReward},
+			{"zero activity", t.ZeroActivityReward},
+		} {
+			if !r.amount.IsNil() && r.amount.IsNegative() {
+				return fmt.Errorf("pona: tier %d %s reward must be non-negative", idx, r.name)
+			}
 		}
-		if !t.ZeroActivityReward.IsNil() && t.ZeroActivityReward.IsNegative() {
-			return fmt.Errorf("pona: tier %d zero activity reward must be non-negative", idx)
-		}
+
 		return nil
 	}
 
@@ -210,14 +246,31 @@ func (t Tier) validatePoNA(idx int) error {
 	if t.ZeroActivityReward.IsNil() || t.ZeroActivityReward.IsNegative() {
 		return fmt.Errorf("pona: tier %d zero activity reward must be non-negative", idx)
 	}
+	if !t.SingleActivityReward.IsNil() && t.SingleActivityReward.IsNegative() {
+		return fmt.Errorf("pona: tier %d single activity reward must be non-negative", idx)
+	}
 
-	// Rate ordering. ZeroActivityReward is the floor applied to every band, so it
-	// must not exceed the low rate.
+	// Rate ordering. ZeroActivityReward is the floor applied to every band, so
+	// nothing may sit below it.
 	if t.LowActivityReward.LT(t.ZeroActivityReward) {
 		return fmt.Errorf(
 			"pona: tier %d low activity reward %s is below the zero activity floor %s",
 			idx, t.LowActivityReward.String(), t.ZeroActivityReward.String(),
 		)
+	}
+	if t.SingleActivityEnabled() {
+		if t.SingleActivityReward.LT(t.ZeroActivityReward) {
+			return fmt.Errorf(
+				"pona: tier %d single activity reward %s is below the zero activity floor %s",
+				idx, t.SingleActivityReward.String(), t.ZeroActivityReward.String(),
+			)
+		}
+		if t.LowActivityReward.LT(t.SingleActivityReward) {
+			return fmt.Errorf(
+				"pona: tier %d low activity reward %s is below the single activity reward %s",
+				idx, t.LowActivityReward.String(), t.SingleActivityReward.String(),
+			)
+		}
 	}
 	if t.RewardPerBlock.LT(t.LowActivityReward) {
 		return fmt.Errorf(

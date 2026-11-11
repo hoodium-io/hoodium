@@ -267,15 +267,16 @@ runed query pona block-reward
 
 ```yaml
 band: zero
-band_explanation: the block contains no regular transactions, so the zero-activity rate of 1 RUNE applies
+band_explanation: the block contains no regular transactions, so the zero-activity rate of 0.5 RUNE applies
 height: 32495
-reward: "1000000000000000000"
-reward_rune: "1"
+reward: "500000000000000000"
+reward_rune: "0.5"
 tier:
   full_reward: {arune: "50000000000000000000", rune: "50"}
   low_reward: {arune: "20000000000000000000", rune: "20"}
-  zero_reward: {arune: "1000000000000000000", rune: "1"}
-  effective_low: {arune: "20000000000000000000", rune: "20"}
+  single: {arune: "1000000000000000000", rune: "1"}
+  single_enabled: true
+  zero: {arune: "500000000000000000", rune: "0.5"}
   floor_applied: false
   pona_enabled: true
   tx_count_threshold: 10
@@ -285,18 +286,19 @@ tx_count: 0
 tx_count_source: chain (recorded for the last finalized block)
 ```
 
-The three bands are selected by the number of **regular** transactions in the
+The four bands are selected by the number of **regular** transactions in the
 block, and `zero` is also the **floor** — no block is ever paid less:
 
 | Band | Condition | Tier 1 pays |
 |---|---|---|
 | `full` | `tx_count >= 10` | 50 RUNE |
-| `low` | `tx_count > 0` | 20 RUNE |
-| `zero` | `tx_count == 0` | 1 RUNE (floor) |
+| `low` | `1 < tx_count < 10` | 20 RUNE |
+| `single` | `tx_count == 1` | 1 RUNE |
+| `zero` | `tx_count == 0` | 0.5 RUNE (floor) |
 
-`runed query pona params` reports both the configured `low` rate and the
-`effective_low` actually paid, so a tier whose low rate sits below its zero floor
-is visible rather than silently clamped. The default schedule never needs it.
+`runed query pona params` reports the configured `low`, `single` and `zero` rates
+plus `floor_applied`, so a rate that gets clamped up to the floor is visible
+rather than silent. The shipped schedule never needs the floor.
 
 > **`num_txs=1` in the node log is not a transaction.** CometBFT's
 > `finalizing commit of block ... num_txs=1` counts every entry in the proposal,

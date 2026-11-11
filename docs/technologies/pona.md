@@ -100,18 +100,24 @@ a given block, based on that block's transaction count.
 
 ## 2. The activity bands
 
-Each block is classified into exactly one of **three bands** by its transaction
+Each block is classified into exactly one of **four bands** by its transaction
 count:
 
 | Band | Condition | Reward paid |
 |---|---|---|
 | **Full** | `txCount >= TxCountThreshold` | `reward_per_block` (the tier's full base rate) |
-| **Low** | `txCount > 0` | `low_activity_reward` |
+| **Low** | `1 < txCount < TxCountThreshold` | `low_activity_reward` |
+| **Single** | `txCount == 1` | `single_activity_reward` |
 | **Zero** | `txCount == 0` | `zero_activity_reward` |
 
 `txCount` is the number of **regular** transactions in the block being
 finalised — *not* mempool size, *not* a rolling average, and *not* the injected
 vote-extension pseudo-transaction (see [§4.1](#41-which-transactions-are-counted)).
+
+> **`single_activity_reward` may be omitted.** If it is zero or unset, a
+> one-transaction block falls into the **Low** band and pays
+> `low_activity_reward`, which is how every schedule behaved before the field
+> existed. Set it to enable the dedicated single band.
 
 ### 2.1 `zero_activity_reward` is the FLOOR
 
@@ -124,18 +130,19 @@ So whatever band a block falls into, the paid amount is
 `max(band_rate, zero_activity_reward)` (`Tier.RewardForTxCount` →
 `Tier.ApplyFloor`).
 
-For the default schedule (zero = **1 RUNE**, low ≥ **5 RUNE**) the floor never
-actually changes an amount — the low rate is always above it. It matters in two
-situations:
+For the shipped schedule (zero = **0.5 RUNE**, lowest other rate = **1 RUNE**)
+the floor never changes an amount — every other rate is above it. It matters in
+two situations:
 
-- **Misconfiguration.** If a tier were ever set with a low rate below its zero
-  rate, the floor clamps the payout up so a busy block is never worth less than an
-  idle one. Validation rejects that ordering on chain
-  (`zero <= low <= full`, see `Tier.validatePoNA`), so the floor is a safety net,
-  not a normal path.
-- **A sub-RUNE zero rate.** Setting `zero_activity_reward` below 1 RUNE (e.g.
-  `0.5 RUNE`) is legal and lowers only the empty-block payout; low-activity blocks
-  still earn their full low rate, because it is above the floor.
+- **Misconfiguration.** If a tier were ever set with a rate below its zero rate,
+  the floor clamps the payout up so a busy block is never worth less than an idle
+  one. Validation rejects that ordering on chain
+  (`zero <= single <= low <= full`, see `Tier.validatePoNA`), so the floor is a
+  safety net, not a normal path. `runed query pona params` reports
+  `floor_applied` so a clamped rate is visible.
+- **A sub-RUNE zero rate.** Setting `zero_activity_reward` to `0.5 RUNE` (as
+  shipped) halves the cost of a completely idle block without touching any other
+  band.
 
 > **Note on "threshold 0":** a tier whose `TxCountThreshold` is **0** has PoNA
 > *switched off* and always pays the full rate. Zero is a sentinel meaning
@@ -153,14 +160,24 @@ proposer something for keeping the chain alive.
 PoNA rates are defined **per emission tier**. The full rate is the base tier
 rate owned by `x/pona`; the Low and Zero rates are PoNA policy.
 
-| Tier | Epoch | Full (`tx >= 10`) | Low (`tx > 0`) | Zero (`tx == 0`) |
-|---|---|---|---|---|
-| 1 | Y0–2 | **50 RUNE** | **20 RUNE** | **1 RUNE** |
-| 2 | Y2–4 | **25 RUNE** | **10 RUNE** | **1 RUNE** |
-| 3 | Y4 → infinite | **10 RUNE** | **5 RUNE** | **1 RUNE** |
+| Tier | Epoch | Full (`tx >= 10`) | Low (`1 < tx < 10`) | Single (`tx == 1`) | Zero (`tx == 0`) |
+|---|---|---|---|---|---|
+| 1 | Y0–2 | **50 RUNE** | **20 RUNE** | **1 RUNE** | **0.5 RUNE** |
+| 2 | Y2–4 | **25 RUNE** | **10 RUNE** | **1 RUNE** | **0.5 RUNE** |
+| 3 | Y4 → infinite | **10 RUNE** | **5 RUNE** | **1 RUNE** | **0.5 RUNE** |
 
 All values are in **RUNE** (stored on-chain as **arune**, `1 RUNE = 10^18 arune`).
 The Zero column is also the **floor** applied to every band ([§2.1](#21-zero_activity_reward-is-the-floor)).
+
+In arune, the tier-1 rates are:
+
+```
+reward_per_block       = 50000000000000000000   (50 RUNE)
+tx_count_threshold     = 10
+low_activity_reward    = 20000000000000000000   (20 RUNE)
+single_activity_reward = 1000000000000000000    (1 RUNE)
+zero_activity_reward   = 500000000000000000     (0.5 RUNE)
+```
 
 Notes:
 
@@ -330,7 +347,8 @@ it back into two modules is not planned.
 | `tiers[].reward_per_block` | `Tier` | **Full** rate for that tier |
 | `tiers[].tx_count_threshold` | `Tier` | Txs at/above which the full rate is paid (`10`); `0` disables PoNA |
 | `tiers[].low_activity_reward` | `Tier` | Rate when `0 < tx < threshold` |
-| `tiers[].zero_activity_reward` | `Tier` | Rate when `tx == 0` |
+| `tiers[].zero_activity_reward` | `Tier` | Rate when `tx == 0`; also the **floor** for every band |
+| `tiers[].single_activity_reward` | `Tier` | Rate when `tx == 1`; `0`/unset folds `tx == 1` into the low band |
 
 The tx count itself is **not** a parameter: it is captured per block from
 `len(req.Txs)` in the app's `PreBlocker` and stored under
@@ -397,15 +415,18 @@ Typical output:
 $ runed query pona block-reward
 band: zero
 band_explanation: the block contains no regular transactions, so the zero-activity
-  rate of 1 RUNE applies
+  rate of 0.5 RUNE applies
 denom: arune
 height: 32495
-reward: "1000000000000000000"
-reward_rune: "1"
+reward: "500000000000000000"
+reward_rune: "0.5"
 tier:
   full_reward: {arune: "50000000000000000000", rune: "50"}
-  low_reward:  {arune: "20000000000000000000", rune: "20"}
-  zero_reward: {arune: "1000000000000000000",  rune: "1"}
+  low_reward: {arune: "20000000000000000000", rune: "20"}
+  single: {arune: "1000000000000000000", rune: "1"}
+  single_enabled: true
+  zero: {arune: "500000000000000000", rune: "0.5"}
+  floor_applied: false
   pona_enabled: true
   tier_index: 0
   tier_count: 3
@@ -414,7 +435,7 @@ tx_count: 0
 tx_count_source: chain (recorded for the last finalized block)
 ```
 
-Read it as: **the chain is idle, and it is paying 1 RUNE, not 20.** That is the
+Read it as: **the chain is idle, and it is paying 0.5 RUNE — not 20.** That is the
 behaviour the zero band exists for.
 
 ## 10. Open questions / follow-ups

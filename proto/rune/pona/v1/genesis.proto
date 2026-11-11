@@ -13,10 +13,12 @@ option go_package = "github.com/hoodium-io/hoodium/x/pona/types";
 // The reward actually paid for a block depends on how many transactions the
 // block contains (see docs/technologies/pona.md):
 //
-//	tx_count >= tx_count_threshold  -> reward_per_block   (full)
-//	0 < tx_count < tx_count_threshold -> low_activity_reward
-//	tx_count == 0                   -> zero_activity_reward
+//	tx_count >= tx_count_threshold  -> reward_per_block        (full)
+//	tx_count == 1                   -> single_activity_reward  (single)
+//	1 < tx_count < threshold        -> low_activity_reward     (low)
+//	tx_count == 0                   -> zero_activity_reward    (zero)
 //
+// zero_activity_reward is also the FLOOR: no block is ever paid less than it.
 // If tx_count_threshold is 0, PoNA is disabled for the tier and the full
 // reward_per_block is always paid.
 message Tier {
@@ -36,17 +38,31 @@ message Tier {
   // tx_count_threshold is the minimum number of transactions a block must
   // contain for the full reward_per_block to be paid. Zero disables PoNA.
   uint64 tx_count_threshold = 4;
-  // low_activity_reward is paid when 0 < tx_count < tx_count_threshold, in arune.
+  // low_activity_reward is paid when 1 < tx_count < tx_count_threshold, in arune.
   string low_activity_reward = 5 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
     (gogoproto.moretags) = "yaml:\"low_activity_reward\""
   ];
-  // zero_activity_reward is paid when tx_count == 0, in arune.
+  // zero_activity_reward is paid when tx_count == 0, in arune. It is also the
+  // FLOOR of the paid reward: no block is ever worth less than it.
   string zero_activity_reward = 6 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
     (gogoproto.moretags) = "yaml:\"zero_activity_reward\""
+  ];
+  // single_activity_reward is paid when the block contains exactly ONE
+  // transaction, in arune. It is its own band because a single transaction is
+  // meaningfully more activity than none, but far less than an actively used
+  // chain.
+  //
+  // Leave it zero to fold single-transaction blocks into the low band: with the
+  // field unset, tx_count == 1 pays low_activity_reward, as it did before this
+  // field existed. This keeps existing schedules working unchanged.
+  string single_activity_reward = 7 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"single_activity_reward\""
   ];
 }
 

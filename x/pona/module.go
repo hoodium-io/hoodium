@@ -45,6 +45,25 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
 // Bumped 1 -> 2 when the Tier proto gained the PoNA activity fields
 // (tx_count_threshold, low_activity_reward, zero_activity_reward) and
 // min_reward_per_block was removed: the on-disk Params encoding changed.
+//
+// NOT bumped for the later addition of Tier.single_activity_reward (proto field
+// 7), and there are two separate reasons.
+//
+//  1. There is nothing to migrate. The change is purely additive and
+//     wire-compatible: Params stored before the field existed decode with a nil
+//     SingleActivityReward, which Tier.SingleActivityEnabled treats as "single
+//     band disabled", and re-encoding a nil math.Int writes "0" (see
+//     math.Int.Size/MarshalTo). The stored meaning of every existing value is
+//     unchanged.
+//
+//  2. A bump would be a trap for the next upgrade. This app currently never calls
+//     RunMigrations (verified: no call site in app/, cmd/ or server/; upgrades.go
+//     registers no handlers), so the version is recorded but not yet compared.
+//     The moment an upgrade handler is added, configurator.runModuleMigrations
+//     returns "no migrations found for module pona" whenever fromVersion differs
+//     from toVersion with no migration registered (SDK v0.50.15,
+//     types/module/configurator.go:130-133) -- the upgrade would fail. Bump only
+//     alongside a real state transformation AND a registered migration.
 func (AppModuleBasic) ConsensusVersion() uint64 {
 	return 2
 }

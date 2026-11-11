@@ -9,7 +9,8 @@ import (
 	"github.com/hoodium-io/hoodium/x/pona/types"
 )
 
-// TestDefaultTiersPoNA pins the full/low/zero rates of the default schedule.
+// TestDefaultTiersPoNA pins the full/low/single/zero rates of the default
+// schedule.
 func TestDefaultTiersPoNA(t *testing.T) {
 	tiers := types.DefaultTiers()
 	require.Len(t, tiers, 3)
@@ -19,12 +20,13 @@ func TestDefaultTiersPoNA(t *testing.T) {
 		idx       int
 		full      sdkmath.Int
 		low       sdkmath.Int
+		single    sdkmath.Int
 		zero      sdkmath.Int
 		threshold uint64
 	}{
-		{"tier 1 (Y0-2)", 0, rune(50), rune(20), rune(1), 10},
-		{"tier 2 (Y2-4)", 1, rune(25), rune(10), rune(1), 10},
-		{"tier 3 (Y4+)", 2, rune(10), rune(5), rune(1), 10},
+		{"tier 1 (Y0-2)", 0, rune(50), rune(20), rune(1), halfRune(), 10},
+		{"tier 2 (Y2-4)", 1, rune(25), rune(10), rune(1), halfRune(), 10},
+		{"tier 3 (Y4+)", 2, rune(10), rune(5), rune(1), halfRune(), 10},
 	}
 
 	for _, tc := range testCases {
@@ -32,11 +34,18 @@ func TestDefaultTiersPoNA(t *testing.T) {
 			tier := tiers[tc.idx]
 			require.Equal(t, tc.full.String(), tier.RewardPerBlock.String(), "full reward")
 			require.Equal(t, tc.low.String(), tier.LowActivityReward.String(), "low activity reward")
+			require.Equal(t, tc.single.String(), tier.SingleActivityReward.String(), "single activity reward")
 			require.Equal(t, tc.zero.String(), tier.ZeroActivityReward.String(), "zero activity reward")
 			require.Equal(t, tc.threshold, tier.TxCountThreshold, "tx count threshold")
 			require.True(t, tier.PoNAEnabled())
+			require.True(t, tier.SingleActivityEnabled())
 		})
 	}
+}
+
+// halfRune returns 0.5 RUNE expressed in arune.
+func halfRune() sdkmath.Int {
+	return sdkmath.NewIntWithDecimal(5, 17)
 }
 
 // TestRewardForHeightAndTxCount exercises the three PoNA bands on each tier.
@@ -53,28 +62,32 @@ func TestRewardForHeightAndTxCount(t *testing.T) {
 	inTier3 := 4*oneYear + oneYear
 
 	testCases := []struct {
-		name    string
-		height  uint64
-		txCount uint64
-		want    sdkmath.Int
+		name     string
+		height   uint64
+		txCount  uint64
+		want     sdkmath.Int
+		wantBand types.ActivityBand
 	}{
-		// Tier 1: 50 / 20 / 1
-		{"tier1 full (tx == threshold)", inTier1, threshold, rune(50)},
-		{"tier1 full (tx > threshold)", inTier1, 1000, rune(50)},
-		{"tier1 low (1 tx)", inTier1, 1, rune(20)},
-		{"tier1 low (threshold-1)", inTier1, threshold - 1, rune(20)},
-		{"tier1 zero (no txs)", inTier1, 0, rune(1)},
+		// Tier 1: full 50 | low 20 | single 1 | zero 0.5
+		{"tier1 full (tx == threshold)", inTier1, threshold, rune(50), types.BandFull},
+		{"tier1 full (tx > threshold)", inTier1, 1000, rune(50), types.BandFull},
+		{"tier1 low (2 txs)", inTier1, 2, rune(20), types.BandLow},
+		{"tier1 low (threshold-1)", inTier1, threshold - 1, rune(20), types.BandLow},
+		{"tier1 single (exactly 1 tx)", inTier1, 1, rune(1), types.BandSingle},
+		{"tier1 zero (no txs)", inTier1, 0, halfRune(), types.BandZero},
 
-		// Tier 2: 25 / 10 / 1
-		{"tier2 full", inTier2, threshold, rune(25)},
-		{"tier2 low", inTier2, 3, rune(10)},
-		{"tier2 zero", inTier2, 0, rune(1)},
+		// Tier 2: full 25 | low 10 | single 1 | zero 0.5
+		{"tier2 full", inTier2, threshold, rune(25), types.BandFull},
+		{"tier2 low", inTier2, 3, rune(10), types.BandLow},
+		{"tier2 single", inTier2, 1, rune(1), types.BandSingle},
+		{"tier2 zero", inTier2, 0, halfRune(), types.BandZero},
 
-		// Tier 3: 10 / 5 / 1
-		{"tier3 full", inTier3, threshold, rune(10)},
-		{"tier3 full (far future)", 100 * oneYear, 42, rune(10)},
-		{"tier3 low", inTier3, 6, rune(5)},
-		{"tier3 zero", inTier3, 0, rune(1)},
+		// Tier 3: full 10 | low 5 | single 1 | zero 0.5
+		{"tier3 full", inTier3, threshold, rune(10), types.BandFull},
+		{"tier3 full (far future)", 100 * oneYear, 42, rune(10), types.BandFull},
+		{"tier3 low", inTier3, 6, rune(5), types.BandLow},
+		{"tier3 single", inTier3, 1, rune(1), types.BandSingle},
+		{"tier3 zero", inTier3, 0, halfRune(), types.BandZero},
 	}
 
 	for _, tc := range testCases {
@@ -82,6 +95,8 @@ func TestRewardForHeightAndTxCount(t *testing.T) {
 			got := params.RewardForHeightAndTxCount(tc.height, tc.txCount)
 			require.Equal(t, tc.want.String(), got.String(),
 				"height %d txCount %d: want %s got %s", tc.height, tc.txCount, tc.want, got)
+			require.Equal(t, tc.wantBand, params.BandForHeightAndTxCount(tc.height, tc.txCount),
+				"height %d txCount %d: band", tc.height, tc.txCount)
 		})
 	}
 }
@@ -120,38 +135,54 @@ func TestRewardForHeightAndTxCountNoTier(t *testing.T) {
 }
 
 // TestBandForTxCount exercises the band selection that PoNA uses to decide
-// which of a tier's three rates is paid.
+// which of a tier's rates is paid.
 //
 // The zero band is the important one: an idle chain must reach it, otherwise it
-// pays the low-activity rate forever (see CountRegularTxs in app/abci).
+// pays a higher activity rate forever (see CountRegularTxs in app/abci). The
+// single band is the newest: a block with exactly one transaction is more
+// activity than none, but far less than a used chain.
 func TestBandForTxCount(t *testing.T) {
-	tier := types.Tier{
-		RewardPerBlock:     rune(50),
-		TxCountThreshold:   10,
-		LowActivityReward:  rune(20),
-		ZeroActivityReward: rune(1),
+	// A tier with the single band configured.
+	withSingle := types.Tier{
+		RewardPerBlock:       rune(50),
+		TxCountThreshold:     10,
+		LowActivityReward:    rune(20),
+		SingleActivityReward: rune(1),
+		ZeroActivityReward:   halfRune(),
 	}
 
 	testCases := []struct {
 		name    string
+		tier    types.Tier
 		txCount uint64
 		want    types.ActivityBand
 	}{
-		{"no transactions is the zero band", 0, types.BandZero},
-		{"a single transaction is the low band", 1, types.BandLow},
-		{"threshold-1 is still the low band", 9, types.BandLow},
-		{"exactly the threshold is the full band", 10, types.BandFull},
-		{"above the threshold is the full band", 1000, types.BandFull},
+		{"no transactions is the zero band", withSingle, 0, types.BandZero},
+		{"exactly one transaction is the single band", withSingle, 1, types.BandSingle},
+		{"two transactions is the low band", withSingle, 2, types.BandLow},
+		{"threshold-1 is still the low band", withSingle, 9, types.BandLow},
+		{"exactly the threshold is the full band", withSingle, 10, types.BandFull},
+		{"above the threshold is the full band", withSingle, 1000, types.BandFull},
+
+		// Without a configured single rate, a 1-tx block folds into the low band:
+		// this is what pre-existing on-chain schedules do, since the field was
+		// added later and reads as zero until set.
+		{
+			name:    "single band disabled folds 1 tx into low",
+			tier:    types.Tier{RewardPerBlock: rune(50), TxCountThreshold: 10, LowActivityReward: rune(20), ZeroActivityReward: rune(1)},
+			txCount: 1,
+			want:    types.BandLow,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, tier.BandForTxCount(tc.txCount))
+			require.Equal(t, tc.want, tc.tier.BandForTxCount(tc.txCount))
 			// The band must agree with the amount that is actually paid.
 			require.Equal(
 				t,
-				tier.RewardForTxCount(tc.txCount).String(),
-				wantRewardForBand(tier, tc.want).String(),
+				tc.tier.RewardForTxCount(tc.txCount).String(),
+				tc.tier.ApplyFloor(tc.tier.RewardForBand(tc.want)).String(),
 			)
 		})
 	}
@@ -180,10 +211,13 @@ func TestBandForHeightAndTxCount(t *testing.T) {
 	inTier3 := 4 * types.BlocksPerYearAt6s
 
 	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier1, 0))
-	require.Equal(t, types.BandLow, params.BandForHeightAndTxCount(inTier1, 1))
+	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier1, 1))
+	require.Equal(t, types.BandLow, params.BandForHeightAndTxCount(inTier1, 2))
 	require.Equal(t, types.BandFull, params.BandForHeightAndTxCount(inTier1, threshold))
 	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier2, 0))
+	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier2, 1))
 	require.Equal(t, types.BandLow, params.BandForHeightAndTxCount(inTier3, 5))
+	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier3, 1))
 	require.Equal(t, types.BandFull, params.BandForHeightAndTxCount(inTier3, threshold))
 
 	// A schedule with an explicit end height leaves later heights uncovered.
@@ -223,26 +257,13 @@ func TestTierForHeight(t *testing.T) {
 	require.Equal(t, -1, idx)
 }
 
-// wantRewardForBand maps a band back to the tier rate it must select.
-func wantRewardForBand(tier types.Tier, band types.ActivityBand) sdkmath.Int {
-	switch band {
-	case types.BandFull:
-		return tier.RewardPerBlock
-	case types.BandLow:
-		return tier.LowActivityReward
-	case types.BandZero:
-		return tier.ZeroActivityReward
-	default:
-		return sdkmath.ZeroInt()
-	}
-}
-
 // TestZeroActivityRewardIsTheFloor pins the rule that no block is ever paid less
 // than the tier's zero-activity rate.
 //
-// The default schedule (zero = 1 RUNE) never triggers the floor, so the test also
-// builds a tier whose low rate sits BELOW its zero rate: the precondition that
-// validatePoNA rejects on chain, and the reason the floor exists as a safety net.
+// The default schedule (zero = 0.5 RUNE) never triggers the floor, so the test
+// also builds a tier whose low rate sits BELOW its zero rate: the precondition
+// that validatePoNA rejects on chain, and the reason the floor exists as a
+// safety net.
 func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 	// A low rate below the floor: RewardForTxCount must clamp up to the floor.
 	belowFloor := types.Tier{
@@ -252,7 +273,7 @@ func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 		ZeroActivityReward: rune(1),
 	}
 
-	for _, txCount := range []uint64{0, 1, 5, 9} {
+	for _, txCount := range []uint64{0, 2, 5, 9} {
 		got := belowFloor.RewardForTxCount(txCount)
 		require.Equal(t, rune(1).String(), got.String(),
 			"txCount %d must be clamped to the %s floor, got %s",
@@ -265,31 +286,37 @@ func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 	require.Equal(t, "1", belowFloor.RewardForBand(types.BandLow).String(),
 		"RewardForBand must return the raw rate, before the floor")
 
-	// The default schedule never needs the floor.
+	// The default schedule never needs the floor: each configured rate sits
+	// above the 0.5 RUNE zero rate, so every band pays exactly its own amount.
 	for i, tier := range types.DefaultTiers() {
-		require.False(t,
-			tier.LowActivityReward.LT(tier.ZeroActivityReward),
-			"default tier %d must not need the floor", i)
-		require.Equal(t, tier.LowActivityReward.String(),
-			tier.RewardForTxCount(1).String(),
-			"default tier %d low rate must pass through unchanged", i)
+		for _, band := range []types.ActivityBand{
+			types.BandFull, types.BandLow, types.BandSingle,
+		} {
+			require.False(t, tier.RewardForBand(band).LT(tier.ZeroActivityReward),
+				"default tier %d band %s must not need the floor", i, band)
+		}
+		require.Equal(t, tier.ZeroActivityReward.String(),
+			tier.RewardForTxCount(0).String(),
+			"default tier %d zero block pays the zero rate", i)
 	}
 }
 
 // TestValidateRejectsInvertedRates verifies the ordering validation: the zero
-// rate is the floor, so it may not exceed the low rate, and the low rate may not
-// exceed the full rate.
+// rate is the floor, so nothing may sit below it, and the rates above it must be
+// non-decreasing up to the full rate.
 func TestValidateRejectsInvertedRates(t *testing.T) {
-	mkTier := func(full, low, zero sdkmath.Int) types.Tier {
+	mkTier := func(full, low, single, zero sdkmath.Int) types.Tier {
 		return types.Tier{
-			StartHeight:        0,
-			EndHeight:          0,
-			RewardPerBlock:     full,
-			TxCountThreshold:   10,
-			LowActivityReward:  low,
-			ZeroActivityReward: zero,
+			StartHeight:          0,
+			EndHeight:            0,
+			RewardPerBlock:       full,
+			TxCountThreshold:     10,
+			LowActivityReward:    low,
+			SingleActivityReward: single,
+			ZeroActivityReward:   zero,
 		}
 	}
+	noSingle := sdkmath.Int{} // unset => single band disabled
 
 	testCases := []struct {
 		name    string
@@ -298,17 +325,31 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 	}{
 		{
 			name:    "low below the zero floor",
-			tier:    mkTier(rune(50), rune(1), rune(20)),
+			tier:    mkTier(rune(50), rune(1), noSingle, rune(20)),
 			wantErr: "below the zero activity floor",
 		},
 		{
 			name:    "full below the low rate",
-			tier:    mkTier(rune(5), rune(20), rune(1)),
+			tier:    mkTier(rune(5), rune(20), noSingle, rune(1)),
 			wantErr: "below the low activity reward",
 		},
 		{
+			name:    "single below the zero floor",
+			tier:    mkTier(rune(50), rune(20), rune(1), rune(5)),
+			wantErr: "single activity reward",
+		},
+		{
+			name:    "low below the single rate",
+			tier:    mkTier(rune(50), rune(3), rune(10), rune(1)),
+			wantErr: "below the single activity reward",
+		},
+		{
 			name: "well ordered rates are accepted",
-			tier: mkTier(rune(50), rune(20), rune(1)),
+			tier: mkTier(rune(50), rune(20), rune(1), halfRune()),
+		},
+		{
+			name: "single band may be omitted",
+			tier: mkTier(rune(50), rune(20), noSingle, halfRune()),
 		},
 	}
 
@@ -322,6 +363,55 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 			}
 			require.ErrorContains(t, err, tc.wantErr)
 		})
+	}
+}
+
+// TestShippedDefaultScheduleIsValid validates the complete default schedule.
+//
+// It must be validated as a WHOLE, never tier by tier. Validate applies its
+// checks in order and returns on the first failure:
+//
+//  1. denom non-empty
+//  2. at least one tier
+//  3. Tiers[0].StartHeight == 0
+//  4. per-tier rate checks
+//  5. last tier open-ended
+//
+// Because check 3 runs before check 5, extracting ANY default tier that does not
+// start at height 0 fails on the height rule, not the open-ended rule. Only tier
+// 0 starts at height 0, and being closed it then fails check 5. So no single
+// default tier is a valid Params on its own -- which is exactly why the schedule
+// is only ever validated whole.
+func TestShippedDefaultScheduleIsValid(t *testing.T) {
+	require.NoError(t, types.DefaultParams("arune").Validate())
+
+	tiers := types.DefaultTiers()
+	require.Len(t, tiers, 3)
+
+	// Tiers 1 and 2 do not start at height 0, so they fail check 3 first.
+	for i := 1; i < len(tiers); i++ {
+		require.NotZero(t, tiers[i].StartHeight, "tier %d should not start at 0", i)
+
+		single := types.Params{Denom: "arune", Tiers: []types.Tier{tiers[i]}}
+		require.ErrorContains(t, single.Validate(), "first tier must start at height 0",
+			"tier %d starts above 0, so it fails the height rule before the open-ended rule", i)
+	}
+
+	// Tier 0 starts at height 0 but is closed, so it passes check 3 and fails
+	// check 5 (the open-ended rule).
+	require.Zero(t, tiers[0].StartHeight)
+	require.NotZero(t, tiers[0].EndHeight, "tier 0 must be closed for this to be the failure")
+
+	single := types.Params{Denom: "arune", Tiers: []types.Tier{tiers[0]}}
+	require.ErrorContains(t, single.Validate(), "last tier must be open-ended",
+		"tier 0 starts at 0, so it reaches the open-ended rule and fails there")
+
+	// Consequence: no single tier validates on its own, so a caller must validate
+	// the whole slice. Asserting it directly keeps the invariant obvious.
+	for i, tier := range tiers {
+		require.Error(t,
+			types.Params{Denom: "arune", Tiers: []types.Tier{tier}}.Validate(),
+			"tier %d must not validate in isolation", i)
 	}
 }
 

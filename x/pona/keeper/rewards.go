@@ -103,6 +103,13 @@ func (k Keeper) DistributeRuneBlockReward(
 	reward := breakdown.Reward
 	if reward.IsZero() {
 		// Fee-only: emission has ended (no tier covers this height).
+		k.Logger(ctx).Debug(
+			"no block reward: emission has ended (fee-only)",
+			"height", height,
+			"tx_count", txCount,
+			"band", string(breakdown.Band),
+		)
+
 		return sdkmath.ZeroInt(), nil
 	}
 
@@ -139,6 +146,41 @@ func (k Keeper) DistributeRuneBlockReward(
 			"error", err.Error(),
 		)
 	}
+
+	// Log what was paid and why.
+	//
+	// tx_count is the piece operators need: it is the number of REGULAR
+	// transactions the block contained (the injected vote-extension
+	// pseudo-transaction is excluded), and it is what selected the band. It is
+	// deliberately NOT included in the CometBFT log lines -- those report
+	// num_txs/num_txs_res, which count the pseudo-transaction and therefore do not
+	// answer "why did this block pay the zero band?".
+	//
+	// Logged at Info once per block, which is the same rate as CometBFT's own
+	// per-block lines.
+	k.Logger(ctx).Info(
+		"block reward paid",
+		"height", height,
+		"tx_count", txCount,
+		"band", string(breakdown.Band),
+		"amount", reward.String(),
+		"reward_rune", types.RuneString(reward),
+		"tier", breakdown.TierIndex,
+	)
+
+	k.Logger(ctx).Debug(
+		"block reward breakdown",
+		"height", height,
+		"tx_count", txCount,
+		"band", string(breakdown.Band),
+		"tier_index", breakdown.TierIndex,
+		"tx_count_threshold", breakdown.Tier.TxCountThreshold,
+		"reward_per_block", breakdown.Tier.RewardPerBlock.String(),
+		"low_activity_reward", breakdown.Tier.LowActivityReward.String(),
+		"single_activity_reward", breakdown.Tier.SingleActivityReward.String(),
+		"zero_activity_reward", breakdown.Tier.ZeroActivityReward.String(),
+		"pool_balance", pool.Amount.String(),
+	)
 
 	event := sdk.NewEvent(
 		types.EventTypeRuneBlockReward,
