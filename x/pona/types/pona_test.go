@@ -237,6 +237,94 @@ func wantRewardForBand(tier types.Tier, band types.ActivityBand) sdkmath.Int {
 	}
 }
 
+// TestZeroActivityRewardIsTheFloor pins the rule that no block is ever paid less
+// than the tier's zero-activity rate.
+//
+// The default schedule (zero = 1 RUNE) never triggers the floor, so the test also
+// builds a tier whose low rate sits BELOW its zero rate: the precondition that
+// validatePoNA rejects on chain, and the reason the floor exists as a safety net.
+func TestZeroActivityRewardIsTheFloor(t *testing.T) {
+	// A low rate below the floor: RewardForTxCount must clamp up to the floor.
+	belowFloor := types.Tier{
+		RewardPerBlock:     rune(50),
+		TxCountThreshold:   10,
+		LowActivityReward:  sdkmath.NewInt(1), // 1 arune, far below 1 RUNE
+		ZeroActivityReward: rune(1),
+	}
+
+	for _, txCount := range []uint64{0, 1, 5, 9} {
+		got := belowFloor.RewardForTxCount(txCount)
+		require.Equal(t, rune(1).String(), got.String(),
+			"txCount %d must be clamped to the %s floor, got %s",
+			txCount, rune(1), got)
+	}
+	// The full band is unaffected: it is far above the floor.
+	require.Equal(t, rune(50).String(), belowFloor.RewardForTxCount(10).String())
+
+	// The raw configured rate is still visible for reporting.
+	require.Equal(t, "1", belowFloor.RewardForBand(types.BandLow).String(),
+		"RewardForBand must return the raw rate, before the floor")
+
+	// The default schedule never needs the floor.
+	for i, tier := range types.DefaultTiers() {
+		require.False(t,
+			tier.LowActivityReward.LT(tier.ZeroActivityReward),
+			"default tier %d must not need the floor", i)
+		require.Equal(t, tier.LowActivityReward.String(),
+			tier.RewardForTxCount(1).String(),
+			"default tier %d low rate must pass through unchanged", i)
+	}
+}
+
+// TestValidateRejectsInvertedRates verifies the ordering validation: the zero
+// rate is the floor, so it may not exceed the low rate, and the low rate may not
+// exceed the full rate.
+func TestValidateRejectsInvertedRates(t *testing.T) {
+	mkTier := func(full, low, zero sdkmath.Int) types.Tier {
+		return types.Tier{
+			StartHeight:        0,
+			EndHeight:          0,
+			RewardPerBlock:     full,
+			TxCountThreshold:   10,
+			LowActivityReward:  low,
+			ZeroActivityReward: zero,
+		}
+	}
+
+	testCases := []struct {
+		name    string
+		tier    types.Tier
+		wantErr string
+	}{
+		{
+			name:    "low below the zero floor",
+			tier:    mkTier(rune(50), rune(1), rune(20)),
+			wantErr: "below the zero activity floor",
+		},
+		{
+			name:    "full below the low rate",
+			tier:    mkTier(rune(5), rune(20), rune(1)),
+			wantErr: "below the low activity reward",
+		},
+		{
+			name: "well ordered rates are accepted",
+			tier: mkTier(rune(50), rune(20), rune(1)),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := types.Params{Denom: "arune", Tiers: []types.Tier{tc.tier}}.Validate()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
 // TestParamsValidateRejectsBadPoNA verifies that an enabled tier with a missing
 // or negative PoNA rate is rejected, while a disabled (threshold 0) tier is not.
 func TestParamsValidateRejectsBadPoNA(t *testing.T) {

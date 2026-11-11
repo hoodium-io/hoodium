@@ -3,7 +3,11 @@
 #
 # Build layer
 #
-FROM golang:1.24.0-bullseye AS build
+# NOTE: must match the `go` directive in go.mod (1.27). Do NOT use a
+# `-bullseye` tag here: the golang image publishes no 1.27 bullseye variant
+# (`golang:1.27-bullseye` and `golang:1.27.3-bullseye` are both 404), and
+# bookworm is the better match for the distroless debian12 runtime below.
+FROM golang:1.27.3-bookworm AS build
 
 WORKDIR /go/src/github.com/hoodium-io/hoodium
 

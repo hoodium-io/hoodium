@@ -1,6 +1,6 @@
 module github.com/hoodium-io/hoodium
 
-go 1.24.0
+go 1.27.0
 
 require (
 	cosmossdk.io/api v0.7.6

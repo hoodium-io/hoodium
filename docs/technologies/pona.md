@@ -106,13 +106,36 @@ count:
 | Band | Condition | Reward paid |
 |---|---|---|
 | **Full** | `txCount >= TxCountThreshold` | `reward_per_block` (the tier's full base rate) |
-| **Low** | `0 < txCount < TxCountThreshold` | `low_activity_reward` |
+| **Low** | `txCount > 0` | `low_activity_reward` |
 | **Zero** | `txCount == 0` | `zero_activity_reward` |
 
-- **`TxCountThreshold` = 10** (the configured "active block" threshold).
-- `txCount` is the **number of transactions actually included in the block being
-  finalised** — *not* mempool size, and *not* a rolling average. This was
-  confirmed as the intended semantics.
+`txCount` is the number of **regular** transactions in the block being
+finalised — *not* mempool size, *not* a rolling average, and *not* the injected
+vote-extension pseudo-transaction (see [§4.1](#41-which-transactions-are-counted)).
+
+### 2.1 `zero_activity_reward` is the FLOOR
+
+`zero_activity_reward` does double duty:
+
+1. it is the rate for a block with **no** transactions, and
+2. it is the **minimum** any block can pay.
+
+So whatever band a block falls into, the paid amount is
+`max(band_rate, zero_activity_reward)` (`Tier.RewardForTxCount` →
+`Tier.ApplyFloor`).
+
+For the default schedule (zero = **1 RUNE**, low ≥ **5 RUNE**) the floor never
+actually changes an amount — the low rate is always above it. It matters in two
+situations:
+
+- **Misconfiguration.** If a tier were ever set with a low rate below its zero
+  rate, the floor clamps the payout up so a busy block is never worth less than an
+  idle one. Validation rejects that ordering on chain
+  (`zero <= low <= full`, see `Tier.validatePoNA`), so the floor is a safety net,
+  not a normal path.
+- **A sub-RUNE zero rate.** Setting `zero_activity_reward` below 1 RUNE (e.g.
+  `0.5 RUNE`) is legal and lowers only the empty-block payout; low-activity blocks
+  still earn their full low rate, because it is above the floor.
 
 > **Note on "threshold 0":** a tier whose `TxCountThreshold` is **0** has PoNA
 > *switched off* and always pays the full rate. Zero is a sentinel meaning
@@ -130,13 +153,14 @@ proposer something for keeping the chain alive.
 PoNA rates are defined **per emission tier**. The full rate is the base tier
 rate owned by `x/pona`; the Low and Zero rates are PoNA policy.
 
-| Tier | Epoch | Full (`tx >= 10`) | Low (`0 < tx < 10`) | Zero (`tx == 0`) |
+| Tier | Epoch | Full (`tx >= 10`) | Low (`tx > 0`) | Zero (`tx == 0`) |
 |---|---|---|---|---|
 | 1 | Y0–2 | **50 RUNE** | **20 RUNE** | **1 RUNE** |
 | 2 | Y2–4 | **25 RUNE** | **10 RUNE** | **1 RUNE** |
 | 3 | Y4 → infinite | **10 RUNE** | **5 RUNE** | **1 RUNE** |
 
 All values are in **RUNE** (stored on-chain as **arune**, `1 RUNE = 10^18 arune`).
+The Zero column is also the **floor** applied to every band ([§2.1](#21-zero_activity_reward-is-the-floor)).
 
 Notes:
 

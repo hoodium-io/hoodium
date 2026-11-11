@@ -275,6 +275,8 @@ tier:
   full_reward: {arune: "50000000000000000000", rune: "50"}
   low_reward: {arune: "20000000000000000000", rune: "20"}
   zero_reward: {arune: "1000000000000000000", rune: "1"}
+  effective_low: {arune: "20000000000000000000", rune: "20"}
+  floor_applied: false
   pona_enabled: true
   tx_count_threshold: 10
   tier_index: 0
@@ -284,13 +286,17 @@ tx_count_source: chain (recorded for the last finalized block)
 ```
 
 The three bands are selected by the number of **regular** transactions in the
-block:
+block, and `zero` is also the **floor** — no block is ever paid less:
 
 | Band | Condition | Tier 1 pays |
 |---|---|---|
 | `full` | `tx_count >= 10` | 50 RUNE |
-| `low` | `0 < tx_count < 10` | 20 RUNE |
-| `zero` | `tx_count == 0` | 1 RUNE |
+| `low` | `tx_count > 0` | 20 RUNE |
+| `zero` | `tx_count == 0` | 1 RUNE (floor) |
+
+`runed query pona params` reports both the configured `low` rate and the
+`effective_low` actually paid, so a tier whose low rate sits below its zero floor
+is visible rather than silently clamped. The default schedule never needs it.
 
 > **`num_txs=1` in the node log is not a transaction.** CometBFT's
 > `finalizing commit of block ... num_txs=1` counts every entry in the proposal,

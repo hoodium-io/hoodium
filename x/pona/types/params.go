@@ -23,14 +23,17 @@ const BlocksPerTwoYearsAt6s = 2 * BlocksPerYearAt6s
 // transactions the block contains:
 //
 //	tx >= TxCountThreshold   -> RewardPerBlock    (full)
-//	0 < tx < TxCountThreshold -> LowActivityReward
-//	tx == 0                  -> ZeroActivityReward
+//	tx > 0                   -> LowActivityReward (low)
+//	tx == 0                  -> ZeroActivityReward (zero)
+//
+// ZeroActivityReward is also the FLOOR of the paid reward: no block is ever worth
+// less than it. See Tier.RewardForTxCount.
 //
 // See docs/technologies/pona.md for the full description.
 //
-//	Y0-2 (2 years): full 50 | low 20 | zero 1 RUNE/block
-//	Y2-4 (2 years): full 25 | low 10 | zero 1 RUNE/block
-//	Y4+  (open)   : full 10 | low  5 | zero 1 RUNE/block
+//	Y0-2 (2 years): full 50 | low 20 | zero 1 RUNE/block (floor)
+//	Y2-4 (2 years): full 25 | low 10 | zero 1 RUNE/block (floor)
+//	Y4+  (open)   : full 10 | low  5 | zero 1 RUNE/block (floor)
 //
 // expressed as block-height boundaries at a 6s target block time.
 func DefaultTiers() []Tier {

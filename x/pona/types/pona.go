@@ -12,11 +12,12 @@ import (
 // contains. Each emission tier carries three rates:
 //
 //	txCount >= TxCountThreshold    -> RewardPerBlock       (full)
-//	0 < txCount < TxCountThreshold -> LowActivityReward
-//	txCount == 0                   -> ZeroActivityReward
+//	txCount > 0                    -> LowActivityReward    (low)
+//	txCount == 0                   -> ZeroActivityReward   (zero, the floor)
 //
-// A tier with TxCountThreshold == 0 has PoNA disabled and always pays its full
-// RewardPerBlock.
+// ZeroActivityReward is also the FLOOR: no band ever pays less than it, so a
+// block is always worth at least that much. A tier with TxCountThreshold == 0
+// has PoNA disabled and always pays its full RewardPerBlock.
 //
 // PoNA never blocks a transaction, never changes block validity, and never
 // changes who may propose: it only decides how much of the scheduled reward is
@@ -29,12 +30,15 @@ import (
 // DefaultTxCountThreshold is the default minimum number of transactions a block
 // must contain for the full (base) reward to be paid under PoNA.
 //
-// This is the value used by the default schedule (all three tiers). A block with
-// fewer transactions earns a reduced reward:
+// This is the value used by the default schedule (all three tiers). With the
+// default threshold of 10, a block carrying:
 //
-//	tx_count >= DefaultTxCountThreshold    -> full reward      (>= 10)
-//	0 < tx_count < DefaultTxCountThreshold -> low activity      (1..9)
-//	tx_count == 0                          -> zero activity     (0)
+//	tx_count >= 10   -> full activity  (RewardPerBlock)
+//	tx_count > 0     -> low activity   (LowActivityReward), raised to the floor
+//	tx_count == 0    -> zero activity  (ZeroActivityReward)
+//
+// A block with 1..9 transactions is therefore LOW activity: it takes at least
+// DefaultTxCountThreshold transactions to earn the full rate.
 const DefaultTxCountThreshold = uint64(10)
 
 // ActivityBand identifies which Proof of Network Activity band a block falls
@@ -93,15 +97,51 @@ func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
 
 // RewardForTxCount returns the reward this tier pays for a block containing
 // `txCount` transactions, applying its PoNA bands.
+//
+// The result is never below the tier's ZeroActivityReward: that value is the
+// floor, so a block that qualifies for the low band still earns at least as much
+// as an empty one. With the default schedule (zero = 1 RUNE) any block with
+// 1..9 transactions is paid the low rate, which is >= 1 RUNE.
 func (t Tier) RewardForTxCount(txCount uint64) sdkmath.Int {
-	switch t.BandForTxCount(txCount) {
+	reward := t.RewardForBand(t.BandForTxCount(txCount))
+
+	return t.ApplyFloor(reward)
+}
+
+// RewardForBand returns the tier's raw rate for a band, before the
+// ZeroActivityReward floor is applied.
+//
+// Callers that display the configured rates (the CLI, the docs) want the raw
+// value; callers that decide what is actually paid must use RewardForTxCount.
+func (t Tier) RewardForBand(band ActivityBand) sdkmath.Int {
+	switch band {
 	case BandFull:
 		return t.RewardPerBlock
+	case BandLow:
+		return t.LowActivityReward
 	case BandZero:
 		return t.ZeroActivityReward
 	default:
-		return t.LowActivityReward
+		return sdkmath.ZeroInt()
 	}
+}
+
+// ApplyFloor raises reward to the tier's ZeroActivityReward when it is lower.
+//
+// ZeroActivityReward is the minimum value of a block, which is what makes the
+// name accurate: a block is never worth less than the zero-activity rate. This
+// also keeps the schedule self-consistent if a tier is ever configured with a
+// low rate below its zero rate.
+func (t Tier) ApplyFloor(reward sdkmath.Int) sdkmath.Int {
+	if t.ZeroActivityReward.IsNil() {
+		return reward
+	}
+
+	if reward.LT(t.ZeroActivityReward) {
+		return t.ZeroActivityReward
+	}
+
+	return reward
 }
 
 // RewardForHeightAndTxCount returns the static block reward (in arune) that
@@ -142,8 +182,15 @@ func (p Params) BandForHeightAndTxCount(height, txCount uint64) ActivityBand {
 
 // validatePoNA checks the activity-scaled reward fields of a single tier.
 //
-// A tier either disables PoNA (threshold 0) or enables it with non-negative
-// low/zero rewards.
+// A tier either disables PoNA (threshold 0) or enables it with a well-ordered,
+// non-negative rate set:
+//
+//	ZeroActivityReward <= LowActivityReward <= RewardPerBlock
+//
+// The zero rate is the FLOOR of the paid reward (see Tier.RewardForTxCount), so
+// a low rate below it would make the floor silently override the configured
+// low-activity rate — an operator mistake that is impossible to notice from the
+// chain's behaviour alone. It is rejected here instead.
 func (t Tier) validatePoNA(idx int) error {
 	if t.TxCountThreshold == 0 {
 		// PoNA disabled: the low/zero fields are ignored, but must not be
@@ -163,5 +210,21 @@ func (t Tier) validatePoNA(idx int) error {
 	if t.ZeroActivityReward.IsNil() || t.ZeroActivityReward.IsNegative() {
 		return fmt.Errorf("pona: tier %d zero activity reward must be non-negative", idx)
 	}
+
+	// Rate ordering. ZeroActivityReward is the floor applied to every band, so it
+	// must not exceed the low rate.
+	if t.LowActivityReward.LT(t.ZeroActivityReward) {
+		return fmt.Errorf(
+			"pona: tier %d low activity reward %s is below the zero activity floor %s",
+			idx, t.LowActivityReward.String(), t.ZeroActivityReward.String(),
+		)
+	}
+	if t.RewardPerBlock.LT(t.LowActivityReward) {
+		return fmt.Errorf(
+			"pona: tier %d full reward %s is below the low activity reward %s",
+			idx, t.RewardPerBlock.String(), t.LowActivityReward.String(),
+		)
+	}
+
 	return nil
 }
