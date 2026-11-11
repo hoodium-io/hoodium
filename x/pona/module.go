@@ -46,8 +46,8 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
 // (tx_count_threshold, low_activity_reward, zero_activity_reward) and
 // min_reward_per_block was removed: the on-disk Params encoding changed.
 //
-// NOT bumped for the later addition of Tier.single_activity_reward (proto field
-// 7), and there are two separate reasons.
+// NOT bumped for the later addition of Tier.single_activity_reward, and there
+// are two separate reasons.
 //
 //  1. There is nothing to migrate. The change is purely additive and
 //     wire-compatible: Params stored before the field existed decode with a nil
