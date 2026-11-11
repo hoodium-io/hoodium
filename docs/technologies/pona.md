@@ -3,8 +3,10 @@
 > **Status:** Implemented as **`x/pona`**. This is the authoritative document for
 > both the **mechanism** and the **module**.
 >
-> **Code:** `x/pona/types/pona.go` (bands, rates, validation) ·
-> `x/pona/keeper/rewards.go` (payout) · `app/app.go` (tx-count capture).
+> **Code:** `x/pona/types/pona.go` (bands, rates, floor, validation) ·
+> `x/pona/keeper/rewards.go` (payout + shared computation) ·
+> `app/abci/preblock.go` (pseudo-tx exclusion) · `app/app.go` (tx-count capture) ·
+> `x/pona/client/cli/query.go` (the `query pona` commands).
 >
 > **Naming:** the module is **`x/pona`** — the whole RUNE reward system is
 > structured around Proof of Network Activity. In user-facing prose we still say
@@ -18,7 +20,7 @@
   at genesis, balance queries, top-up.
 - The **emission schedule**: which full reward applies at a given block height.
 - The **activity policy (PoNA)**: the block's transaction count selects the full,
-  low, or zero rate.
+  low, single, or zero rate.
 - **Payment plumbing**: transferring the reward from the pool into the
   `x/distribution` fee pool, which splits it across the active validator set.
 
@@ -280,12 +282,15 @@ three tiers of [§3](#3-per-tier-rates).
 |---|---|---|---|---|
 | A | Y1 | 42 | Full | **50 RUNE** |
 | B | Y1 | 7 | Low | **20 RUNE** |
-| C | Y1 | 0 | Zero | **1 RUNE** |
+| **B2** | Y1 | **1** | **Single** | **1 RUNE** |
+| C | Y1 | 0 | Zero | **0.5 RUNE** |
 | D | Y3 | 15 | Full | **25 RUNE** |
 | E | Y3 | 3 | Low | **10 RUNE** |
+| E2 | Y3 | 1 | Single | **1 RUNE** |
 | F | Y5 | 128 | Full | **10 RUNE** |
 | G | Y5 | 6 | Low | **5 RUNE** |
-| H | Y5 | 0 | Zero | **1 RUNE** |
+| G2 | Y5 | 1 | Single | **1 RUNE** |
+| H | Y5 | 0 | Zero | **0.5 RUNE** |
 
 ## 6. Economic effect on the 1B reserve
 
@@ -298,21 +303,37 @@ PoNA-dependent in the worst case — they always consume their full budget:
 | Tier 2 (Y2–4) | 10,519,200 | 25 | 262,980,000 |
 | **Remaining for Tier 3** | | | **211,060,000** |
 
-Tier 3 (10 full / 5 low / 1 zero) then drains the remainder at a rate set by how
-busy the chain is:
+Tier 3 (10 full / 5 low / 1 single / 0.5 zero) then drains the remainder at a rate
+set by how busy the chain is:
 
-| Chain activity | Tier-3 rate | Tier-3 duration | Fee-only reached at |
-|---|---|---|---|
-| **Busy** — every block `tx >= 10` | 10 | 211.06M ÷ 52.596M ≈ **4.01 y** | **≈ Y8.0** |
-| **Typical** — most blocks `0 < tx < 10` | 5 | 211.06M ÷ 26.298M ≈ **8.03 y** | **≈ Y12.0** |
-| **Quiet** — every block `tx == 0` | 1 | 211.06M ÷ 5.2596M ≈ **40.1 y** | **≈ Y44.1** |
+| Chain activity | Tier-3 rate | Annual spend | Tier-3 duration | Fee-only reached at |
+|---|---|---|---|---|
+| **Busy** — every block `tx >= 10` | 10 | 52,596,000 RUNE/y | 211.06M ÷ 52.596M ≈ **4.01 y** | **≈ Y8.0** |
+| **Typical** — most blocks `1 < tx < 10` | 5 | 26,298,000 RUNE/y | 211.06M ÷ 26.298M ≈ **8.03 y** | **≈ Y12.0** |
+| **Sparse** — every block exactly `tx == 1` | 1 | 5,259,600 RUNE/y | 211.06M ÷ 5.2596M ≈ **40.1 y** | **≈ Y44.1** |
+| **Quiet** — every block `tx == 0` | 0.5 | 2,629,800 RUNE/y | 211.06M ÷ 2.6298M ≈ **80.3 y** | **≈ Y84.3** |
 
-**Read this table carefully.** The often-quoted *"~12 years"* figure is the
-**Typical** case (Tier 3 at the reduced rate). If the chain is genuinely busy and
-Tier 3 pays its **full 10 RUNE**, the reserve is exhausted at **≈ Y8**, not Y12.
-PoNA therefore **does not lengthen** the busy-network lifetime — it **protects
-the reserve on quiet chains** (up to ~Y44), which is precisely the intended
-behaviour: emission is throttled by real usage.
+The Tier-3 budget is `211,060,000 RUNE` and Tier 3 spans `5,259,600` blocks/year,
+so the annual spend is `rate × 5,259,600` RUNE:
+
+```
+rate 10   → 52,596,000 RUNE/y → 211.06M / 52.596M =  4.01 y → fee-only at Y8.0
+rate 5    → 26,298,000 RUNE/y → 211.06M / 26.298M =  8.03 y → fee-only at Y12.0
+rate 1    →  5,259,600 RUNE/y → 211.06M /  5.2596M = 40.13 y → fee-only at Y44.1
+rate 0.5  →  2,629,800 RUNE/y → 211.06M /  2.6298M = 80.26 y → fee-only at Y84.3
+```
+
+**Read this table carefully.** The often-quoted *"~12 years"* figure corresponds to
+Tier 3 paying **5 RUNE** (the low rate) on most blocks. If the chain is genuinely
+busy and Tier 3 pays its **full 10 RUNE**, the reserve is exhausted at **≈ Y8**,
+not Y12. PoNA therefore **does not lengthen** the busy-network lifetime — it
+**protects the reserve on quiet chains** (out to ~Y84 when completely idle),
+which is precisely the intended behaviour: emission is throttled by real usage.
+
+The `single` band is what stops a barely-used chain from being paid like a *busy*
+one: one transaction earns `single_activity_reward` (1 RUNE in tier 3), not the
+5-RUNE low rate, and not the 0.5-RUNE empty rate. Because the `zero` rate is now
+0.5 RUNE instead of 1, the completely-idle worst case doubled from ~Y44 to ~Y84.
 
 **Fee-only end state:** when the reserve reaches zero (or the applicable reward
 falls at/below the fee-only floor), the static reward stops. Transaction fees
@@ -367,10 +388,18 @@ The tx count itself is **not** a parameter: it is captured per block from
 | Piece | Location |
 |---|---|
 | PoNA bands, rates, validation | `x/pona/types/pona.go` |
-| Band selection | `Tier.RewardForTxCount` (`pona.go`) |
+| Band selection | `Tier.BandForTxCount` (`pona.go`) |
+| Band → raw rate | `Tier.RewardForBand` (`pona.go`) |
+| Zero-rate floor | `Tier.ApplyFloor` (`pona.go`) |
+| Tx count → paid reward | `Tier.RewardForTxCount` (`pona.go`) |
 | Height + tx count → reward | `Params.RewardForHeightAndTxCount` (`pona.go`) |
-| Tx-count capture | `app.Hoodium.PreBlocker` → `keeper.SetBlockTxCount` |
+| Height + tx count → band | `Params.BandForHeightAndTxCount` (`pona.go`) |
+| Height → tier (with index) | `Params.TierForHeight` (`schedule.go`) |
+| Shared reward computation | `keeper.ComputeBlockReward` (`keeper/rewards.go`) |
+| Tx-count capture | `app.Hoodium.PreBlocker` → `appabci.CountRegularTxs` → `keeper.SetBlockTxCount` |
+| Pseudo-tx exclusion | `appabci.SplitBlockTxs` (`app/abci/preblock.go`) |
 | Reward payout | `Keeper.DistributeRuneBlockReward` (`keeper/rewards.go`) |
+| CLI queries | `x/pona/client/cli/query.go` |
 | Consensus version | `pona/types.ConsensusVersion` = **2** |
 
 ### 7.3 File layout
@@ -382,11 +411,13 @@ mechanism has a single reference point:
 
 | File | Responsibility |
 |---|---|
-| `types/pona.go` | **All PoNA**: bands, rates, `PoNAEnabled`, `RewardForTxCount`, `RewardForHeightAndTxCount`, `validatePoNA`, `DefaultTxCountThreshold` |
-| `types/schedule.go` | Generic tier lookup (`RewardForHeight`, `tierForHeight`) |
-| `types/params.go` | `DefaultTiers`/`DefaultParams`/`Validate` (schedule structure) |
-| `types/pona_test.go` | PoNA band/validation tests |
+| `types/pona.go` | **All PoNA**: bands, rates, `PoNAEnabled`, `SingleActivityEnabled`, `BandForTxCount`, `RewardForBand`, `ApplyFloor`, `RewardForTxCount`, `RewardForHeightAndTxCount`, `BandForHeightAndTxCount`, `validatePoNA`, `DefaultTxCountThreshold` |
+| `types/schedule.go` | Generic tier lookup (`RewardForHeight`, `TierForHeight`, `tierForHeight`) |
+| `types/params.go` | `DefaultTiers`/`DefaultParams`/`Validate` (schedule structure) + RUNE helpers (`RuneAmount`, `RuneString`) |
+| `types/pona_test.go` | PoNA band/floor/validation tests |
 | `types/schedule_test.go` | Schedule/boundary tests |
+| `keeper/rewards.go` | `DistributeRuneBlockReward` + `ComputeBlockReward` (shared by payout and CLI) |
+| `client/cli/query.go` | `runed query pona {params,tier,block-reward,tx-count,pool}` |
 
 ## 8. Interaction with the fee market
 
@@ -414,7 +445,7 @@ answerable without a new protobuf or a chain upgrade.
 | `runed query pona tier` | which tier is active **now**, and how far away the next one is |
 | `runed query pona block-reward` | what a block pays **now**, which band, and why |
 | `runed query pona block-reward --tx-count 25` | what a block with 25 txs *would* pay |
-| `runed query pona tx-count` | the regular-tx count PoNA used for the last block |
+| `runed query pona tx-count` | the regular-tx count PoNA used for the last block, **plus** the block's raw entry count |
 | `runed query pona pool` | RUNE left in `validator_reward_pool`, and how long it lasts |
 
 Typical output:
@@ -446,6 +477,42 @@ tx_count_source: chain (recorded for the last finalized block)
 Read it as: **the chain is idle, and it is paying 0.5 RUNE — not 20.** That is the
 behaviour the zero band exists for.
 
+`tx-count` is the command that reconciles the node log with the reward. It prints
+**both** counts, because they answer different questions:
+
+```console
+$ runed query pona tx-count
+band: zero
+block_tx_count: 1
+block_tx_count_note: every entry in the block, including the injected pseudo-tx
+  (CometBFT num_txs)
+height: 1304
+note: regular transactions only; the injected vote-extension pseudo-tx is excluded
+reward: "500000000000000000"
+reward_rune: "0.5"
+tier_index: 0
+tx_count: 0
+tx_count_threshold: 10
+```
+
+| Field | Meaning |
+|---|---|
+| `tx_count` | **what PoNA counted** — regular transactions only; selected the band |
+| `block_tx_count` | **every entry in the block**, including the pseudo-tx; equals CometBFT's `num_txs` |
+
+On a vote-extension chain the two differ by exactly the one injected pseudo-tx, so
+`block_tx_count = tx_count + 1`. Pass `--height H` to inspect an older block:
+
+```console
+$ runed query pona tx-count --height 109   # a block that held one real tx
+band: single
+block_tx_count: 2      # pseudo-tx + 1 real tx
+tx_count: 1            # what PoNA counted → single band → 1 RUNE
+```
+
+`block_tx_count: 1` with `tx_count: 0` on an idle chain is the **expected, healthy
+case** — never a bug.
+
 ## 10. Open questions / follow-ups
 
 1. **Pseudo-tx counting** — **resolved**. The injected pseudo-transaction is
@@ -457,7 +524,8 @@ behaviour the zero band exists for.
    no dedicated gov Msg exists yet.
 3. **Zero-band floor** — **resolved**: `min_reward_per_block` was removed so the
    `1 RUNE` zero-activity reward is expressible. Emission now ends only when no
-   tier covers the height or the pool is empty.
+   tier covers the height or the pool is empty. The zero rate was later lowered to
+   **0.5 RUNE** and now also acts as the **floor** of every band (see §2.1).
 4. **Standalone `x/pona` module** — deferred. The policy is implemented inside
    `x/pona`; splitting it later is a refactor, not a behaviour change
    (see [§7](#7-module-boundary)).
@@ -467,3 +535,9 @@ behaviour the zero band exists for.
    (`runed query pona` reads the store directly, see [§9](#9-querying-the-module)).
    A real `Query` service is only worth adding when a proto-breaking change is
    being made anyway.
+
+
+
+##
+
+#### Credits: PoNA Mechanism is designed and built by Evorz Labs

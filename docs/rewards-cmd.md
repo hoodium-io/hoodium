@@ -252,7 +252,7 @@ reserve is left.
 | `runed query pona tier` | which tier is active now, and how many blocks until the next one |
 | `runed query pona block-reward` | what the last block paid, which band applied, and why |
 | `runed query pona block-reward --tx-count 25` | what a block with 25 transactions *would* pay |
-| `runed query pona tx-count` | the transaction count PoNA used for the last block |
+| `runed query pona tx-count` | both counts: what PoNA counted (regular txs) vs the block's raw entry count (`num_txs`) |
 | `runed query pona pool` | reserve balance, and how long it lasts at the current tier |
 
 All of them accept the standard query flags: `--height` to ask about a specific
