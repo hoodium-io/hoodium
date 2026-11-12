@@ -183,9 +183,11 @@ func TestBandForTxCount(t *testing.T) {
 		{"no transactions is the zero band", withSingle, 0, types.BandZero},
 		{"exactly one transaction is the single band", withSingle, 1, types.BandSingle},
 		{"two transactions is the low band", withSingle, 2, types.BandLow},
-		{"threshold-1 is still the low band", withSingle, 9, types.BandLow},
-		{"exactly the threshold is the full band", withSingle, 10, types.BandMax},
-		{"above the threshold is the full band", withSingle, 1000, types.BandMax},
+		{"mid-1 is still the low band", withSingle, 4, types.BandLow},
+		{"mid threshold is the mid band", withSingle, 5, types.BandMid},
+		{"max-1 is still the mid band", withSingle, 9, types.BandMid},
+		{"exactly the max threshold is the max band", withSingle, 10, types.BandMax},
+		{"above the max threshold is the max band", withSingle, 1000, types.BandMax},
 
 		// Without a configured single rate, a 1-tx block folds into the low band:
 		// this is what pre-existing on-chain schedules do, since the field was
@@ -236,10 +238,11 @@ func TestBandForHeightAndTxCount(t *testing.T) {
 	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier1, 0))
 	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier1, 1))
 	require.Equal(t, types.BandLow, params.BandForHeightAndTxCount(inTier1, 2))
+	require.Equal(t, types.BandMid, params.BandForHeightAndTxCount(inTier1, 5))
 	require.Equal(t, types.BandMax, params.BandForHeightAndTxCount(inTier1, threshold))
 	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier2, 0))
 	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier2, 1))
-	require.Equal(t, types.BandLow, params.BandForHeightAndTxCount(inTier3, 5))
+	require.Equal(t, types.BandMid, params.BandForHeightAndTxCount(inTier3, 5))
 	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier3, 1))
 	require.Equal(t, types.BandMax, params.BandForHeightAndTxCount(inTier3, threshold))
 
@@ -313,7 +316,7 @@ func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 	// above the 0.5 RUNE zero rate, so every band pays exactly its own amount.
 	for i, tier := range types.DefaultTiers() {
 		for _, band := range []types.ActivityBand{
-			types.BandMax, types.BandLow, types.BandSingle,
+			types.BandMax, types.BandMid, types.BandLow, types.BandSingle,
 		} {
 			require.False(t, tier.RewardForBand(band).LT(tier.ZeroActivityReward),
 				"default tier %d band %s must not need the floor", i, band)
@@ -326,20 +329,27 @@ func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 
 // TestValidateRejectsInvertedRates verifies the ordering validation: the zero
 // rate is the floor, so nothing may sit below it, and the rates above it must be
-// non-decreasing up to the full rate.
+// non-decreasing up to the max rate.
+//
+// MidActivityReward is optional. When omitted the low rate is used instead
+// (Tier.RewardForBand), so a tier can be a valid three-step schedule; when set it
+// must sit between low and max.
 func TestValidateRejectsInvertedRates(t *testing.T) {
-	mkTier := func(full, low, single, zero sdkmath.Int) types.Tier {
+	// full, mid, low, single, zero; pass a nil mid for "mid band omitted".
+	mkTier := func(full, mid, low, single, zero sdkmath.Int) types.Tier {
 		return types.Tier{
 			StartHeight:         0,
 			EndHeight:           0,
 			MaxActivityReward:   full,
 			MaxTxCountThreshold: 10, MidTxCountThreshold: 5, LowTxCountThreshold: 2,
+			MidActivityReward:    mid,
 			LowActivityReward:    low,
 			SingleActivityReward: single,
 			ZeroActivityReward:   zero,
 		}
 	}
 	noSingle := sdkmath.Int{} // unset => single band disabled
+	noMid := sdkmath.Int{}    // unset => mid falls back to low
 
 	testCases := []struct {
 		name    string
@@ -348,31 +358,50 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 	}{
 		{
 			name:    "low below the zero floor",
-			tier:    mkTier(rune(50), rune(1), noSingle, rune(20)),
+			tier:    mkTier(rune(50), rune(25), rune(1), noSingle, rune(20)),
 			wantErr: "below the zero activity floor",
 		},
 		{
-			name:    "full below the low rate",
-			tier:    mkTier(rune(5), rune(20), noSingle, rune(1)),
+			name:    "max below the low rate",
+			tier:    mkTier(rune(5), rune(10), rune(20), noSingle, rune(1)),
 			wantErr: "below the low activity reward",
 		},
 		{
 			name:    "single below the zero floor",
-			tier:    mkTier(rune(50), rune(20), rune(1), rune(5)),
+			tier:    mkTier(rune(50), rune(25), rune(20), rune(1), rune(5)),
 			wantErr: "single activity reward",
 		},
 		{
 			name:    "low below the single rate",
-			tier:    mkTier(rune(50), rune(3), rune(10), rune(1)),
+			tier:    mkTier(rune(50), rune(25), rune(3), rune(10), rune(1)),
 			wantErr: "below the single activity reward",
 		},
 		{
+			name:    "mid below the low rate",
+			tier:    mkTier(rune(50), rune(3), rune(20), noSingle, rune(1)),
+			wantErr: "mid activity reward",
+		},
+		{
+			name:    "max below the mid rate",
+			tier:    mkTier(rune(10), rune(25), rune(15), noSingle, rune(1)),
+			wantErr: "max reward",
+		},
+		{
 			name: "well ordered rates are accepted",
-			tier: mkTier(rune(50), rune(20), rune(1), halfRune()),
+			tier: mkTier(rune(50), rune(25), rune(15), rune(1), halfRune()),
+		},
+		{
+			name: "mid band may be omitted (falls back to low)",
+			tier: mkTier(rune(50), noMid, rune(15), rune(1), halfRune()),
 		},
 		{
 			name: "single band may be omitted",
-			tier: mkTier(rune(50), rune(20), noSingle, halfRune()),
+			tier: mkTier(rune(50), rune(25), rune(15), noSingle, halfRune()),
+		},
+		{
+			name:    "max below low is rejected even with mid omitted",
+			tier:    mkTier(rune(5), noMid, rune(15), rune(1), halfRune()),
+			wantErr: "max reward",
 		},
 	}
 

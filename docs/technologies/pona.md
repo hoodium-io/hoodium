@@ -122,6 +122,11 @@ vote-extension pseudo-transaction (see [§4.1](#41-which-transactions-are-counte
 > are used. A value below **2** is rejected at validation: a band that required 0
 > or 1 transactions could never be selected, so it would be dead configuration.
 
+> **`mid_activity_reward` may be omitted.** If it is zero or unset, the mid band
+> pays `low_activity_reward` instead, so a tier can be configured as a valid
+> three-step schedule (max / low / single / zero). Validation skips the mid
+> ordering checks in that case and only requires `max >= low`.
+
 > **`single_activity_reward` may be omitted.** If it is zero or unset, a
 > one-transaction block falls into the **Low** band and pays
 > `low_activity_reward`, which is how every schedule behaved before the field

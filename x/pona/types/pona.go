@@ -336,17 +336,24 @@ func (t Tier) validatePoNA(idx int) error {
 	}
 
 	// Every active rate must be present and non-negative.
+	//
+	// MidActivityReward is the exception: it is optional and falls back to the low
+	// rate (see RewardForBand), so a tier may omit it. Requiring it here would
+	// contradict that fallback and make a valid three-step schedule impossible to
+	// configure.
 	for _, r := range []struct {
 		name   string
 		amount sdkmath.Int
 	}{
 		{"low activity", t.LowActivityReward},
-		{"mid activity", t.MidActivityReward},
 		{"zero activity", t.ZeroActivityReward},
 	} {
 		if r.amount.IsNil() || r.amount.IsNegative() {
 			return fmt.Errorf("pona: tier %d %s reward must be non-negative", idx, r.name)
 		}
+	}
+	if !t.MidActivityReward.IsNil() && t.MidActivityReward.IsNegative() {
+		return fmt.Errorf("pona: tier %d mid activity reward must be non-negative", idx)
 	}
 	if !t.SingleActivityReward.IsNil() && t.SingleActivityReward.IsNegative() {
 		return fmt.Errorf("pona: tier %d single activity reward must be non-negative", idx)
@@ -394,16 +401,32 @@ func (t Tier) validatePoNA(idx int) error {
 			)
 		}
 	}
-	if t.MidActivityReward.LT(t.LowActivityReward) {
-		return fmt.Errorf(
-			"pona: tier %d mid activity reward %s is below the low activity reward %s",
-			idx, t.MidActivityReward.String(), t.LowActivityReward.String(),
-		)
+
+	// MidActivityReward is optional; when omitted the low rate is used instead
+	// (RewardForBand), so there is nothing to order. When set, it must sit above
+	// low and at or below max.
+	if !t.MidActivityReward.IsNil() {
+		if t.MidActivityReward.LT(t.LowActivityReward) {
+			return fmt.Errorf(
+				"pona: tier %d mid activity reward %s is below the low activity reward %s",
+				idx, t.MidActivityReward.String(), t.LowActivityReward.String(),
+			)
+		}
+		if t.MaxActivityReward.LT(t.MidActivityReward) {
+			return fmt.Errorf(
+				"pona: tier %d max reward %s is below the mid activity reward %s",
+				idx, t.MaxActivityReward.String(), t.MidActivityReward.String(),
+			)
+		}
+
+		return nil
 	}
-	if t.MaxActivityReward.LT(t.MidActivityReward) {
+
+	// No mid rate: max must still be at least the low rate it falls back to.
+	if t.MaxActivityReward.LT(t.LowActivityReward) {
 		return fmt.Errorf(
-			"pona: tier %d max reward %s is below the mid activity reward %s",
-			idx, t.MaxActivityReward.String(), t.MidActivityReward.String(),
+			"pona: tier %d max reward %s is below the low activity reward %s",
+			idx, t.MaxActivityReward.String(), t.LowActivityReward.String(),
 		)
 	}
 

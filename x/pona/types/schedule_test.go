@@ -27,7 +27,9 @@ func TestRewardForHeight(t *testing.T) {
 	oneYear := types.BlocksPerYearAt6s      // 5,259,600
 	twoYears := types.BlocksPerTwoYearsAt6s // 10,519,200
 
-	// RewardForHeight is the tx-count-agnostic (full) tier reward.
+	// RewardForHeight is the tx-count-agnostic CEILING of the tier: its max
+	// activity reward. The actual per-block amount is lower for less active blocks
+	// (see TestRewardForHeightAndTxCount).
 	testCases := []struct {
 		name   string
 		height uint64
@@ -37,8 +39,8 @@ func TestRewardForHeight(t *testing.T) {
 		{"last block of tier 1", twoYears - 1, rune(50)},
 		{"first block of tier 2", twoYears, rune(25)},
 		{"last block of tier 2", 4*oneYear - 1, rune(25)},
-		{"first block of tier 3", 4 * oneYear, rune(10)},
-		{"far in tier 3 (open-ended)", 100 * oneYear, rune(10)},
+		{"first block of tier 3", 4 * oneYear, rune(15)},
+		{"far in tier 3 (open-ended)", 100 * oneYear, rune(15)},
 	}
 
 	for _, tc := range testCases {
