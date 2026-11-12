@@ -212,27 +212,36 @@
           {
             "start_height": "0",
             "end_height": "10519200",
-            "reward_per_block": "50000000000000000000",
-            "tx_count_threshold": "10",
-            "low_activity_reward": "20000000000000000000",
+            "max_activity_reward": "50000000000000000000",
+            "max_tx_count_threshold": "10",
+            "mid_activity_reward": "25000000000000000000",
+            "mid_tx_count_threshold": "5",
+            "low_activity_reward": "15000000000000000000",
+            "low_tx_count_threshold": "2",
             "single_activity_reward": "1000000000000000000",
             "zero_activity_reward": "500000000000000000"
           },
           {
             "start_height": "10519200",
             "end_height": "21038400",
-            "reward_per_block": "25000000000000000000",
-            "tx_count_threshold": "10",
+            "max_activity_reward": "25000000000000000000",
+            "max_tx_count_threshold": "10",
+            "mid_activity_reward": "15000000000000000000",
+            "mid_tx_count_threshold": "5",
             "low_activity_reward": "10000000000000000000",
+            "low_tx_count_threshold": "2",
             "single_activity_reward": "1000000000000000000",
             "zero_activity_reward": "500000000000000000"
           },
           {
             "start_height": "21038400",
             "end_height": "0",
-            "reward_per_block": "10000000000000000000",
-            "tx_count_threshold": "10",
+            "max_activity_reward": "15000000000000000000",
+            "max_tx_count_threshold": "10",
+            "mid_activity_reward": "10000000000000000000",
+            "mid_tx_count_threshold": "5",
             "low_activity_reward": "5000000000000000000",
+            "low_tx_count_threshold": "2",
             "single_activity_reward": "1000000000000000000",
             "zero_activity_reward": "500000000000000000"
           }
