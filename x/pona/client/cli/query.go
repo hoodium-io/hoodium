@@ -655,10 +655,7 @@ type tierRates struct {
 	// Low is paid when low <= tx_count < mid.
 	Low amountReport `json:"low" yaml:"low"`
 	// Single is the rate for a block with exactly one transaction.
-	// Zero means the single band is not configured, so such a block pays Low.
 	Single amountReport `json:"single" yaml:"single"`
-	// SingleEnabled is true when the single band is configured.
-	SingleEnabled bool `json:"single_enabled" yaml:"single_enabled"`
 	// Zero is the configured zero-activity rate. It is also the FLOOR: no block
 	// is ever paid less than this.
 	Zero amountReport `json:"zero" yaml:"zero"`
@@ -693,7 +690,6 @@ func newTierRates(tier types.Tier) tierRates {
 		Mid:                 newAmountReport(tier.MidActivityReward),
 		Low:                 newAmountReport(tier.LowActivityReward),
 		Single:              newAmountReport(tier.SingleActivityReward),
-		SingleEnabled:       tier.SingleActivityEnabled(),
 		Zero:                newAmountReport(tier.ZeroActivityReward),
 		FloorApplied:        floorApplied,
 	}

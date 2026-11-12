@@ -40,7 +40,6 @@ func TestDefaultTiersPoNA(t *testing.T) {
 			require.Equal(t, tc.midTx, tier.MidTxCountThreshold, "mid threshold")
 			require.Equal(t, tc.lowTx, tier.LowTxCountThreshold, "low threshold")
 			require.True(t, tier.PoNAEnabled())
-			require.True(t, tier.SingleActivityEnabled())
 		})
 	}
 }
@@ -327,45 +326,34 @@ func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 	}
 }
 
-// TestValidateRejectsInvertedRates verifies the ordering validation: the zero
-// rate is the floor, so nothing may sit below it, and the rates above it must be
-// non-decreasing up to the max rate.
+// TestValidateRejectsInvertedRates verifies the ordering validation.
 //
-// MidActivityReward is optional. When omitted the low rate is used instead
-// (Tier.RewardForBand), so a tier can be a valid three-step schedule; when set it
-// must sit between low and max.
+// Every rate and every threshold is REQUIRED — there are no optional fields and
+// no fallbacks — so a schedule that omits one is rejected rather than silently
+// paying a different amount at runtime.
 func TestValidateRejectsInvertedRates(t *testing.T) {
-	// full, mid, low, single, zero; pass a nil mid for "mid band omitted".
-	mkTier := func(full, mid, low, single, zero sdkmath.Int) types.Tier {
+	mkTier := func(mx, mid, low, single, zero sdkmath.Int) types.Tier {
 		return types.Tier{
-			StartHeight:         0,
-			EndHeight:           0,
-			MaxActivityReward:   full,
-			MaxTxCountThreshold: 10, MidTxCountThreshold: 5, LowTxCountThreshold: 2,
+			StartHeight:          0,
+			EndHeight:            0,
+			MaxActivityReward:    mx,
+			MaxTxCountThreshold:  10,
 			MidActivityReward:    mid,
+			MidTxCountThreshold:  5,
 			LowActivityReward:    low,
+			LowTxCountThreshold:  2,
 			SingleActivityReward: single,
 			ZeroActivityReward:   zero,
 		}
 	}
-	noSingle := sdkmath.Int{} // unset => single band disabled
-	noMid := sdkmath.Int{}    // unset => mid falls back to low
+	missing := sdkmath.Int{} // nil Int
 
 	testCases := []struct {
 		name    string
 		tier    types.Tier
 		wantErr string
 	}{
-		{
-			name:    "low below the zero floor",
-			tier:    mkTier(rune(50), rune(25), rune(1), noSingle, rune(20)),
-			wantErr: "below the zero activity floor",
-		},
-		{
-			name:    "max below the low rate",
-			tier:    mkTier(rune(5), rune(10), rune(20), noSingle, rune(1)),
-			wantErr: "below the low activity reward",
-		},
+		// Rate ordering: zero <= single <= low <= mid <= max.
 		{
 			name:    "single below the zero floor",
 			tier:    mkTier(rune(50), rune(25), rune(20), rune(1), rune(5)),
@@ -374,35 +362,83 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 		{
 			name:    "low below the single rate",
 			tier:    mkTier(rune(50), rune(25), rune(3), rune(10), rune(1)),
-			wantErr: "below the single activity reward",
+			wantErr: "low activity reward",
 		},
 		{
 			name:    "mid below the low rate",
-			tier:    mkTier(rune(50), rune(3), rune(20), noSingle, rune(1)),
+			tier:    mkTier(rune(50), rune(3), rune(20), rune(1), sdkmath.ZeroInt()),
 			wantErr: "mid activity reward",
 		},
 		{
 			name:    "max below the mid rate",
-			tier:    mkTier(rune(10), rune(25), rune(15), noSingle, rune(1)),
+			tier:    mkTier(rune(10), rune(25), rune(20), rune(1), sdkmath.ZeroInt()),
 			wantErr: "max reward",
 		},
+
+		// Every rate is required: there are no optional fields.
 		{
-			name: "well ordered rates are accepted",
+			name:    "mid omitted is rejected",
+			tier:    mkTier(rune(50), missing, rune(15), rune(1), halfRune()),
+			wantErr: "mid activity reward must be set",
+		},
+		{
+			name:    "single omitted is rejected",
+			tier:    mkTier(rune(50), rune(25), rune(15), missing, halfRune()),
+			wantErr: "single activity reward must be set",
+		},
+		{
+			name:    "max omitted is rejected",
+			tier:    mkTier(missing, rune(25), rune(15), rune(1), halfRune()),
+			wantErr: "max activity reward must be set",
+		},
+
+		// The shipped ladder is accepted.
+		{
+			name: "tier 1 of the shipped schedule is accepted",
 			tier: mkTier(rune(50), rune(25), rune(15), rune(1), halfRune()),
 		},
-		{
-			name: "mid band may be omitted (falls back to low)",
-			tier: mkTier(rune(50), noMid, rune(15), rune(1), halfRune()),
-		},
-		{
-			name: "single band may be omitted",
-			tier: mkTier(rune(50), rune(25), rune(15), noSingle, halfRune()),
-		},
-		{
-			name:    "max below low is rejected even with mid omitted",
-			tier:    mkTier(rune(5), noMid, rune(15), rune(1), halfRune()),
-			wantErr: "max reward",
-		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := types.Params{Denom: "arune", Tiers: []types.Tier{tc.tier}}.Validate()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+// TestValidateRejectsBadThresholds pins the threshold ordering: 2 <= low < mid < max.
+func TestValidateRejectsBadThresholds(t *testing.T) {
+	mkTier := func(low, mid, max uint64) types.Tier {
+		return types.Tier{
+			StartHeight:          0,
+			EndHeight:            0,
+			MaxActivityReward:    rune(50),
+			MaxTxCountThreshold:  max,
+			MidActivityReward:    rune(25),
+			MidTxCountThreshold:  mid,
+			LowActivityReward:    rune(15),
+			LowTxCountThreshold:  low,
+			SingleActivityReward: rune(1),
+			ZeroActivityReward:   halfRune(),
+		}
+	}
+
+	testCases := []struct {
+		name    string
+		tier    types.Tier
+		wantErr string
+	}{
+		{"low below 2", mkTier(1, 5, 10), "must be at least 2"},
+		{"mid not above low", mkTier(5, 5, 10), "greater than the low threshold"},
+		{"max not above mid", mkTier(2, 10, 10), "greater than the mid threshold"},
+		{"valid 2/5/10", mkTier(2, 5, 10), ""},
+		{"valid 3/6/20", mkTier(3, 6, 20), ""},
 	}
 
 	for _, tc := range testCases {

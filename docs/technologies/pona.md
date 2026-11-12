@@ -117,20 +117,10 @@ count. The bands form a graded ladder: more activity pays more.
 finalised — *not* mempool size, *not* a rolling average, and *not* the injected
 vote-extension pseudo-transaction (see [§4.1](#41-which-transactions-are-counted)).
 
-> **The lower thresholds are optional.** `low_tx_count_threshold` and
-> `mid_tx_count_threshold` may be left at 0, in which case the defaults (2 and 5)
-> are used. A value below **2** is rejected at validation: a band that required 0
-> or 1 transactions could never be selected, so it would be dead configuration.
-
-> **`mid_activity_reward` may be omitted.** If it is zero or unset, the mid band
-> pays `low_activity_reward` instead, so a tier can be configured as a valid
-> three-step schedule (max / low / single / zero). Validation skips the mid
-> ordering checks in that case and only requires `max >= low`.
-
-> **`single_activity_reward` may be omitted.** If it is zero or unset, a
-> one-transaction block falls into the **Low** band and pays
-> `low_activity_reward`, which is how every schedule behaved before the field
-> existed. Set it to enable the dedicated single band.
+> **Every field is required.** Each tier carries all five rates and all three
+> thresholds. `Params.Validate` rejects a tier that omits any of them, so a
+> partially-specified schedule fails at `InitChain` instead of silently paying a
+> different amount at runtime. There are no optional fields and no fallbacks.
 
 ### 2.1 `zero_activity_reward` is the FLOOR
 
@@ -274,9 +264,9 @@ Key properties:
    `ctx.BlockHeader().ProposerAddress`). Delegators receive their share through the
    proposer's commission split via `x/distribution`.
 3. **Never blocks/alters transactions.** PoNA is a pure reward-scaling policy.
-4. **Fails safe.** If the tx count is unavailable (e.g. genesis, or a store miss),
-   the mechanism must **not** silently over- or under-pay; the reward falls back to
-   the base schedule for that height.
+4. **Fails safe.** If no tx count has been recorded for the block (e.g. genesis, or
+   a store miss), `BlockTxCount` returns `0`, so the block is paid the **zero**
+   band rather than the max rate. It can never over-pay.
 
 ### 4.1 Which transactions are counted?
 
@@ -414,11 +404,11 @@ it back into two modules is not planned.
 | `tiers[].end_height` | `Tier` | First height the tier stops applying at, **exclusive** (`0` = open-ended) |
 | `tiers[].max_activity_reward` | `Tier` | **Max** rate, paid at/above `max_tx_count_threshold` |
 | `tiers[].max_tx_count_threshold` | `Tier` | Txs at/above which the max rate is paid (`10`); `0` disables PoNA |
-| `tiers[].mid_activity_reward` | `Tier` | Rate when `mid <= tx < max` |
-| `tiers[].mid_tx_count_threshold` | `Tier` | Lower bound of the mid band (`5`); `0` = default |
-| `tiers[].low_activity_reward` | `Tier` | Rate when `low <= tx < mid` |
-| `tiers[].low_tx_count_threshold` | `Tier` | Lower bound of the low band (`2`); `0` = default, min 2 |
-| `tiers[].single_activity_reward` | `Tier` | Rate when `tx == 1`; `0`/unset folds `tx == 1` into the low band |
+| `tiers[].mid_activity_reward` | `Tier` | Rate when `mid <= tx < max`; **required** |
+| `tiers[].mid_tx_count_threshold` | `Tier` | Lower bound of the mid band (`5`); **required**, `low < mid < max` |
+| `tiers[].low_activity_reward` | `Tier` | Rate when `low <= tx < mid`; **required** |
+| `tiers[].low_tx_count_threshold` | `Tier` | Lower bound of the low band (`2`); **required**, at least 2 |
+| `tiers[].single_activity_reward` | `Tier` | Rate when `tx == 1`; **required** |
 | `tiers[].zero_activity_reward` | `Tier` | Rate when `tx == 0`; also the **floor** for every band |
 
 The tx count itself is **not** a parameter: it is captured per block from
@@ -461,7 +451,7 @@ mechanism has a single reference point:
 
 | File | Responsibility |
 |---|---|
-| `types/pona.go` | **All PoNA**: bands, rates, `PoNAEnabled`, `SingleActivityEnabled`, `effectiveBandThresholds`, `BandForTxCount`, `RewardForBand`, `ApplyFloor`, `RewardForTxCount`, `RewardForHeightAndTxCount`, `BandForHeightAndTxCount`, `validatePoNA`, `DefaultTxCountThreshold`, `DefaultMidTxCountThreshold`, `DefaultLowTxCountThreshold` |
+| `types/pona.go` | **All PoNA**: bands, rates, `PoNAEnabled`, `BandForTxCount`, `RewardForBand`, `ApplyFloor`, `RewardForTxCount`, `RewardForHeightAndTxCount`, `BandForHeightAndTxCount`, `validatePoNA`, `DefaultTxCountThreshold`, `DefaultMidTxCountThreshold`, `DefaultLowTxCountThreshold`, `MinLowTxCountThreshold` |
 | `types/schedule.go` | Generic tier lookup (`RewardForHeight`, `TierForHeight`, `tierForHeight`) |
 | `types/params.go` | `DefaultTiers`/`DefaultParams`/`Validate` (schedule structure) + RUNE helpers (`RuneAmount`, `RuneString`) |
 | `types/pona_test.go` | PoNA band/floor/validation tests |
