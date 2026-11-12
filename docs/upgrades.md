@@ -48,9 +48,16 @@ on-disk state changed, and a migration must be registered for it:
 |---|---|
 | `x/evm` | 1 |
 | `x/feemarket` | 1 |
-| `x/pona` | **2** |
+| `x/pona` | **3** |
 
-> ⚠️ `x/pona` is at version **2** — it gained the PoNA activity fields and
-> dropped `min_reward_per_block`. A chain started on version 1 state would expect
-> a 1→2 migration. **Generate genesis fresh** (or register a migration) before
-> booting from an old home directory.
+> ⚠️ `x/pona` is at version **3**. History:
+>
+> - **1 → 2** — gained the PoNA activity fields and dropped `min_reward_per_block`.
+> - **2 → 3** — `Tier` was restructured into the graded activity ladder:
+>   `reward_per_block` → `max_activity_reward`, `tx_count_threshold` →
+>   `max_tx_count_threshold`, plus three new fields (`mid_activity_reward`,
+>   `low_tx_count_threshold`, `mid_tx_count_threshold`).
+>
+> A chain started on older state expects the matching migration. **Generate
+> genesis fresh** (or register a migration) before booting from an old home
+> directory. During devnet this is a non-issue — wipe and regenerate.

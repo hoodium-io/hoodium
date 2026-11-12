@@ -286,19 +286,21 @@ tx_count: 0
 tx_count_source: chain (recorded for the last finalized block)
 ```
 
-The four bands are selected by the number of **regular** transactions in the
+The five bands are selected by the number of **regular** transactions in the
 block, and `zero` is also the **floor** — no block is ever paid less:
 
 | Band | Condition | Tier 1 pays |
 |---|---|---|
-| `full` | `tx_count >= 10` | 50 RUNE |
-| `low` | `1 < tx_count < 10` | 20 RUNE |
+| `max` | `tx_count >= 10` | 50 RUNE |
+| `mid` | `5 <= tx_count < 10` | 25 RUNE |
+| `low` | `2 <= tx_count < 5` | 15 RUNE |
 | `single` | `tx_count == 1` | 1 RUNE |
 | `zero` | `tx_count == 0` | 0.5 RUNE (floor) |
 
-`runed query pona params` reports the configured `low`, `single` and `zero` rates
-plus `floor_applied`, so a rate that gets clamped up to the floor is visible
-rather than silent. The shipped schedule never needs the floor.
+`runed query pona params` reports the full rate ladder (`max`, `mid`, `low`,
+`single`, `zero`) with their thresholds, plus `floor_applied`, so a rate that gets
+clamped up to the floor is visible rather than silent. The shipped schedule never
+needs the floor.
 
 > **`num_txs=1` in the node log is not a transaction.** CometBFT's
 > `finalizing commit of block ... num_txs=1` counts every entry in the proposal,

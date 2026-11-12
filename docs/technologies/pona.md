@@ -102,19 +102,25 @@ a given block, based on that block's transaction count.
 
 ## 2. The activity bands
 
-Each block is classified into exactly one of **four bands** by its transaction
-count:
+Each block is classified into exactly one of **five bands** by its transaction
+count. The bands form a graded ladder: more activity pays more.
 
-| Band | Condition | Reward paid |
+| Band | Condition (default thresholds) | Reward paid |
 |---|---|---|
-| **Full** | `txCount >= TxCountThreshold` | `reward_per_block` (the tier's full base rate) |
-| **Low** | `1 < txCount < TxCountThreshold` | `low_activity_reward` |
+| **Max** | `txCount >= max_tx_count_threshold` (10+) | `max_activity_reward` |
+| **Mid** | `mid_tx_count_threshold <= txCount < max` (5–9) | `mid_activity_reward` |
+| **Low** | `low_tx_count_threshold <= txCount < mid` (2–4) | `low_activity_reward` |
 | **Single** | `txCount == 1` | `single_activity_reward` |
 | **Zero** | `txCount == 0` | `zero_activity_reward` |
 
 `txCount` is the number of **regular** transactions in the block being
 finalised — *not* mempool size, *not* a rolling average, and *not* the injected
 vote-extension pseudo-transaction (see [§4.1](#41-which-transactions-are-counted)).
+
+> **The lower thresholds are optional.** `low_tx_count_threshold` and
+> `mid_tx_count_threshold` may be left at 0, in which case the defaults (2 and 5)
+> are used. A value below **2** is rejected at validation: a band that required 0
+> or 1 transactions could never be selected, so it would be dead configuration.
 
 > **`single_activity_reward` may be omitted.** If it is zero or unset, a
 > one-transaction block falls into the **Low** band and pays
@@ -139,34 +145,65 @@ two situations:
 - **Misconfiguration.** If a tier were ever set with a rate below its zero rate,
   the floor clamps the payout up so a busy block is never worth less than an idle
   one. Validation rejects that ordering on chain
-  (`zero <= single <= low <= full`, see `Tier.validatePoNA`), so the floor is a
-  safety net, not a normal path. `runed query pona params` reports
+  (`zero <= single <= low <= mid <= max`, see `Tier.validatePoNA`), so the floor
+  is a safety net, not a normal path. `runed query pona params` reports
   `floor_applied` so a clamped rate is visible.
 - **A sub-RUNE zero rate.** Setting `zero_activity_reward` to `0.5 RUNE` (as
   shipped) halves the cost of a completely idle block without touching any other
   band.
 
-> **Note on "threshold 0":** a tier whose `TxCountThreshold` is **0** has PoNA
-> *switched off* and always pays the full rate. Zero is a sentinel meaning
+> **Note on "threshold 0":** a tier whose `max_tx_count_threshold` is **0** has
+> PoNA *switched off* and always pays the max rate. Zero is a sentinel meaning
 > "disabled" — it is **not** a claim that the threshold is 0 transactions. The
-> live threshold is **10** (`DefaultTxCountThreshold`).
+> live max threshold is **10** (`DefaultTxCountThreshold`).
 
-The distinction between **Low** and **Zero** is deliberate: a block with a small
-number of real transactions is *some* activity and earns a meaningful reduced
-reward; a **completely empty** block earns only a nominal amount, so an idle
-chain drains the reserve at the slowest possible rate while still paying the
-proposer something for keeping the chain alive.
+The distinctions between the bands are deliberate: a block with a couple of real
+transactions is *some* activity and earns a meaningful reduced reward; a busy
+block earns the max; a **completely empty** block earns only a nominal amount, so
+an idle chain drains the reserve at the slowest possible rate while still paying
+the proposer something for keeping the chain alive.
 
 ## 3. Per-tier rates
 
-PoNA rates are defined **per emission tier**. The full rate is the base tier
-rate owned by `x/pona`; the Low and Zero rates are PoNA policy.
+### 3.1 Why the first tier starts at height 0, not 1
 
-| Tier | Epoch | Full (`tx >= 10`) | Low (`1 < tx < 10`) | Single (`tx == 1`) | Zero (`tx == 0`) |
-|---|---|---|---|---|---|
-| 1 | Y0–2 | **50 RUNE** | **20 RUNE** | **1 RUNE** | **0.5 RUNE** |
-| 2 | Y2–4 | **25 RUNE** | **10 RUNE** | **1 RUNE** | **0.5 RUNE** |
-| 3 | Y4 → infinite | **10 RUNE** | **5 RUNE** | **1 RUNE** | **0.5 RUNE** |
+Tier windows are **half-open intervals**: `[start_height, end_height)`. The start
+is inclusive, the end is **exclusive**, and each tier begins exactly where the
+previous one ended.
+
+```
+tier 1: [0,          10,519,200)   covers heights        0 .. 10,519,199
+tier 2: [10,519,200, 21,038,400)   covers heights 10,519,200 .. 21,038,399
+tier 3: [21,038,400, open-ended)   covers heights 21,038,400 .. forever
+```
+
+Tier 1 therefore holds exactly `10,519,200 - 0 = 10,519,200` blocks, and tier 2
+exactly `21,038,400 - 10,519,200 = 10,519,200` — both 2 schedule-years.
+
+**Why not `1 .. 10` and `11 .. 20`?** That is the *inclusive-both-ends* convention.
+It cannot be chained without an assumption: tier 1 "ends at 10" and tier 2 "starts
+at 11" implies height 10 belongs to tier 1 and 11 to tier 2, so **no height is
+ever left uncovered only because the two ranges happen to be adjacent integers**.
+The moment either number is edited the ranges can overlap or leave a hole, and
+nothing in the data says which convention was intended.
+
+There is also a hard requirement that settles it: height **0** (genesis) is a real
+block that must be paid, so the schedule has to start at `0`. With a half-open
+end, tier 1 covering `[0, 10519200)` ends *before* `10519200`, so tier 2 must
+start at exactly `10519200` for the windows to touch. Writing `end = 10519200` and
+`next start = 10519201` instead would leave height `10519200` with **no tier at
+all** — which is precisely the gap the validator rejects.
+
+### 3.2 The rate ladder
+
+PoNA rates are defined **per emission tier**. The max rate is the ceiling owned by
+`x/pona`; the Mid, Low, Single and Zero rates are PoNA policy.
+
+| Tier | Epoch | Max (`tx >= 10`) | Mid (`5–9`) | Low (`2–4`) | Single (`tx == 1`) | Zero (`tx == 0`) |
+|---|---|---|---|---|---|---|
+| 1 | Y0–2 | **50 RUNE** | **25 RUNE** | **15 RUNE** | **1 RUNE** | **0.5 RUNE** |
+| 2 | Y2–4 | **25 RUNE** | **15 RUNE** | **10 RUNE** | **1 RUNE** | **0.5 RUNE** |
+| 3 | Y4 → infinite | **15 RUNE** | **10 RUNE** | **5 RUNE** | **1 RUNE** | **0.5 RUNE** |
 
 All values are in **RUNE** (stored on-chain as **arune**, `1 RUNE = 10^18 arune`).
 The Zero column is also the **floor** applied to every band ([§2.1](#21-zero_activity_reward-is-the-floor)).
@@ -174,9 +211,12 @@ The Zero column is also the **floor** applied to every band ([§2.1](#21-zero_ac
 In arune, the tier-1 rates are:
 
 ```
-reward_per_block       = 50000000000000000000   (50 RUNE)
-tx_count_threshold     = 10
-low_activity_reward    = 20000000000000000000   (20 RUNE)
+max_activity_reward    = 50000000000000000000   (50 RUNE)
+max_tx_count_threshold = 10
+mid_activity_reward    = 25000000000000000000   (25 RUNE)
+mid_tx_count_threshold = 5
+low_activity_reward    = 15000000000000000000   (15 RUNE)
+low_tx_count_threshold = 2
 single_activity_reward = 1000000000000000000    (1 RUNE)
 zero_activity_reward   = 500000000000000000     (0.5 RUNE)
 ```
@@ -185,10 +225,11 @@ Notes:
 
 - Tier 3 runs **from year 4 forever** (open-ended). It is the terminal tier of the
   reserve-funded schedule; PoNA only shapes it for as long as the reserve lasts.
-- The Low rate is **not** a fixed fraction of the full rate across tiers
-  (50→20 is 40%, 25→10 is 40%, but 10→5 is 50%). The rates are therefore stored
-  as **explicit per-tier fields**, not derived by a multiplier. This is
-  intentional — a derived model could not express `1 RUNE` for the Zero band,
+- The rates are **not** a fixed fraction of the max across tiers, and not a fixed
+  fraction of each other (tier 1: 50→25→15→1→0.5). They are therefore stored as
+  **explicit per-tier fields**, not derived by a multiplier. This is intentional —
+  a derived model could not express `1 RUNE` for the Single band or `0.5 RUNE` for
+  Zero, which are below any sane percentage of the max.
   which is below the reserve's old 5-RUNE floor.
 
 ## 4. How it works — block lifecycle
@@ -275,21 +316,25 @@ a real transaction, even if it also parses as an `InjectedTx`.
 
 ## 5. Running example
 
-Assume `TxCountThreshold = 10`, 6-second blocks (5,259,600 blocks/year), and the
-three tiers of [§3](#3-per-tier-rates).
+Assume the default thresholds (`max` = 10, `mid` = 5, `low` = 2), 6-second blocks
+(5,259,600 blocks/year), and the three tiers of [§3](#3-per-tier-rates).
 
 | Block | Height epoch | `txCount` | Band | Reward |
 |---|---|---|---|---|
-| A | Y1 | 42 | Full | **50 RUNE** |
-| B | Y1 | 7 | Low | **20 RUNE** |
-| **B2** | Y1 | **1** | **Single** | **1 RUNE** |
+| A | Y1 | 42 | Max | **50 RUNE** |
+| B | Y1 | 7 | Mid | **25 RUNE** |
+| B2 | Y1 | 3 | Low | **15 RUNE** |
+| B3 | Y1 | 1 | Single | **1 RUNE** |
 | C | Y1 | 0 | Zero | **0.5 RUNE** |
-| D | Y3 | 15 | Full | **25 RUNE** |
-| E | Y3 | 3 | Low | **10 RUNE** |
-| E2 | Y3 | 1 | Single | **1 RUNE** |
-| F | Y5 | 128 | Full | **10 RUNE** |
-| G | Y5 | 6 | Low | **5 RUNE** |
-| G2 | Y5 | 1 | Single | **1 RUNE** |
+| D | Y3 | 15 | Max | **25 RUNE** |
+| E | Y3 | 6 | Mid | **15 RUNE** |
+| E2 | Y3 | 4 | Low | **10 RUNE** |
+| E3 | Y3 | 1 | Single | **1 RUNE** |
+| E4 | Y3 | 0 | Zero | **0.5 RUNE** |
+| F | Y5 | 128 | Max | **15 RUNE** |
+| G | Y5 | 8 | Mid | **10 RUNE** |
+| G2 | Y5 | 2 | Low | **5 RUNE** |
+| G3 | Y5 | 1 | Single | **1 RUNE** |
 | H | Y5 | 0 | Zero | **0.5 RUNE** |
 
 ## 6. Economic effect on the 1B reserve
@@ -303,32 +348,29 @@ PoNA-dependent in the worst case — they always consume their full budget:
 | Tier 2 (Y2–4) | 10,519,200 | 25 | 262,980,000 |
 | **Remaining for Tier 3** | | | **211,060,000** |
 
-Tier 3 (10 full / 5 low / 1 single / 0.5 zero) then drains the remainder at a rate
-set by how busy the chain is:
+Tier 3 (max 15 / mid 10 / low 5 / single 1 / zero 0.5) then drains the remainder at
+a rate set by how busy the chain is:
 
 | Chain activity | Tier-3 rate | Annual spend | Tier-3 duration | Fee-only reached at |
 |---|---|---|---|---|
-| **Busy** — every block `tx >= 10` | 10 | 52,596,000 RUNE/y | 211.06M ÷ 52.596M ≈ **4.01 y** | **≈ Y8.0** |
-| **Typical** — most blocks `1 < tx < 10` | 5 | 26,298,000 RUNE/y | 211.06M ÷ 26.298M ≈ **8.03 y** | **≈ Y12.0** |
-| **Sparse** — every block exactly `tx == 1` | 1 | 5,259,600 RUNE/y | 211.06M ÷ 5.2596M ≈ **40.1 y** | **≈ Y44.1** |
-| **Quiet** — every block `tx == 0` | 0.5 | 2,629,800 RUNE/y | 211.06M ÷ 2.6298M ≈ **80.3 y** | **≈ Y84.3** |
+| **Max** — every block `tx >= 10` | 15 | 78,894,000 RUNE/y | 211.06M ÷ 78.894M ≈ **2.68 y** | **≈ Y6.7** |
+| **Mid** — every block `5 <= tx < 10` | 10 | 52,596,000 RUNE/y | 211.06M ÷ 52.596M ≈ **4.01 y** | **≈ Y8.0** |
+| **Low** — every block `2 <= tx < 5` | 5 | 26,298,000 RUNE/y | 211.06M ÷ 26.298M ≈ **8.03 y** | **≈ Y12.0** |
+| **Single** — every block exactly `tx == 1` | 1 | 5,259,600 RUNE/y | 211.06M ÷ 5.2596M ≈ **40.1 y** | **≈ Y44.1** |
+| **Zero** — every block `tx == 0` | 0.5 | 2,629,800 RUNE/y | 211.06M ÷ 2.6298M ≈ **80.3 y** | **≈ Y84.3** |
 
 The Tier-3 budget is `211,060,000 RUNE` and Tier 3 spans `5,259,600` blocks/year,
-so the annual spend is `rate × 5,259,600` RUNE:
+so the annual spend is `rate × 5,259,600` RUNE. The graded ladder is what makes
+the reserve respond smoothly to real usage instead of in one big jump: a chain
+running mostly 5–9 tx/block burns it at half the rate of a maxed-out one, and a
+chain with a single stray tx per block lasts 15× longer than a busy one.
 
-```
-rate 10   → 52,596,000 RUNE/y → 211.06M / 52.596M =  4.01 y → fee-only at Y8.0
-rate 5    → 26,298,000 RUNE/y → 211.06M / 26.298M =  8.03 y → fee-only at Y12.0
-rate 1    →  5,259,600 RUNE/y → 211.06M /  5.2596M = 40.13 y → fee-only at Y44.1
-rate 0.5  →  2,629,800 RUNE/y → 211.06M /  2.6298M = 80.26 y → fee-only at Y84.3
-```
-
-**Read this table carefully.** The often-quoted *"~12 years"* figure corresponds to
-Tier 3 paying **5 RUNE** (the low rate) on most blocks. If the chain is genuinely
-busy and Tier 3 pays its **full 10 RUNE**, the reserve is exhausted at **≈ Y8**,
-not Y12. PoNA therefore **does not lengthen** the busy-network lifetime — it
-**protects the reserve on quiet chains** (out to ~Y84 when completely idle),
-which is precisely the intended behaviour: emission is throttled by real usage.
+**Read this table carefully.** The ladder is deliberately steep at the top: a
+fully-loaded Tier 3 (`15 RUNE`/block) exhausts the reserve by **≈ Y6.7**, while a
+chain that only manages a single transaction per block lasts to **≈ Y44**. PoNA
+therefore **does not lengthen** the busy-network lifetime — it **protects the
+reserve on quiet chains** (out to ~Y84 when completely idle), which is precisely
+the intended behaviour: emission is throttled by real usage.
 
 The `single` band is what stops a barely-used chain from being paid like a *busy*
 one: one transaction earns `single_activity_reward` (1 RUNE in tier 3), not the
@@ -363,11 +405,14 @@ it back into two modules is not planned.
 
 | Field | Proto | Meaning |
 |---|---|---|
-| `tiers[].start_height` | `Tier` | Tier boundary (block height) |
-| `tiers[].end_height` | `Tier` | Tier boundary (`0` = open-ended) |
-| `tiers[].reward_per_block` | `Tier` | **Full** rate for that tier |
-| `tiers[].tx_count_threshold` | `Tier` | Txs at/above which the full rate is paid (`10`); `0` disables PoNA |
-| `tiers[].low_activity_reward` | `Tier` | Rate when `1 < tx < threshold` |
+| `tiers[].start_height` | `Tier` | First height the tier applies to, **inclusive** |
+| `tiers[].end_height` | `Tier` | First height the tier stops applying at, **exclusive** (`0` = open-ended) |
+| `tiers[].max_activity_reward` | `Tier` | **Max** rate, paid at/above `max_tx_count_threshold` |
+| `tiers[].max_tx_count_threshold` | `Tier` | Txs at/above which the max rate is paid (`10`); `0` disables PoNA |
+| `tiers[].mid_activity_reward` | `Tier` | Rate when `mid <= tx < max` |
+| `tiers[].mid_tx_count_threshold` | `Tier` | Lower bound of the mid band (`5`); `0` = default |
+| `tiers[].low_activity_reward` | `Tier` | Rate when `low <= tx < mid` |
+| `tiers[].low_tx_count_threshold` | `Tier` | Lower bound of the low band (`2`); `0` = default, min 2 |
 | `tiers[].single_activity_reward` | `Tier` | Rate when `tx == 1`; `0`/unset folds `tx == 1` into the low band |
 | `tiers[].zero_activity_reward` | `Tier` | Rate when `tx == 0`; also the **floor** for every band |
 
@@ -411,7 +456,7 @@ mechanism has a single reference point:
 
 | File | Responsibility |
 |---|---|
-| `types/pona.go` | **All PoNA**: bands, rates, `PoNAEnabled`, `SingleActivityEnabled`, `BandForTxCount`, `RewardForBand`, `ApplyFloor`, `RewardForTxCount`, `RewardForHeightAndTxCount`, `BandForHeightAndTxCount`, `validatePoNA`, `DefaultTxCountThreshold` |
+| `types/pona.go` | **All PoNA**: bands, rates, `PoNAEnabled`, `SingleActivityEnabled`, `effectiveBandThresholds`, `BandForTxCount`, `RewardForBand`, `ApplyFloor`, `RewardForTxCount`, `RewardForHeightAndTxCount`, `BandForHeightAndTxCount`, `validatePoNA`, `DefaultTxCountThreshold`, `DefaultMidTxCountThreshold`, `DefaultLowTxCountThreshold` |
 | `types/schedule.go` | Generic tier lookup (`RewardForHeight`, `TierForHeight`, `tierForHeight`) |
 | `types/params.go` | `DefaultTiers`/`DefaultParams`/`Validate` (schedule structure) + RUNE helpers (`RuneAmount`, `RuneString`) |
 | `types/pona_test.go` | PoNA band/floor/validation tests |
@@ -460,21 +505,24 @@ height: 32495
 reward: "500000000000000000"
 reward_rune: "0.5"
 tier:
-  full_reward: {arune: "50000000000000000000", rune: "50"}
-  low_reward: {arune: "20000000000000000000", rune: "20"}
+  max: {arune: "50000000000000000000", rune: "50"}
+  mid: {arune: "25000000000000000000", rune: "25"}
+  low: {arune: "15000000000000000000", rune: "15"}
   single: {arune: "1000000000000000000", rune: "1"}
   single_enabled: true
   zero: {arune: "500000000000000000", rune: "0.5"}
   floor_applied: false
   pona_enabled: true
+  low_tx_count_threshold: 2
+  mid_tx_count_threshold: 5
+  max_tx_count_threshold: 10
   tier_index: 0
   tier_count: 3
-  tx_count_threshold: 10
 tx_count: 0
 tx_count_source: chain (recorded for the last finalized block)
 ```
 
-Read it as: **the chain is idle, and it is paying 0.5 RUNE — not 20.** That is the
+Read it as: **the chain is idle, and it is paying 0.5 RUNE — not 15.** That is the
 behaviour the zero band exists for.
 
 `tx-count` is the command that reconciles the node log with the reward. It prints
