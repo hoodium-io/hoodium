@@ -22,25 +22,36 @@ const RuneDecimals = 18
 
 // DefaultTiers returns the Hoodium emission schedule.
 //
-// Each tier carries a full (base) reward plus its Proof of Network Activity
-// (PoNA) rates. The reward actually paid for a block depends on how many
-// transactions the block contains:
+// Each tier carries a graded Proof of Network Activity (PoNA) ladder. The reward
+// actually paid for a block depends on how many REGULAR transactions it contains:
 //
-//	tx >= TxCountThreshold   -> RewardPerBlock       (full)
-//	tx == 1                  -> SingleActivityReward (single)
-//	1 < tx < TxCountThreshold -> LowActivityReward    (low)
-//	tx == 0                  -> ZeroActivityReward    (zero)
+//	tx >= max     -> MaxActivityReward   (max)
+//	mid <= tx < max -> MidActivityReward   (mid)
+//	low <= tx < mid -> LowActivityReward   (low)
+//	tx == 1       -> SingleActivityReward (single)
+//	tx == 0       -> ZeroActivityReward  (zero)
 //
-// ZeroActivityReward is also the FLOOR of the paid reward: no block is ever worth
-// less than it. See Tier.RewardForTxCount.
+// Default thresholds are max = 10, mid = 5, low = 2, so the bands are:
+//
+//	tx >= 10      -> max     | 5..9  -> mid | 2..4 -> low | 1 -> single | 0 -> zero
+//
+// ZeroActivityReward is also the FLOOR: no block is ever worth less than it. See
+// Tier.RewardForTxCount.
 //
 // See docs/technologies/pona.md for the full description.
 //
-//	Y0-2 (2 years): full 50 | low 20 | single 1 | zero 0.5 RUNE/block
-//	Y2-4 (2 years): full 25 | low 10 | single 1 | zero 0.5 RUNE/block
-//	Y4+  (open)   : full 10 | low  5 | single 1 | zero 0.5 RUNE/block
+//	Y0-2 (2 years): max 50 | mid 25 | low 15 | single 1 | zero 0.5 RUNE/block
+//	Y2-4 (2 years): max 25 | mid 15 | low 10 | single 1 | zero 0.5 RUNE/block
+//	Y4+  (open)   : max 15 | mid 10 | low  5 | single 1 | zero 0.5 RUNE/block
 //
 // expressed as block-height boundaries at a 6s target block time.
+//
+// NOTE ON THE HEIGHT BOUNDARIES: Tier.EndHeight is EXCLUSIVE and Validate requires
+// tiers to be contiguous (tier[i].EndHeight == tier[i+1].StartHeight) with the
+// first tier starting at 0. The boundaries below therefore use the natural
+// "next tier starts where the previous ended" form (0, 10519200, 21038400) rather
+// than an inclusive start at 1 / 10519201. That shifts each subsequent tier's
+// first block by one height and keeps every tier's block COUNT identical.
 func DefaultTiers() []Tier {
 	// runeAmount(n) is n whole RUNE; runeAmountPrec(n, prec) is n * 10^-prec
 	// RUNE (so half a RUNE is runeAmountPrec(5, 1)). Both are expressed in arune.
@@ -51,27 +62,36 @@ func DefaultTiers() []Tier {
 		{
 			StartHeight:          0,
 			EndHeight:            BlocksPerTwoYearsAt6s, // 10,519,200
-			RewardPerBlock:       runeAmount(50),
-			TxCountThreshold:     DefaultTxCountThreshold,
-			LowActivityReward:    runeAmount(20),
+			MaxActivityReward:    runeAmount(50),
+			MaxTxCountThreshold:  DefaultTxCountThreshold,
+			MidActivityReward:    runeAmount(25),
+			MidTxCountThreshold:  DefaultMidTxCountThreshold,
+			LowActivityReward:    runeAmount(15),
+			LowTxCountThreshold:  DefaultLowTxCountThreshold,
 			SingleActivityReward: runeAmount(1),
 			ZeroActivityReward:   runeAmountPrec(5, 1), // 0.5 RUNE, also the floor
 		},
 		{
 			StartHeight:          BlocksPerTwoYearsAt6s,
 			EndHeight:            4 * BlocksPerYearAt6s, // 21,038,400
-			RewardPerBlock:       runeAmount(25),
-			TxCountThreshold:     DefaultTxCountThreshold,
+			MaxActivityReward:    runeAmount(25),
+			MaxTxCountThreshold:  DefaultTxCountThreshold,
+			MidActivityReward:    runeAmount(15),
+			MidTxCountThreshold:  DefaultMidTxCountThreshold,
 			LowActivityReward:    runeAmount(10),
+			LowTxCountThreshold:  DefaultLowTxCountThreshold,
 			SingleActivityReward: runeAmount(1),
 			ZeroActivityReward:   runeAmountPrec(5, 1),
 		},
 		{
 			StartHeight:          4 * BlocksPerYearAt6s, // 21,038,400
 			EndHeight:            0,                     // open-ended (effectively infinite)
-			RewardPerBlock:       runeAmount(10),
-			TxCountThreshold:     DefaultTxCountThreshold,
+			MaxActivityReward:    runeAmount(15),
+			MaxTxCountThreshold:  DefaultTxCountThreshold,
+			MidActivityReward:    runeAmount(10),
+			MidTxCountThreshold:  DefaultMidTxCountThreshold,
 			LowActivityReward:    runeAmount(5),
+			LowTxCountThreshold:  DefaultLowTxCountThreshold,
 			SingleActivityReward: runeAmount(1),
 			ZeroActivityReward:   runeAmountPrec(5, 1),
 		},
@@ -161,8 +181,8 @@ func (p Params) Validate() error {
 	}
 
 	for i, t := range p.Tiers {
-		if t.RewardPerBlock.IsNil() || t.RewardPerBlock.IsNegative() {
-			return fmt.Errorf("pona: tier %d reward must be non-negative", i)
+		if t.MaxActivityReward.IsNil() || t.MaxActivityReward.IsNegative() {
+			return fmt.Errorf("pona: tier %d max reward must be non-negative", i)
 		}
 		if err := t.validatePoNA(i); err != nil {
 			return err

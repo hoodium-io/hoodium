@@ -9,15 +9,20 @@ import (
 // Proof of Network Activity (PoNA).
 //
 // PoNA scales the block reward by how many transactions the block actually
-// contains. Each emission tier carries three rates:
+// contains. Each emission tier carries a graded ladder of rates, from a full
+// (maximum) reward down to a nominal floor:
 //
-//	txCount >= TxCountThreshold    -> RewardPerBlock       (full)
-//	txCount > 0                    -> LowActivityReward    (low)
-//	txCount == 0                   -> ZeroActivityReward   (zero, the floor)
+//	txCount >= MaxTxCountThreshold                    -> MaxActivityReward  (max)
+//	MidTxCountThreshold  <= txCount < Max             -> MidActivityReward  (mid)
+//	LowTxCountThreshold  <= txCount < Mid             -> LowActivityReward  (low)
+//	txCount == 1                                      -> SingleActivityReward (single)
+//	txCount == 0                                      -> ZeroActivityReward (zero)
 //
 // ZeroActivityReward is also the FLOOR: no band ever pays less than it, so a
-// block is always worth at least that much. A tier with TxCountThreshold == 0
-// has PoNA disabled and always pays its full RewardPerBlock.
+// block is always worth at least that much.
+//
+// A tier with MaxTxCountThreshold == 0 has PoNA disabled and always pays its
+// maximum reward.
 //
 // PoNA never blocks a transaction, never changes block validity, and never
 // changes who may propose: it only decides how much of the scheduled reward is
@@ -28,31 +33,47 @@ import (
 // See docs/technologies/pona.md for the full mechanism and economics.
 
 // DefaultTxCountThreshold is the default minimum number of transactions a block
-// must contain for the full (base) reward to be paid under PoNA.
+// must contain for the MAXIMUM (base) reward to be paid under PoNA.
 //
-// This is the value used by the default schedule (all three tiers). With the
-// default threshold of 10, a block carrying:
+// This is the value used by every tier of the default schedule. With the default
+// thresholds (10 / 5 / 2) a block carrying:
 //
-//	tx_count >= 10   -> full activity  (RewardPerBlock)
-//	tx_count > 0     -> low activity   (LowActivityReward), raised to the floor
-//	tx_count == 0    -> zero activity  (ZeroActivityReward)
+//	tx_count >= 10  -> max    (MaxActivityReward)
+//	5 <= tx < 10    -> mid    (MidActivityReward)
+//	2 <= tx < 5     -> low    (LowActivityReward)
+//	tx_count == 1   -> single (SingleActivityReward)
+//	tx_count == 0   -> zero   (ZeroActivityReward)
 //
-// A block with 1..9 transactions is therefore LOW activity: it takes at least
-// DefaultTxCountThreshold transactions to earn the full rate.
+// The ladder is graded so that a lightly-used chain is paid proportionally less
+// than a busy one, instead of jumping straight from "one transaction" to "full
+// block".
 const DefaultTxCountThreshold = uint64(10)
+
+// DefaultMidTxCountThreshold is the default lower bound of the MID band: a block
+// with at least this many (and fewer than the max threshold) transactions earns
+// MidActivityReward.
+const DefaultMidTxCountThreshold = uint64(5)
+
+// DefaultLowTxCountThreshold is the default lower bound of the LOW band: a block
+// with at least this many (and fewer than the mid threshold) transactions earns
+// LowActivityReward.
+const DefaultLowTxCountThreshold = uint64(2)
 
 // ActivityBand identifies which Proof of Network Activity band a block falls
 // into. The band, not the raw transaction count, decides which of the tier's
-// three rates is paid, so the decision lives in exactly one place
+// five rates is paid, so the decision lives in exactly one place
 // (Tier.BandForTxCount) and is shared by the payout path, the emitted event and
 // the CLI.
 type ActivityBand string
 
 const (
-	// BandFull is the band of a busy block: txCount >= TxCountThreshold.
-	BandFull ActivityBand = "full"
-	// BandLow is the band of a block with some, but not enough, activity:
-	// 1 < txCount < TxCountThreshold.
+	// BandMax is the band of a busy block: txCount >= MaxTxCountThreshold.
+	BandMax ActivityBand = "max"
+	// BandMid is the band of a block with substantial activity:
+	// MidTxCountThreshold <= txCount < MaxTxCountThreshold.
+	BandMid ActivityBand = "mid"
+	// BandLow is the band of a block with moderate activity:
+	// LowTxCountThreshold <= txCount < MidTxCountThreshold.
 	BandLow ActivityBand = "low"
 	// BandSingle is the band of a block carrying exactly ONE transaction, when
 	// the tier configures a single_activity_reward. It sits between the zero and
@@ -77,7 +98,7 @@ const (
 // (10). Zero is used as the sentinel because a tier that required zero
 // transactions to pay full would be meaningless.
 func (t Tier) PoNAEnabled() bool {
-	return t.TxCountThreshold > 0
+	return t.MaxTxCountThreshold > 0
 }
 
 // SingleActivityEnabled reports whether the tier has a dedicated rate for a
@@ -90,14 +111,48 @@ func (t Tier) SingleActivityEnabled() bool {
 	return !t.SingleActivityReward.IsNil() && t.SingleActivityReward.IsPositive()
 }
 
+// effectiveBandThresholds returns the (low, mid, max) thresholds actually used
+// for band selection, after normalising the optional lower bounds.
+//
+// The lower thresholds are optional: a tier that leaves them at zero (or sets
+// them inconsistently) still behaves sensibly, because they are clamped into
+// [2, maxThreshold]. A value of 0 or 1 would make the band meaningless (every
+// block has >= 0 or >= 1 transactions, so the band could never be selected), so
+// the minimum of 2 keeps each band reachable.
+func (t Tier) effectiveBandThresholds() (low, mid, maxThreshold uint64) {
+	maxThreshold = t.MaxTxCountThreshold
+	if maxThreshold == 0 {
+		return 0, 0, 0
+	}
+
+	// Clamp the lower bounds into [2, maxThreshold]; a missing bound defaults to
+	// the schedule-wide default.
+	low = t.LowTxCountThreshold
+	if low < DefaultLowTxCountThreshold || low > maxThreshold {
+		low = min(DefaultLowTxCountThreshold, maxThreshold)
+	}
+
+	mid = t.MidTxCountThreshold
+	if mid < low || mid > maxThreshold {
+		mid = min(DefaultMidTxCountThreshold, maxThreshold)
+	}
+
+	// Keep low <= mid after the mid repair.
+	if low > mid {
+		low = mid
+	}
+
+	return low, mid, maxThreshold
+}
+
 // BandForTxCount returns the PoNA band that applies to a block containing
 // txCount regular transactions.
 //
-// A tier with PoNA disabled (TxCountThreshold == 0) always reports BandFull,
-// because its full reward is paid regardless of the block's activity.
+// A tier with PoNA disabled (MaxTxCountThreshold == 0) always reports BandMax,
+// because its maximum reward is paid regardless of the block's activity.
 func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
 	if !t.PoNAEnabled() {
-		return BandFull
+		return BandMax
 	}
 
 	switch txCount {
@@ -108,12 +163,24 @@ func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
 			return BandSingle
 		}
 
+		// No single band: a 1-tx block is the weakest active block, so it earns
+		// the lowest active rate.
+		return BandLow
+	}
+
+	low, mid, maxThreshold := t.effectiveBandThresholds()
+
+	switch {
+	case txCount >= maxThreshold:
+		return BandMax
+	case txCount >= mid:
+		return BandMid
+	case txCount >= low:
 		return BandLow
 	default:
-		if txCount >= t.TxCountThreshold {
-			return BandFull
-		}
-
+		// 2 <= txCount < low. The low bound is clamped to >= 2, so this is only
+		// reachable if a tier sets low above 2; such a block is still active, so
+		// it earns the lowest active rate rather than nothing.
 		return BandLow
 	}
 }
@@ -122,9 +189,7 @@ func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
 // `txCount` transactions, applying its PoNA bands.
 //
 // The result is never below the tier's ZeroActivityReward: that value is the
-// floor, so a block that qualifies for the low band still earns at least as much
-// as an empty one. With the default schedule (zero = 1 RUNE) any block with
-// 1..9 transactions is paid the low rate, which is >= 1 RUNE.
+// floor, so an active block always earns at least as much as an empty one.
 func (t Tier) RewardForTxCount(txCount uint64) sdkmath.Int {
 	reward := t.RewardForBand(t.BandForTxCount(txCount))
 
@@ -138,8 +203,17 @@ func (t Tier) RewardForTxCount(txCount uint64) sdkmath.Int {
 // value; callers that decide what is actually paid must use RewardForTxCount.
 func (t Tier) RewardForBand(band ActivityBand) sdkmath.Int {
 	switch band {
-	case BandFull:
-		return t.RewardPerBlock
+	case BandMax:
+		return t.maxRewardOrDefault()
+	case BandMid:
+		// mid_activity_reward is a later addition, so Params written by an older
+		// binary decode it as nil. Falling back to the low rate keeps an upgraded
+		// node paying a sane amount instead of a nil Int.
+		if t.MidActivityReward.IsNil() {
+			return t.LowActivityReward
+		}
+
+		return t.MidActivityReward
 	case BandLow:
 		return t.LowActivityReward
 	case BandSingle:
@@ -149,6 +223,18 @@ func (t Tier) RewardForBand(band ActivityBand) sdkmath.Int {
 	default:
 		return sdkmath.ZeroInt()
 	}
+}
+
+// maxRewardOrDefault returns the max activity reward.
+//
+// It exists so the whole paid-reward path never dereferences a nil amount: a
+// schedule authored before a field existed decodes that field as nil.
+func (t Tier) maxRewardOrDefault() sdkmath.Int {
+	if t.MaxActivityReward.IsNil() {
+		return sdkmath.ZeroInt()
+	}
+
+	return t.MaxActivityReward
 }
 
 // ApplyFloor raises reward to the tier's ZeroActivityReward when it is lower.
@@ -207,21 +293,29 @@ func (p Params) BandForHeightAndTxCount(height, txCount uint64) ActivityBand {
 
 // validatePoNA checks the activity-scaled reward fields of a single tier.
 //
-// A tier either disables PoNA (threshold 0) or enables it with a well-ordered,
-// non-negative rate set:
+// A tier either disables PoNA (max threshold 0) or enables it with a well-ordered,
+// non-negative rate ladder:
 //
-//	ZeroActivityReward <= SingleActivityReward <= LowActivityReward <= RewardPerBlock
+//	Zero <= Single <= Low <= Mid <= Max
 //
-// The zero rate is the FLOOR of the paid reward (see Tier.RewardForTxCount), so
-// a rate below it would make the floor silently override the configured value —
-// an operator mistake that is impossible to notice from the chain's behaviour
-// alone. It is rejected here instead.
+// The zero rate is the FLOOR of the paid reward (see Tier.RewardForTxCount), so a
+// rate below it would make the floor silently override the configured value — an
+// operator mistake that is impossible to notice from the chain's behaviour alone.
+// It is rejected here instead.
 //
 // SingleActivityReward may be zero, which means "no single-transaction band" and
-// folds tx_count == 1 into the low band. If it is set, it must be ordered like
-// any other rate.
+// folds tx_count == 1 into the low band. If it is set, it must be ordered like any
+// other rate.
+//
+// The tx-count thresholds must be strictly increasing:
+//
+//	2 <= low < mid < max
+//
+// A lower bound below 2 is meaningless (every block has >= 1 transaction, so the
+// band could never be selected) and is rejected rather than silently clamped, so a
+// misconfigured on-chain param fails loudly at the point it is set.
 func (t Tier) validatePoNA(idx int) error {
-	if t.TxCountThreshold == 0 {
+	if t.MaxTxCountThreshold == 0 {
 		// PoNA disabled: the activity fields are ignored, but must not be
 		// negative if set.
 		for _, r := range []struct {
@@ -229,6 +323,7 @@ func (t Tier) validatePoNA(idx int) error {
 			amount sdkmath.Int
 		}{
 			{"low activity", t.LowActivityReward},
+			{"mid activity", t.MidActivityReward},
 			{"single activity", t.SingleActivityReward},
 			{"zero activity", t.ZeroActivityReward},
 		} {
@@ -240,14 +335,41 @@ func (t Tier) validatePoNA(idx int) error {
 		return nil
 	}
 
-	if t.LowActivityReward.IsNil() || t.LowActivityReward.IsNegative() {
-		return fmt.Errorf("pona: tier %d low activity reward must be non-negative", idx)
-	}
-	if t.ZeroActivityReward.IsNil() || t.ZeroActivityReward.IsNegative() {
-		return fmt.Errorf("pona: tier %d zero activity reward must be non-negative", idx)
+	// Every active rate must be present and non-negative.
+	for _, r := range []struct {
+		name   string
+		amount sdkmath.Int
+	}{
+		{"low activity", t.LowActivityReward},
+		{"mid activity", t.MidActivityReward},
+		{"zero activity", t.ZeroActivityReward},
+	} {
+		if r.amount.IsNil() || r.amount.IsNegative() {
+			return fmt.Errorf("pona: tier %d %s reward must be non-negative", idx, r.name)
+		}
 	}
 	if !t.SingleActivityReward.IsNil() && t.SingleActivityReward.IsNegative() {
 		return fmt.Errorf("pona: tier %d single activity reward must be non-negative", idx)
+	}
+
+	// Threshold ordering.
+	if t.LowTxCountThreshold < DefaultLowTxCountThreshold {
+		return fmt.Errorf(
+			"pona: tier %d low tx count threshold %d must be at least %d",
+			idx, t.LowTxCountThreshold, DefaultLowTxCountThreshold,
+		)
+	}
+	if t.MidTxCountThreshold <= t.LowTxCountThreshold {
+		return fmt.Errorf(
+			"pona: tier %d mid tx count threshold %d must be greater than the low threshold %d",
+			idx, t.MidTxCountThreshold, t.LowTxCountThreshold,
+		)
+	}
+	if t.MaxTxCountThreshold <= t.MidTxCountThreshold {
+		return fmt.Errorf(
+			"pona: tier %d max tx count threshold %d must be greater than the mid threshold %d",
+			idx, t.MaxTxCountThreshold, t.MidTxCountThreshold,
+		)
 	}
 
 	// Rate ordering. ZeroActivityReward is the floor applied to every band, so
@@ -272,10 +394,16 @@ func (t Tier) validatePoNA(idx int) error {
 			)
 		}
 	}
-	if t.RewardPerBlock.LT(t.LowActivityReward) {
+	if t.MidActivityReward.LT(t.LowActivityReward) {
 		return fmt.Errorf(
-			"pona: tier %d full reward %s is below the low activity reward %s",
-			idx, t.RewardPerBlock.String(), t.LowActivityReward.String(),
+			"pona: tier %d mid activity reward %s is below the low activity reward %s",
+			idx, t.MidActivityReward.String(), t.LowActivityReward.String(),
+		)
+	}
+	if t.MaxActivityReward.LT(t.MidActivityReward) {
+		return fmt.Errorf(
+			"pona: tier %d max reward %s is below the mid activity reward %s",
+			idx, t.MaxActivityReward.String(), t.MidActivityReward.String(),
 		)
 	}
 

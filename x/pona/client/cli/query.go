@@ -244,15 +244,17 @@ func GetParamsCmd() *cobra.Command {
 		Long: `Show the pona module parameters.
 
 The output lists the ordered emission schedule. For every tier it reports the
-block-height window the tier covers and the three Proof of Network Activity
-rates that apply inside it:
+block-height window the tier covers and the graded Proof of Network Activity rate
+ladder that applies inside it:
 
-  full  paid when tx_count >= tx_count_threshold
-  low   paid when 0 < tx_count < tx_count_threshold
-  zero  paid when the block contains no regular transactions
+  max     paid when tx_count >= max_tx_count_threshold
+  mid     paid when mid_tx_count_threshold <= tx_count < max
+  low     paid when low_tx_count_threshold <= tx_count < mid
+  single  paid when the block contains exactly 1 transaction
+  zero    paid when the block contains no regular transactions
 
-A tx_count_threshold of 0 means PoNA is disabled for that tier and the full rate
-is always paid. Amounts are reported in arune (1 RUNE = 10^18 arune) together
+A max_tx_count_threshold of 0 means PoNA is disabled for that tier and the max
+rate is always paid. Amounts are reported in arune (1 RUNE = 10^18 arune) together
 with the human-readable RUNE value.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -322,13 +324,13 @@ zero-activity rate and make the reserve last longer.`,
 			}
 
 			idx, tier, ok := params.TierForHeight(uint64(height)) //nolint:gosec // height >= 0
-			if ok && tier.RewardPerBlock.IsPositive() {
-				remaining := balance.Amount.Quo(tier.RewardPerBlock)
+			if ok && tier.MaxActivityReward.IsPositive() {
+				remaining := balance.Amount.Quo(tier.MaxActivityReward)
 				blocks := remaining.BigInt().Uint64() //nolint:gosec // reserve / rate fits in uint64
 
 				report.TierIndex = idx
-				report.FullRewardPerBlock = tier.RewardPerBlock.String()
-				report.FullRewardRune = runeString(tier.RewardPerBlock)
+				report.MaxRewardPerBlock = tier.MaxActivityReward.String()
+				report.MaxRewardRune = runeString(tier.MaxActivityReward)
 				report.RemainingBlocks = remaining.String()
 				report.RemainingDuration = durationFromBlocks(blocks)
 			} else {
@@ -402,8 +404,10 @@ no successor and "unbounded" is reported.`,
 
 				if idx+1 < len(params.Tiers) {
 					next := params.Tiers[idx+1]
-					report.NextTierFullReward = next.RewardPerBlock.String()
-					report.NextTierFullRewardRune = runeString(next.RewardPerBlock)
+					report.NextTierMaxReward = next.MaxActivityReward.String()
+					report.NextTierMaxRewardRune = runeString(next.MaxActivityReward)
+					report.NextTierMidReward = next.MidActivityReward.String()
+					report.NextTierMidRewardRune = runeString(next.MidActivityReward)
 					report.NextTierLowReward = next.LowActivityReward.String()
 					report.NextTierLowRewardRune = runeString(next.LowActivityReward)
 					report.NextTierZeroReward = next.ZeroActivityReward.String()
@@ -437,8 +441,9 @@ transaction count the chain recorded for the last finalized block. Pass
 --tx-count N to ask "what would a block with N transactions pay?" without any
 such block existing, and --height to ask about another height.
 
-The output shows all three rates of the active tier alongside the band that is
-currently in effect, so it is clear what the neighbouring bands would pay.`,
+The output shows the whole rate ladder of the active tier (max, mid, low, single,
+zero) with its thresholds, alongside the band that is currently in effect, so it
+is clear what the neighbouring bands would pay.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -589,7 +594,9 @@ use --height to inspect an older block.`,
 
 					report.TierIndex = idx
 					report.Band = string(tier.BandForTxCount(txCount))
-					report.TxCountThreshold = tier.TxCountThreshold
+					report.LowTxCountThreshold = tier.LowTxCountThreshold
+					report.MidTxCountThreshold = tier.MidTxCountThreshold
+					report.MaxTxCountThreshold = tier.MaxTxCountThreshold
 					report.Reward = breakdown.Reward.String()
 					report.RewardRune = runeString(breakdown.Reward)
 				}
@@ -635,15 +642,19 @@ func newAmountReport(amount sdkmath.Int) amountReport {
 // tierRates is the PoNA rate set of a single tier, in the order the bands are
 // applied.
 type tierRates struct {
-	// TxCountThreshold is the number of transactions needed for the full rate.
-	TxCountThreshold uint64 `json:"tx_count_threshold" yaml:"tx_count_threshold"`
-	// PoNAEnabled is false when TxCountThreshold is 0: the full rate always applies.
+	// Thresholds, ascending: low < mid < max.
+	LowTxCountThreshold uint64 `json:"low_tx_count_threshold" yaml:"low_tx_count_threshold"`
+	MidTxCountThreshold uint64 `json:"mid_tx_count_threshold" yaml:"mid_tx_count_threshold"`
+	MaxTxCountThreshold uint64 `json:"max_tx_count_threshold" yaml:"max_tx_count_threshold"`
+	// PoNAEnabled is false when MaxTxCountThreshold is 0: the max rate always applies.
 	PoNAEnabled bool `json:"pona_enabled" yaml:"pona_enabled"`
-	// Full is the configured full rate, paid when tx_count >= tx_count_threshold.
-	Full amountReport `json:"full" yaml:"full"`
-	// Low is the configured low rate, paid when 1 < tx_count < tx_count_threshold.
+	// Max is paid when tx_count >= max_tx_count_threshold.
+	Max amountReport `json:"max" yaml:"max"`
+	// Mid is paid when mid <= tx_count < max.
+	Mid amountReport `json:"mid" yaml:"mid"`
+	// Low is paid when low <= tx_count < mid.
 	Low amountReport `json:"low" yaml:"low"`
-	// Single is the configured rate for a block with exactly one transaction.
+	// Single is the rate for a block with exactly one transaction.
 	// Zero means the single band is not configured, so such a block pays Low.
 	Single amountReport `json:"single" yaml:"single"`
 	// SingleEnabled is true when the single band is configured.
@@ -651,19 +662,19 @@ type tierRates struct {
 	// Zero is the configured zero-activity rate. It is also the FLOOR: no block
 	// is ever paid less than this.
 	Zero amountReport `json:"zero" yaml:"zero"`
-	// FloorApplied is true when the floor (rather than the band's own rate) is
+	// FloorApplied is true when the floor (rather than a band's own rate) is
 	// what a block in that band is paid.
 	FloorApplied bool `json:"floor_applied" yaml:"floor_applied"`
 }
 
-// newTierRates extracts the rates of a tier.
+// newTierRates extracts the rate ladder of a tier.
 func newTierRates(tier types.Tier) tierRates {
 	// floorApplied is true when some configured rate sits below the floor and is
 	// therefore clamped. Reported so a misconfiguration is visible, not silent.
 	floorApplied := false
 	if tier.PoNAEnabled() {
 		for _, band := range []types.ActivityBand{
-			types.BandFull, types.BandLow, types.BandSingle,
+			types.BandMax, types.BandMid, types.BandLow, types.BandSingle,
 		} {
 			if tier.RewardForBand(band).LT(tier.ZeroActivityReward) {
 				floorApplied = true
@@ -674,14 +685,17 @@ func newTierRates(tier types.Tier) tierRates {
 	}
 
 	return tierRates{
-		TxCountThreshold: tier.TxCountThreshold,
-		PoNAEnabled:      tier.PoNAEnabled(),
-		Full:             newAmountReport(tier.RewardPerBlock),
-		Low:              newAmountReport(tier.LowActivityReward),
-		Single:           newAmountReport(tier.SingleActivityReward),
-		SingleEnabled:    tier.SingleActivityEnabled(),
-		Zero:             newAmountReport(tier.ZeroActivityReward),
-		FloorApplied:     floorApplied,
+		LowTxCountThreshold: tier.LowTxCountThreshold,
+		MidTxCountThreshold: tier.MidTxCountThreshold,
+		MaxTxCountThreshold: tier.MaxTxCountThreshold,
+		PoNAEnabled:         tier.PoNAEnabled(),
+		Max:                 newAmountReport(tier.MaxActivityReward),
+		Mid:                 newAmountReport(tier.MidActivityReward),
+		Low:                 newAmountReport(tier.LowActivityReward),
+		Single:              newAmountReport(tier.SingleActivityReward),
+		SingleEnabled:       tier.SingleActivityEnabled(),
+		Zero:                newAmountReport(tier.ZeroActivityReward),
+		FloorApplied:        floorApplied,
 	}
 }
 
@@ -716,13 +730,18 @@ func explainBand(tier types.Tier, txCount uint64) string {
 		)
 	case types.BandLow:
 		return fmt.Sprintf(
-			"%d regular transaction(s) is below the threshold of %d, so the low-activity rate %s",
-			txCount, tier.TxCountThreshold, floored(tier.LowActivityReward),
+			"%d regular transaction(s) is in the low band (%d..%d), so the low-activity rate %s",
+			txCount, tier.LowTxCountThreshold, tier.MidTxCountThreshold-1, floored(tier.LowActivityReward),
+		)
+	case types.BandMid:
+		return fmt.Sprintf(
+			"%d regular transaction(s) is in the mid band (%d..%d), so the mid-activity rate %s",
+			txCount, tier.MidTxCountThreshold, tier.MaxTxCountThreshold-1, floored(tier.MidActivityReward),
 		)
 	default:
 		return fmt.Sprintf(
-			"%d regular transaction(s) meets the threshold of %d, so the full rate %s",
-			txCount, tier.TxCountThreshold, floored(tier.RewardPerBlock),
+			"%d regular transaction(s) meets the max threshold of %d, so the max rate %s",
+			txCount, tier.MaxTxCountThreshold, floored(tier.MaxActivityReward),
 		)
 	}
 }
@@ -791,10 +810,10 @@ type poolReport struct {
 	Balance       string `json:"balance" yaml:"balance"`
 	BalanceRune   string `json:"balance_rune" yaml:"balance_rune"`
 	TierIndex     int    `json:"tier_index" yaml:"tier_index"`
-	// FullRewardPerBlock is the active tier's full rate, used for the estimate.
-	FullRewardPerBlock string `json:"full_reward_per_block,omitempty" yaml:"full_reward_per_block,omitempty"`
-	FullRewardRune     string `json:"full_reward_rune,omitempty" yaml:"full_reward_rune,omitempty"`
-	// RemainingBlocks assumes every future block pays the FULL rate, which makes
+	// MaxRewardPerBlock is the active tier's MAXIMUM rate, used for the estimate.
+	MaxRewardPerBlock string `json:"max_reward_per_block,omitempty" yaml:"max_reward_per_block,omitempty"`
+	MaxRewardRune     string `json:"max_reward_rune,omitempty" yaml:"max_reward_rune,omitempty"`
+	// RemainingBlocks assumes every future block pays the MAX rate, which makes
 	// it a lower bound on how long the reserve lasts.
 	RemainingBlocks   string `json:"remaining_blocks" yaml:"remaining_blocks"`
 	RemainingDuration string `json:"remaining_duration" yaml:"remaining_duration"`
@@ -834,8 +853,10 @@ type tierReport struct {
 	NextTierStartHeight    uint64       `json:"next_tier_start_height,omitempty" yaml:"next_tier_start_height,omitempty"`
 	BlocksUntilNextTier    string       `json:"blocks_until_next_tier" yaml:"blocks_until_next_tier"`
 	TimeUntilNextTier      string       `json:"time_until_next_tier" yaml:"time_until_next_tier"`
-	NextTierFullReward     string       `json:"next_tier_full_reward,omitempty" yaml:"next_tier_full_reward,omitempty"`
-	NextTierFullRewardRune string       `json:"next_tier_full_reward_rune,omitempty" yaml:"next_tier_full_reward_rune,omitempty"`
+	NextTierMaxReward      string       `json:"next_tier_max_reward,omitempty" yaml:"next_tier_max_reward,omitempty"`
+	NextTierMaxRewardRune  string       `json:"next_tier_max_reward_rune,omitempty" yaml:"next_tier_max_reward_rune,omitempty"`
+	NextTierMidReward      string       `json:"next_tier_mid_reward,omitempty" yaml:"next_tier_mid_reward,omitempty"`
+	NextTierMidRewardRune  string       `json:"next_tier_mid_reward_rune,omitempty" yaml:"next_tier_mid_reward_rune,omitempty"`
 	NextTierLowReward      string       `json:"next_tier_low_reward,omitempty" yaml:"next_tier_low_reward,omitempty"`
 	NextTierLowRewardRune  string       `json:"next_tier_low_reward_rune,omitempty" yaml:"next_tier_low_reward_rune,omitempty"`
 	NextTierZeroReward     string       `json:"next_tier_zero_reward,omitempty" yaml:"next_tier_zero_reward,omitempty"`
@@ -849,7 +870,7 @@ type blockRewardReport struct {
 	TxCount uint64 `json:"tx_count" yaml:"tx_count"`
 	// TxCountSource says where that count came from.
 	TxCountSource string `json:"tx_count_source" yaml:"tx_count_source"`
-	// Band is the PoNA band in effect: full, low, zero or none.
+	// Band is the PoNA band in effect: max, mid, low, single, zero or none.
 	Band string `json:"band" yaml:"band"`
 	// Reward is the amount this block pays.
 	Reward     string `json:"reward" yaml:"reward"`
@@ -874,13 +895,15 @@ type txCountReport struct {
 	TxCount uint64 `json:"tx_count" yaml:"tx_count"`
 	// BlockTxCount is every entry physically in the block, including the injected
 	// pseudo-transaction. It equals what CometBFT logs as num_txs.
-	BlockTxCount      uint64 `json:"block_tx_count" yaml:"block_tx_count"`
-	BlockTxCountNote  string `json:"block_tx_count_note,omitempty" yaml:"block_tx_count_note,omitempty"`
-	BlockTxCountError string `json:"block_tx_count_error,omitempty" yaml:"block_tx_count_error,omitempty"`
-	Band              string `json:"band" yaml:"band"`
-	TierIndex         int    `json:"tier_index" yaml:"tier_index"`
-	TxCountThreshold  uint64 `json:"tx_count_threshold" yaml:"tx_count_threshold"`
-	Reward            string `json:"reward" yaml:"reward"`
-	RewardRune        string `json:"reward_rune" yaml:"reward_rune"`
-	TxCountNote       string `json:"note" yaml:"note"`
+	BlockTxCount        uint64 `json:"block_tx_count" yaml:"block_tx_count"`
+	BlockTxCountNote    string `json:"block_tx_count_note,omitempty" yaml:"block_tx_count_note,omitempty"`
+	BlockTxCountError   string `json:"block_tx_count_error,omitempty" yaml:"block_tx_count_error,omitempty"`
+	Band                string `json:"band" yaml:"band"`
+	TierIndex           int    `json:"tier_index" yaml:"tier_index"`
+	LowTxCountThreshold uint64 `json:"low_tx_count_threshold" yaml:"low_tx_count_threshold"`
+	MidTxCountThreshold uint64 `json:"mid_tx_count_threshold" yaml:"mid_tx_count_threshold"`
+	MaxTxCountThreshold uint64 `json:"max_tx_count_threshold" yaml:"max_tx_count_threshold"`
+	Reward              string `json:"reward" yaml:"reward"`
+	RewardRune          string `json:"reward_rune" yaml:"reward_rune"`
+	TxCountNote         string `json:"note" yaml:"note"`
 }

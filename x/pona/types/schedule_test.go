@@ -67,19 +67,19 @@ func TestParamsValidateRejectsBadSchedules(t *testing.T) {
 
 	// First tier not starting at 0.
 	bad = base
-	bad.Tiers = []types.Tier{{StartHeight: 1, EndHeight: 0, RewardPerBlock: rune(5)}}
+	bad.Tiers = []types.Tier{{StartHeight: 1, EndHeight: 0, MaxActivityReward: rune(5)}}
 	require.Error(t, bad.Validate())
 
 	// Non-contiguous tiers.
 	bad = base
 	bad.Tiers = []types.Tier{
-		{StartHeight: 0, EndHeight: 100, RewardPerBlock: rune(50)},
-		{StartHeight: 101, EndHeight: 0, RewardPerBlock: rune(25)},
+		{StartHeight: 0, EndHeight: 100, MaxActivityReward: rune(50)},
+		{StartHeight: 101, EndHeight: 0, MaxActivityReward: rune(25)},
 	}
 	require.Error(t, bad.Validate())
 
 	// Last tier not open-ended.
 	bad = base
-	bad.Tiers = []types.Tier{{StartHeight: 0, EndHeight: 100, RewardPerBlock: rune(50)}}
+	bad.Tiers = []types.Tier{{StartHeight: 0, EndHeight: 100, MaxActivityReward: rune(50)}}
 	require.Error(t, bad.Validate())
 }
