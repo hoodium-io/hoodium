@@ -142,48 +142,61 @@ func TestRewardForHeightAndTxCountNoTier(t *testing.T) {
 	require.True(t, params.RewardForHeight(150).IsZero())
 }
 
+// fullTier builds a complete tier. Every rate and threshold is set, because the
+// module requires all of them — a partial Tier has nil math.Int fields and will
+// panic when a band is evaluated. Tests must always use this helper (or set every
+// field) rather than hand-rolling a Tier literal.
+func fullTier(mx, mid, low, single, zero sdkmath.Int) types.Tier {
+	return types.Tier{
+		StartHeight:          0,
+		EndHeight:            0,
+		MaxActivityReward:    mx,
+		MaxTxCountThreshold:  10,
+		MidActivityReward:    mid,
+		MidTxCountThreshold:  5,
+		LowActivityReward:    low,
+		LowTxCountThreshold:  2,
+		SingleActivityReward: single,
+		ZeroActivityReward:   zero,
+	}
+}
+
+// tier1 mirrors the shipped tier-1 ladder: 50 / 25 / 15 / 1 / 0.5.
+func tier1() types.Tier {
+	return fullTier(rune(50), rune(25), rune(15), rune(1), halfRune())
+}
+
 // TestBandForTxCount exercises the band selection that PoNA uses to decide
 // which of a tier's rates is paid.
 //
 // The zero band is the important one: an idle chain must reach it, otherwise it
-// pays a higher activity rate forever (see CountRegularTxs in app/abci). The
-// single band is the newest: a block with exactly one transaction is more
-// activity than none, but far less than a used chain.
+// pays a higher activity rate forever (see CountRegularTxs in app/abci).
 func TestBandForTxCount(t *testing.T) {
-	// A tier with the single band configured.
-	withSingle := types.Tier{
-		MaxActivityReward:   rune(50),
-		MaxTxCountThreshold: 10, MidTxCountThreshold: 5, LowTxCountThreshold: 2,
-		LowActivityReward:    rune(20),
-		SingleActivityReward: rune(1),
-		ZeroActivityReward:   halfRune(),
-	}
+	tier := tier1()
 
 	testCases := []struct {
 		name    string
-		tier    types.Tier
 		txCount uint64
 		want    types.ActivityBand
 	}{
-		{"no transactions is the zero band", withSingle, 0, types.BandZero},
-		{"exactly one transaction is the single band", withSingle, 1, types.BandSingle},
-		{"two transactions is the low band", withSingle, 2, types.BandLow},
-		{"mid-1 is still the low band", withSingle, 4, types.BandLow},
-		{"mid threshold is the mid band", withSingle, 5, types.BandMid},
-		{"max-1 is still the mid band", withSingle, 9, types.BandMid},
-		{"exactly the max threshold is the max band", withSingle, 10, types.BandMax},
-		{"above the max threshold is the max band", withSingle, 1000, types.BandMax},
+		{"no transactions is the zero band", 0, types.BandZero},
+		{"exactly one transaction is the single band", 1, types.BandSingle},
+		{"two transactions is the low band", 2, types.BandLow},
+		{"mid-1 is still the low band", 4, types.BandLow},
+		{"mid threshold is the mid band", 5, types.BandMid},
+		{"max-1 is still the mid band", 9, types.BandMid},
+		{"exactly the max threshold is the max band", 10, types.BandMax},
+		{"above the max threshold is the max band", 1000, types.BandMax},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.want, tc.tier.BandForTxCount(tc.txCount))
+			require.Equal(t, tc.want, tier.BandForTxCount(tc.txCount))
+
 			// The band must agree with the amount that is actually paid.
-			require.Equal(
-				t,
-				tc.tier.RewardForTxCount(tc.txCount).String(),
-				tc.tier.ApplyFloor(tc.tier.RewardForBand(tc.want)).String(),
-			)
+			want := tier.ApplyFloor(tier.RewardForBand(tc.want))
+
+			require.Equal(t, want.String(), tier.RewardForTxCount(tc.txCount).String())
 		})
 	}
 }
@@ -249,29 +262,35 @@ func TestTierForHeight(t *testing.T) {
 // TestZeroActivityRewardIsTheFloor pins the rule that no block is ever paid less
 // than the tier's zero-activity rate.
 //
-// The default schedule (zero = 0.5 RUNE) never triggers the floor, so the test
-// also builds a tier whose low rate sits BELOW its zero rate: the precondition
-// that validatePoNA rejects on chain, and the reason the floor exists as a
-// safety net.
+// The shipped schedule never needs the floor (every rate sits above the 0.5 RUNE
+// zero rate and validatePoNA rejects an inverted ladder), so this test builds a
+// tier directly with a rate BELOW the floor to exercise Tier.ApplyFloor itself.
 func TestZeroActivityRewardIsTheFloor(t *testing.T) {
-	// A low rate below the floor: RewardForTxCount must clamp up to the floor.
-	belowFloor := types.Tier{
-		MaxActivityReward:   rune(50),
-		MaxTxCountThreshold: 10, MidTxCountThreshold: 5, LowTxCountThreshold: 2,
-		LowActivityReward:  sdkmath.NewInt(1), // 1 arune, far below 1 RUNE
-		ZeroActivityReward: rune(1),
+	// Every rate below the 1 RUNE zero rate, so the floor must clamp them all.
+	// All fields are set (via fullTier) — a partial Tier would panic.
+	belowFloor := fullTier(
+		sdkmath.NewInt(3), // max: 3 arune
+		sdkmath.NewInt(2), // mid: 2 arune
+		sdkmath.NewInt(1), // low: 1 arune
+		sdkmath.NewInt(1), // single: 1 arune
+		rune(1),           // zero: 1 RUNE — the floor
+	)
+
+	// Every band that pays below the floor is clamped up to it.
+	for _, txCount := range []uint64{0, 1, 2, 5, 9} {
+		require.Equal(t, rune(1).String(), belowFloor.RewardForTxCount(txCount).String(),
+			"txCount %d must be clamped to the floor", txCount)
 	}
 
-	for _, txCount := range []uint64{0, 2, 5, 9} {
-		got := belowFloor.RewardForTxCount(txCount)
-		require.Equal(t, rune(1).String(), got.String(),
-			"txCount %d must be clamped to the %s floor, got %s",
-			txCount, rune(1), got)
-	}
-	// The full band is unaffected: it is far above the floor.
-	require.Equal(t, rune(50).String(), belowFloor.RewardForTxCount(10).String())
+	// A rate ABOVE the floor is paid unchanged.
+	aboveFloor := fullTier(rune(50), rune(25), rune(15), rune(1), halfRune())
+	require.Equal(t, rune(50).String(), aboveFloor.RewardForTxCount(10).String(), "max band")
+	require.Equal(t, rune(25).String(), aboveFloor.RewardForTxCount(5).String(), "mid band")
+	require.Equal(t, rune(15).String(), aboveFloor.RewardForTxCount(2).String(), "low band")
+	require.Equal(t, rune(1).String(), aboveFloor.RewardForTxCount(1).String(), "single band")
+	require.Equal(t, halfRune().String(), aboveFloor.RewardForTxCount(0).String(), "zero band")
 
-	// The raw configured rate is still visible for reporting.
+	// RewardForBand returns the configured rate, before the floor is applied.
 	require.Equal(t, "1", belowFloor.RewardForBand(types.BandLow).String(),
 		"RewardForBand must return the raw rate, before the floor")
 
