@@ -147,11 +147,6 @@ two situations:
   shipped) halves the cost of a completely idle block without touching any other
   band.
 
-> **Note on "threshold 0":** a tier whose `max_tx_count_threshold` is **0** has
-> PoNA *switched off* and always pays the max rate. Zero is a sentinel meaning
-> "disabled" — it is **not** a claim that the threshold is 0 transactions. The
-> live max threshold is **10** (`DefaultTxCountThreshold`).
-
 The distinctions between the bands are deliberate: a block with a couple of real
 transactions is *some* activity and earns a meaningful reduced reward; a busy
 block earns the max; a **completely empty** block earns only a nominal amount, so

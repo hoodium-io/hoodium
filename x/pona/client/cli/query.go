@@ -112,8 +112,10 @@ func queryStoreKeyAt(clientCtx client.Context, key []byte, height int64) ([]byte
 }
 
 // queryParams returns the module params together with the height they were read
-// at. If the store holds no params yet, the compile-time defaults are returned
-// so the command still answers.
+// at.
+//
+// Empty state is an ERROR, not a fallback: inventing the compile-time defaults
+// would make the command report a schedule the chain is not actually using.
 func queryParams(clientCtx client.Context) (types.Params, int64, error) {
 	value, height, err := queryStoreKey(clientCtx, types.KeyPrefixParams)
 	if err != nil {
@@ -121,11 +123,10 @@ func queryParams(clientCtx client.Context) (types.Params, int64, error) {
 	}
 
 	if len(value) == 0 {
-		// No params in the store yet (e.g. a node that has not finished
-		// InitGenesis). Fall back to the module's own default genesis so the
-		// command answers with the schedule the module itself would install,
-		// rather than a denom literal duplicated here.
-		return types.DefaultGenesisState().Params, height, nil
+		return types.Params{}, 0, fmt.Errorf(
+			"pona params not found at height %d: the queried node has no pona state (is it running, and has InitGenesis completed?)",
+			height,
+		)
 	}
 
 	var params types.Params
@@ -144,6 +145,10 @@ func queryBlockTxCount(clientCtx client.Context) (uint64, error) {
 
 // queryBlockTxCountAt returns the PoNA transaction count recorded at the given
 // height. A height of 0 means "latest".
+//
+// A missing key is an error: the count is written every block, so an empty value
+// means the node has no pona state at that height, and reporting 0 would claim
+// the block was empty.
 func queryBlockTxCountAt(clientCtx client.Context, height int64) (uint64, error) {
 	value, _, err := queryStoreKeyAt(clientCtx, types.KeyBlockTxCount, height)
 	if err != nil {
@@ -151,7 +156,11 @@ func queryBlockTxCountAt(clientCtx client.Context, height int64) (uint64, error)
 	}
 
 	if len(value) == 0 {
-		return 0, nil
+		return 0, fmt.Errorf(
+			"no transaction count recorded at height %d: the node has no pona state there "+
+				"(the key is written every block, so an empty value means the height is not covered)",
+			height,
+		)
 	}
 
 	return sdk.BigEndianToUint64(value), nil
@@ -253,9 +262,8 @@ ladder that applies inside it:
   single  paid when the block contains exactly 1 transaction
   zero    paid when the block contains no regular transactions
 
-A max_tx_count_threshold of 0 means PoNA is disabled for that tier and the max
-rate is always paid. Amounts are reported in arune (1 RUNE = 10^18 arune) together
-with the human-readable RUNE value.`,
+Every rate and every threshold is required. Amounts are reported in arune
+(1 RUNE = 10^18 arune) together with the human-readable RUNE value.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -646,8 +654,6 @@ type tierRates struct {
 	LowTxCountThreshold uint64 `json:"low_tx_count_threshold" yaml:"low_tx_count_threshold"`
 	MidTxCountThreshold uint64 `json:"mid_tx_count_threshold" yaml:"mid_tx_count_threshold"`
 	MaxTxCountThreshold uint64 `json:"max_tx_count_threshold" yaml:"max_tx_count_threshold"`
-	// PoNAEnabled is false when MaxTxCountThreshold is 0: the max rate always applies.
-	PoNAEnabled bool `json:"pona_enabled" yaml:"pona_enabled"`
 	// Max is paid when tx_count >= max_tx_count_threshold.
 	Max amountReport `json:"max" yaml:"max"`
 	// Mid is paid when mid <= tx_count < max.
@@ -669,15 +675,13 @@ func newTierRates(tier types.Tier) tierRates {
 	// floorApplied is true when some configured rate sits below the floor and is
 	// therefore clamped. Reported so a misconfiguration is visible, not silent.
 	floorApplied := false
-	if tier.PoNAEnabled() {
-		for _, band := range []types.ActivityBand{
-			types.BandMax, types.BandMid, types.BandLow, types.BandSingle,
-		} {
-			if tier.RewardForBand(band).LT(tier.ZeroActivityReward) {
-				floorApplied = true
+	for _, band := range []types.ActivityBand{
+		types.BandMax, types.BandMid, types.BandLow, types.BandSingle,
+	} {
+		if tier.RewardForBand(band).LT(tier.ZeroActivityReward) {
+			floorApplied = true
 
-				break
-			}
+			break
 		}
 	}
 
@@ -685,7 +689,6 @@ func newTierRates(tier types.Tier) tierRates {
 		LowTxCountThreshold: tier.LowTxCountThreshold,
 		MidTxCountThreshold: tier.MidTxCountThreshold,
 		MaxTxCountThreshold: tier.MaxTxCountThreshold,
-		PoNAEnabled:         tier.PoNAEnabled(),
 		Max:                 newAmountReport(tier.MaxActivityReward),
 		Mid:                 newAmountReport(tier.MidActivityReward),
 		Low:                 newAmountReport(tier.LowActivityReward),

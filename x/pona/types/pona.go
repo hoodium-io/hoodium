@@ -21,8 +21,9 @@ import (
 // ZeroActivityReward is also the FLOOR: no band ever pays less than it, so a
 // block is always worth at least that much.
 //
-// A tier with MaxTxCountThreshold == 0 has PoNA disabled and always pays its
-// maximum reward.
+// Every tier carries a complete ladder — all five rates and all three thresholds
+// are required, and Validate rejects a tier that omits any of them. There is no
+// "disabled" mode.
 //
 // PoNA never blocks a transaction, never changes block validity, and never
 // changes who may propose: it only decides how much of the scheduled reward is
@@ -96,36 +97,19 @@ const (
 	BandNone ActivityBand = "none"
 )
 
-// PoNAEnabled reports whether the tier scales its reward by block activity.
-//
-// A TxCountThreshold of 0 is the "PoNA off" sentinel: it disables the activity
-// scaling for that tier, so the full RewardPerBlock is always paid. This is NOT
-// the threshold value — the schedule's live threshold is DefaultTxCountThreshold
-// (10). Zero is used as the sentinel because a tier that required zero
-// transactions to pay full would be meaningless.
-func (t Tier) PoNAEnabled() bool {
-	return t.MaxTxCountThreshold > 0
-}
-
 // BandForTxCount returns the PoNA band that applies to a block containing
 // txCount regular transactions.
 //
 // The five bands are selected by the tier's three thresholds, which Validate
-// guarantees are ordered 2 <= Low < Mid < Max:
+// guarantees are ordered 2 <= Low < Mid < Max, so every band is reachable and no
+// clamping or fallback is needed:
 //
 //	txCount == 0             -> Zero
 //	txCount == 1             -> Single
 //	Low  <= txCount < Mid    -> Low
 //	Mid  <= txCount < Max    -> Mid
 //	txCount >= Max           -> Max
-//
-// A tier with PoNA disabled (MaxTxCountThreshold == 0) always reports BandMax,
-// because its maximum reward is paid regardless of the block's activity.
 func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
-	if !t.PoNAEnabled() {
-		return BandMax
-	}
-
 	switch {
 	case txCount == 0:
 		return BandZero
@@ -185,10 +169,6 @@ func (t Tier) RewardForBand(band ActivityBand) sdkmath.Int {
 // also keeps the schedule self-consistent if a tier is ever configured with a
 // low rate below its zero rate.
 func (t Tier) ApplyFloor(reward sdkmath.Int) sdkmath.Int {
-	if t.ZeroActivityReward.IsNil() {
-		return reward
-	}
-
 	if reward.LT(t.ZeroActivityReward) {
 		return t.ZeroActivityReward
 	}
@@ -251,28 +231,7 @@ func (p Params) BandForHeightAndTxCount(height, txCount uint64) ActivityBand {
 // could never be selected, because tx_count 0 and 1 are the zero and single
 // bands. Such a tier would be dead configuration.
 func (t Tier) validatePoNA(idx int) error {
-	if t.MaxTxCountThreshold == 0 {
-		// PoNA disabled: the activity fields are unused, but must not be
-		// negative if the operator set them anyway.
-		for _, r := range []struct {
-			name   string
-			amount sdkmath.Int
-		}{
-			{"max activity", t.MaxActivityReward},
-			{"mid activity", t.MidActivityReward},
-			{"low activity", t.LowActivityReward},
-			{"single activity", t.SingleActivityReward},
-			{"zero activity", t.ZeroActivityReward},
-		} {
-			if !r.amount.IsNil() && r.amount.IsNegative() {
-				return fmt.Errorf("pona: tier %d %s reward must be non-negative", idx, r.name)
-			}
-		}
-
-		return nil
-	}
-
-	// Every rate is required.
+	// Every rate is required and must be non-negative.
 	for _, r := range []struct {
 		name   string
 		amount sdkmath.Int
@@ -291,7 +250,12 @@ func (t Tier) validatePoNA(idx int) error {
 		}
 	}
 
-	// Threshold ordering: 2 <= low < mid < max.
+	// Every threshold is required, in the order the bands are evaluated:
+	// 2 <= low < mid < max.
+	//
+	// There is no "PoNA disabled" mode: a chain whose economics depend on
+	// transaction activity must always have a complete ladder, so an incomplete
+	// tier is rejected here instead of silently paying a flat rate.
 	if t.LowTxCountThreshold < MinLowTxCountThreshold {
 		return fmt.Errorf(
 			"pona: tier %d low tx count threshold %d must be at least %d (tx counts 0 and 1 are the zero and single bands)",

@@ -39,7 +39,6 @@ func TestDefaultTiersPoNA(t *testing.T) {
 			require.Equal(t, tc.maxTx, tier.MaxTxCountThreshold, "max threshold")
 			require.Equal(t, tc.midTx, tier.MidTxCountThreshold, "mid threshold")
 			require.Equal(t, tc.lowTx, tier.LowTxCountThreshold, "low threshold")
-			require.True(t, tier.PoNAEnabled())
 		})
 	}
 }
@@ -123,19 +122,6 @@ func TestRewardForHeightAndTxCount(t *testing.T) {
 	}
 }
 
-// TestPoNADisabledWhenThresholdZero verifies that a tier with a zero max
-// threshold always pays its max reward, regardless of block activity.
-func TestPoNADisabledWhenThresholdZero(t *testing.T) {
-	tier := types.Tier{
-		MaxActivityReward: rune(50),
-		// MaxTxCountThreshold intentionally 0 => PoNA off.
-	}
-	require.False(t, tier.PoNAEnabled())
-	require.Equal(t, rune(50).String(), tier.RewardForTxCount(0).String())
-	require.Equal(t, rune(50).String(), tier.RewardForTxCount(1).String())
-	require.Equal(t, rune(50).String(), tier.RewardForTxCount(9999).String())
-}
-
 // TestRewardForHeightAndTxCountNoTier verifies that a height with no covering
 // tier yields zero (fee-only, emission ended).
 //
@@ -187,16 +173,6 @@ func TestBandForTxCount(t *testing.T) {
 		{"max-1 is still the mid band", withSingle, 9, types.BandMid},
 		{"exactly the max threshold is the max band", withSingle, 10, types.BandMax},
 		{"above the max threshold is the max band", withSingle, 1000, types.BandMax},
-
-		// Without a configured single rate, a 1-tx block folds into the low band:
-		// this is what pre-existing on-chain schedules do, since the field was
-		// added later and reads as zero until set.
-		{
-			name:    "single band disabled folds 1 tx into low",
-			tier:    types.Tier{MaxActivityReward: rune(50), MaxTxCountThreshold: 10, MidTxCountThreshold: 5, LowTxCountThreshold: 2, LowActivityReward: rune(20), ZeroActivityReward: rune(1)},
-			txCount: 1,
-			want:    types.BandLow,
-		},
 	}
 
 	for _, tc := range testCases {
@@ -209,18 +185,6 @@ func TestBandForTxCount(t *testing.T) {
 				tc.tier.ApplyFloor(tc.tier.RewardForBand(tc.want)).String(),
 			)
 		})
-	}
-}
-
-// TestBandForTxCountPoNADisabled verifies that a tier with PoNA switched off
-// reports the full band for every transaction count.
-func TestBandForTxCountPoNADisabled(t *testing.T) {
-	tier := types.Tier{MaxActivityReward: rune(50)} // TxCountThreshold 0 => PoNA off
-
-	require.False(t, tier.PoNAEnabled())
-	for _, txCount := range []uint64{0, 1, 9, 10, 1000} {
-		require.Equal(t, types.BandMax, tier.BandForTxCount(txCount), "txCount %d", txCount)
-		require.Equal(t, rune(50).String(), tier.RewardForTxCount(txCount).String())
 	}
 }
 
@@ -503,36 +467,37 @@ func TestShippedDefaultScheduleIsValid(t *testing.T) {
 	}
 }
 
-// TestParamsValidateRejectsBadPoNA verifies that an enabled tier with a missing
-// or negative PoNA rate is rejected, while a disabled (threshold 0) tier is not.
+// TestParamsValidateRejectsBadPoNA verifies that a missing or negative rate is
+// rejected. Every rate is required — there is no partially-configured tier.
 func TestParamsValidateRejectsBadPoNA(t *testing.T) {
-	mkTier := func(low, zero sdkmath.Int) types.Tier {
+	mkTier := func(mid, low, zero sdkmath.Int) types.Tier {
 		return types.Tier{
-			StartHeight:         0,
-			EndHeight:           0,
-			MaxActivityReward:   rune(50),
-			MaxTxCountThreshold: 10, MidTxCountThreshold: 5, LowTxCountThreshold: 2,
-			LowActivityReward:  low,
-			ZeroActivityReward: zero,
+			StartHeight:          0,
+			EndHeight:            0,
+			MaxActivityReward:    rune(50),
+			MaxTxCountThreshold:  10,
+			MidActivityReward:    mid,
+			MidTxCountThreshold:  5,
+			LowActivityReward:    low,
+			LowTxCountThreshold:  2,
+			SingleActivityReward: rune(1),
+			ZeroActivityReward:   zero,
 		}
 	}
 
 	// Negative low activity reward.
-	bad := types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(-20), rune(1))}}
+	bad := types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(25), rune(-20), rune(1))}}
 	require.Error(t, bad.Validate())
 
-	// Nil zero activity reward (PoNA enabled).
-	bad = types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(20), sdkmath.Int{})}}
+	// Nil zero activity reward.
+	bad = types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(25), rune(15), sdkmath.Int{})}}
 	require.Error(t, bad.Validate())
 
-	// Valid PoNA tier.
-	good := types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(20), rune(1))}}
+	// Nil mid activity reward: required, so rejected.
+	bad = types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(sdkmath.Int{}, rune(15), rune(1))}}
+	require.Error(t, bad.Validate())
+
+	// Fully specified tier is accepted.
+	good := types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(25), rune(15), halfRune())}}
 	require.NoError(t, good.Validate())
-
-	// PoNA disabled (threshold 0): nil low/zero fields are fine.
-	disabled := types.Params{
-		Denom: "arune",
-		Tiers: []types.Tier{{StartHeight: 0, EndHeight: 0, MaxActivityReward: rune(50)}},
-	}
-	require.NoError(t, disabled.Validate())
 }

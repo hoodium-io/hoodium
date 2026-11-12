@@ -181,9 +181,6 @@ func (p Params) Validate() error {
 	}
 
 	for i, t := range p.Tiers {
-		if t.MaxActivityReward.IsNil() || t.MaxActivityReward.IsNegative() {
-			return fmt.Errorf("pona: tier %d max reward must be non-negative", i)
-		}
 		if err := t.validatePoNA(i); err != nil {
 			return err
 		}
