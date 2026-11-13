@@ -267,21 +267,40 @@ runed query pona block-reward
 
 ```yaml
 band: zero
-band_explanation: the block contains no regular transactions, so the zero-activity rate of 0.5 RUNE applies
-height: 32495
+band_explanation: the block contains no regular transactions, so the zero-activity
+  rate of 0.5 RUNE applies
+denom: arune
+height: 252
+pool_balance: "999999873000000000000000000"
+pool_balance_rune: "999999873"
+pool_sufficient: true
 reward: "500000000000000000"
 reward_rune: "0.5"
 tier:
-  full_reward: {arune: "50000000000000000000", rune: "50"}
-  low_reward: {arune: "20000000000000000000", rune: "20"}
-  single: {arune: "1000000000000000000", rune: "1"}
-  single_enabled: true
-  zero: {arune: "500000000000000000", rune: "0.5"}
+  ends_at_height: 10519200
+  ends_at_height_meaning: exclusive
   floor_applied: false
-  pona_enabled: true
-  tx_count_threshold: 10
-  tier_index: 0
+  low:
+    arune: "15000000000000000000"
+    rune: "15"
+  low_tx_count_threshold: 2
+  max:
+    arune: "50000000000000000000"
+    rune: "50"
+  max_tx_count_threshold: 10
+  mid:
+    arune: "25000000000000000000"
+    rune: "25"
+  mid_tx_count_threshold: 5
+  single:
+    arune: "1000000000000000000"
+    rune: "1"
+  start_height: 0
   tier_count: 3
+  tier_index: 0
+  zero:
+    arune: "500000000000000000"
+    rune: "0.5"
 tx_count: 0
 tx_count_source: chain (recorded for the last finalized block)
 ```
@@ -317,18 +336,43 @@ runed query pona tier
 ```
 
 ```yaml
-height: 32495
+blocks_until_next_tier: "10518945"
+height: 255
+next_tier_low_reward: "10000000000000000000"
+next_tier_low_reward_rune: "10"
+next_tier_max_reward: "25000000000000000000"
+next_tier_max_reward_rune: "25"
+next_tier_mid_reward: "15000000000000000000"
+next_tier_mid_reward_rune: "15"
+next_tier_start_height: 10519200
+next_tier_zero_reward: "500000000000000000"
+next_tier_zero_reward_rune: "0.5"
 tier:
-  start_height: 0
   ends_at_height: 10519200
   ends_at_height_meaning: exclusive
-  tier_index: 0
+  floor_applied: false
+  low:
+    arune: "15000000000000000000"
+    rune: "15"
+  low_tx_count_threshold: 2
+  max:
+    arune: "50000000000000000000"
+    rune: "50"
+  max_tx_count_threshold: 10
+  mid:
+    arune: "25000000000000000000"
+    rune: "25"
+  mid_tx_count_threshold: 5
+  single:
+    arune: "1000000000000000000"
+    rune: "1"
+  start_height: 0
   tier_count: 3
-  full_reward: {arune: "50000000000000000000", rune: "50"}
-blocks_until_next_tier: "10486705"
-time_until_next_tier: 1y 364d
-next_tier_full_reward: "25000000000000000000"
-next_tier_full_reward_rune: "25"
+  tier_index: 0
+  zero:
+    arune: "500000000000000000"
+    rune: "0.5"
+time_until_next_tier: 2y 0d
 ```
 
 Estimates use Hoodium's 6-second target block time, the same constant the
@@ -341,14 +385,21 @@ runed query pona pool
 ```
 
 ```yaml
-address: rune1...
-balance: "999999999999999..."
-balance_rune: "999999999..."
-remaining_blocks: "19999999"
-remaining_duration: 3y 295d
+address: rune1aw3fuarx860t9a03eaeawnqyny8kez742pcuzl
+balance: "999999871500000000000000000"
+balance_rune: "999999871.5"
+denom: arune
+emission_ended: false
+height: 255
+max_reward_per_block: "50000000000000000000"
+max_reward_rune: "50"
+module_account: validator_reward_pool
+remaining_blocks: "19999997"
+remaining_duration: 3y 293d
+tier_index: 0
 ```
 
-`remaining_blocks` assumes **every** future block pays the tier's full rate, so
+`remaining_blocks` assumes **every** future block pays the tier's max rate, so
 it is a *lower* bound: quiet blocks pay less and make the reserve last longer.
 When the balance reaches zero, emission stops and the chain runs on fees only.
 

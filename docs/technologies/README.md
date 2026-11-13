@@ -14,7 +14,7 @@ Distinction from [`../features/`](../features/README.md):
 | Technology | Doc | Status |
 |---|---|---|
 | **PoNA (RUNE rewards) — `x/pona`** | [`pona.md`](./pona.md) | Implemented |
-| RUNE emission schedule (50/25/10) | [`pona.md`](./pona.md#0-the-module-at-a-glance) | Implemented |
+| RUNE emission schedule (50/25/15) | [`pona.md`](./pona.md#0-the-module-at-a-glance) | Implemented |
 | Two-gas-price model | [`../tx-fees.md`](../tx-fees.md) | Implemented |
 
 > Add a new `<technology>.md` here and link it in the table above when a Hoodium

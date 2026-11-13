@@ -196,7 +196,7 @@ PoNA rates are defined **per emission tier**. The max rate is the ceiling owned 
 | 3 | Y4 → infinite | **15 RUNE** | **10 RUNE** | **5 RUNE** | **1 RUNE** | **0.5 RUNE** |
 
 All values are in **RUNE** (stored on-chain as **arune**, `1 RUNE = 10^18 arune`).
-The Zero column is also the **floor** applied to every band ([§2.1](#21-zero_activity_reward-is-the-floor)).
+The Zero column is also the **floor** applied to every band ([§2.1](#21-zeroactivityreward-is-the-floor)).
 
 In arune, the tier-1 rates are:
 
@@ -491,23 +491,37 @@ band: zero
 band_explanation: the block contains no regular transactions, so the zero-activity
   rate of 0.5 RUNE applies
 denom: arune
-height: 32495
+height: 252
+pool_balance: "999999873000000000000000000"
+pool_balance_rune: "999999873"
+pool_sufficient: true
 reward: "500000000000000000"
 reward_rune: "0.5"
 tier:
-  max: {arune: "50000000000000000000", rune: "50"}
-  mid: {arune: "25000000000000000000", rune: "25"}
-  low: {arune: "15000000000000000000", rune: "15"}
-  single: {arune: "1000000000000000000", rune: "1"}
-  single_enabled: true
-  zero: {arune: "500000000000000000", rune: "0.5"}
+  ends_at_height: 10519200
+  ends_at_height_meaning: exclusive
   floor_applied: false
-  pona_enabled: true
+  low:
+    arune: "15000000000000000000"
+    rune: "15"
   low_tx_count_threshold: 2
-  mid_tx_count_threshold: 5
+  max:
+    arune: "50000000000000000000"
+    rune: "50"
   max_tx_count_threshold: 10
-  tier_index: 0
+  mid:
+    arune: "25000000000000000000"
+    rune: "25"
+  mid_tx_count_threshold: 5
+  single:
+    arune: "1000000000000000000"
+    rune: "1"
+  start_height: 0
   tier_count: 3
+  tier_index: 0
+  zero:
+    arune: "500000000000000000"
+    rune: "0.5"
 tx_count: 0
 tx_count_source: chain (recorded for the last finalized block)
 ```
@@ -524,13 +538,15 @@ band: zero
 block_tx_count: 1
 block_tx_count_note: every entry in the block, including the injected pseudo-tx
   (CometBFT num_txs)
-height: 1304
+height: 253
+low_tx_count_threshold: 2
+max_tx_count_threshold: 10
+mid_tx_count_threshold: 5
 note: regular transactions only; the injected vote-extension pseudo-tx is excluded
 reward: "500000000000000000"
 reward_rune: "0.5"
 tier_index: 0
 tx_count: 0
-tx_count_threshold: 10
 ```
 
 | Field | Meaning |
@@ -557,16 +573,17 @@ case** — never a bug.
    excluded via `appabci.CountRegularTxs`, so an idle block counts as
    `tx_count = 0` and reaches the zero band
    (see [§4.1](#41-which-transactions-are-counted)).
-2. **Threshold configurability** — `TxCountThreshold` is a per-tier on-chain
-   field (mutable via params), default `10`. Governance-adjustable in practice;
-   no dedicated gov Msg exists yet.
-3. **Zero-band floor** — **resolved**: `min_reward_per_block` was removed so the
-   `1 RUNE` zero-activity reward is expressible. Emission now ends only when no
-   tier covers the height or the pool is empty. The zero rate was later lowered to
-   **0.5 RUNE** and now also acts as the **floor** of every band (see §2.1).
+2. **Threshold configurability** — the three thresholds
+   (`low_tx_count_threshold`, `mid_tx_count_threshold`, `max_tx_count_threshold`)
+   are per-tier on-chain fields (mutable via params), defaulting to `2 / 5 / 10`.
+   Governance-adjustable in practice; no dedicated gov Msg exists yet.
+3. **Zero-band floor** — **resolved**: `min_reward_per_block` was removed so a
+   sub-1-RUNE zero-activity reward is expressible. Emission now ends only when no
+   tier covers the height or the pool is empty. The zero rate is **0.5 RUNE** and
+   also acts as the **floor** of every band (see §2.1).
 4. **Standalone `x/pona` module** — deferred. The policy is implemented inside
    `x/pona`; splitting it later is a refactor, not a behaviour change
-   (see [§7](#7-module-boundary)).
+   (see [§7](#7-module-structure)).
 5. **Genesis / first block** — before any `PreBlocker` has run, the stored tx
    count is absent and `BlockTxCount` returns `0` (the zero-activity band).
 6. **gRPC Query service** — not implemented, and not needed for operators
@@ -574,8 +591,6 @@ case** — never a bug.
    A real `Query` service is only worth adding when a proto-breaking change is
    being made anyway.
 
-
-
-##
+---
 
 #### Credits: PoNA Mechanism is designed and built by Evorz Labs

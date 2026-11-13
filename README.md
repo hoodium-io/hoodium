@@ -26,7 +26,7 @@ Progress toward **Mainchain Mainnet**. Items are checked as they land.
 
 ### Phase 2 — RUNE rewards (this cycle)
 - [x] `x/pona` module — 1B validator reward pool, tiered emission schedule
-- [x] Emission schedule: **50 / 25 / 10 RUNE per block** (Y0–2 / Y2–4 / Y4+)
+- [x] Emission schedule: **50 / 25 / 15 RUNE per block** (Y0–2 / Y2–4 / Y4+)
 - [x] **PoNA (Proof of Network Activity)** — block reward scaled by transactions per block
 - [x] Fee-only fallback when the reserve is exhausted
 - [x] **Min-delegation (0.1 RUNE)** enforced at the staking precompile
@@ -66,8 +66,8 @@ Custom features built for Hoodium (i.e. beyond stock Cosmos SDK / EVM behaviour)
 |---|---|
 | **RUNE native token** | The single token for gas, governance and validator/delegator rewards on the Mainchain. Denom `arune` (1 RUNE = 10^18 arune); total supply capped at **10B RUNE**. |
 | **Fixed-supply emission** | Block rewards come from a **pre-funded 1B RUNE reserve**, not Cosmos-style inflation. When the reserve empties, the chain runs **fee-only** permanently. |
-| **Tiered emission schedule** | Static reward steps down over time: **50 RUNE/block** (Y0–2) → **25** (Y2–4) → **10** (Y4+). |
-| **PoNA — Proof of Network Activity** | The block reward scales with how many transactions the block actually contains: full rate at `tx >= 10`, a reduced rate at `1-9` tx, and a nominal **1 RUNE** for an empty block. Idle chains drain the reserve far more slowly. |
+| **Tiered emission schedule** | Static reward steps down over time: **50 RUNE/block** (Y0–2) → **25** (Y2–4) → **15** (Y4+). |
+| **PoNA — Proof of Network Activity** | The block reward scales with how many regular transactions the block contains, on a five-step ladder per tier: **max** at `tx >= 10`, **mid** at `5-9`, **low** at `2-4`, **single** at exactly `1`, and a nominal **0.5 RUNE** for an empty block. Idle chains drain the reserve far more slowly. See [`docs/technologies/pona.md`](./docs/technologies/pona.md). |
 | **Two-gas-price model** | Separate minimum gas prices for **regular** vs **deployment** transactions, both **governance-adjustable**. |
 | **Standard staking** (replacing PoA) | Permissionless Cosmos staking: **101** max validators, **500,000 RUNE** min self-delegation, **5%** min commission. |
 | **Staking from EVM** | A staking precompile lets EVM accounts delegate / undelegate / query without leaving the EVM toolchain. |
