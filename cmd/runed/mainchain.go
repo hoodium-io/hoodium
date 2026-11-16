@@ -428,8 +428,18 @@ func initGenesisFilesForNetwork(
 
 	// Apply the same node-wide CometBFT settings a `runed setup`/`runed init`
 	// home gets, so an init-files node and a joining node share one P2P/mempool
-	// profile. Genesis/bootstrap validators are validator-safe: loopback RPC.
-	ApplyHoodiumCometDefaults(nodeConfig, DefaultNodeProfile)
+	// profile.
+	//
+	// PROFILE: a SINGLE-node generation is the genesis/bootstrap node — a
+	// jump-start node that also serves as the local devnet, so it gets the
+	// loopback EVM JSON-RPC surface for wallets and debugging. A MULTI-node
+	// generation produces several equally long-lived validators and none of them
+	// is "the" bootstrap, so they all stay validator-safe.
+	initProfile := DefaultNodeProfile
+	if args.numValidators == 1 {
+		initProfile = NodeProfileBootstrap
+	}
+	ApplyHoodiumCometDefaults(nodeConfig, initProfile)
 
 	// Initialize config files for each validator node.
 	for i := range validators {
@@ -437,7 +447,7 @@ func initGenesisFilesForNetwork(
 
 		nodeConfig.SetRoot(nodeDir)
 		nodeConfig.Moniker = nodeDirNames[i]
-		nodeConfig.RPC.ListenAddress = getRPCAddress(i, args.startingIPAddress, DefaultNodeProfile)
+		nodeConfig.RPC.ListenAddress = getRPCAddress(i, args.startingIPAddress, initProfile)
 		nodeConfig.P2P.ListenAddress = getP2PAddress(i, args.startingIPAddress)
 		nodeConfig.RPC.PprofListenAddress = getPprofAddress(i, args.startingIPAddress)
 		nodeConfig.P2P.PersistentPeers = persistentPeers
@@ -457,18 +467,20 @@ func initGenesisFilesForNetwork(
 		// DefaultAppConfig). That builder pins the gas floor, telemetry and
 		// state-sync, and applies the node profile's service surface.
 		//
-		// PROFILE: always validator-safe. These homes are network bootstrap /
-		// genesis validators, so they get no REST API and no EVM JSON-RPC —
-		// dedicated public API and JSON-RPC nodes serve those. Only the fields
-		// that are genuinely PER-NODE are overridden here: the bind ports for a
-		// multi-node layout, and the chain-id telemetry label.
-		appConfig := DefaultAppConfig(cmdcfg.BaseDenom, DefaultNodeProfile)
+		// PROFILE: matches the CometBFT profile chosen above. A single-node
+		// generation is the genesis/bootstrap node, so it gets the loopback EVM
+		// JSON-RPC surface; multi-node generations stay validator-safe (no REST
+		// API, no EVM JSON-RPC) because dedicated public API and JSON-RPC nodes
+		// serve those. Only the fields that are genuinely PER-NODE are overridden
+		// here: the bind ports for a multi-node layout, and the chain-id telemetry
+		// label.
+		appConfig := DefaultAppConfig(cmdcfg.BaseDenom, initProfile)
 		appConfig.MinGasPrices = args.minGasPrices
 		appConfig.API.Address = getAPIAddress(i, args.startingIPAddress)
 		appConfig.GRPC.Address = getGRPCAddress(i, args.startingIPAddress)
 		appConfig.Telemetry.GlobalLabels = [][]string{{"chain_id", args.chainID}}
-		appConfig.JSONRPC.Address = getJSONRPCAddress(i, args.startingIPAddress)
-		appConfig.JSONRPC.WsAddress = getJSONRPCWsAddress(i, args.startingIPAddress)
+		appConfig.JSONRPC.Address = getJSONRPCAddress(i, args.startingIPAddress, initProfile)
+		appConfig.JSONRPC.WsAddress = getJSONRPCWsAddress(i, args.startingIPAddress, initProfile)
 		srvconfig.WriteConfigFile(filepath.Join(nodeDir, "config/app.toml"), *appConfig)
 
 		// Write client.toml with the chain-id set. Without this, the node's
@@ -1129,24 +1141,37 @@ func getGRPCAddress(i int, startingIPAddr string) string {
 	return fmt.Sprintf("0.0.0.0:%d", port)
 }
 
-func getJSONRPCAddress(i int, startingIPAddr string) string {
+func getJSONRPCAddress(i int, startingIPAddr string, profile NodeProfile) string {
 	port := 8545
 
 	if startingIPAddr == localhost {
 		port += 2 * i
 	}
 
-	return fmt.Sprintf("0.0.0.0:%d", port)
+	// The bootstrap node's JSON-RPC is a local wallet/debug surface, so it binds
+	// loopback. A seed node is meant to serve clients and keeps the
+	// all-interfaces bind.
+	host := "0.0.0.0"
+	if profile == NodeProfileBootstrap {
+		host = "127.0.0.1"
+	}
+
+	return fmt.Sprintf("%s:%d", host, port)
 }
 
-func getJSONRPCWsAddress(i int, startingIPAddr string) string {
+func getJSONRPCWsAddress(i int, startingIPAddr string, profile NodeProfile) string {
 	port := 8546
 
 	if startingIPAddr == localhost {
 		port += 2 * i
 	}
 
-	return fmt.Sprintf("0.0.0.0:%d", port)
+	host := "0.0.0.0"
+	if profile == NodeProfileBootstrap {
+		host = "127.0.0.1"
+	}
+
+	return fmt.Sprintf("%s:%d", host, port)
 }
 
 func getAddrBookStrict(startingIPAddr string) bool {
@@ -1266,6 +1291,16 @@ const DefaultSnapshotKeepRecent = 2
 // and EVM JSON-RPC (HTTP + WebSocket) enabled, bound to loopback. A seed operator
 // who intends to serve the endpoints publicly rebinds the addresses; the profile
 // does not expose them to the internet by itself.
+//
+// NodeProfileBootstrap is for the single genesis/bootstrap node produced by
+// `runed genesis init-files` when it generates ONE validator. That node is a
+// jump-start node rather than a long-lived validator, and it is the node a
+// developer runs locally, so it additionally enables the EVM JSON-RPC surface
+// (HTTP + WebSocket, loopback-bound) to make wallets and debugging work without
+// standing up a separate seed node.
+//
+// It deliberately does NOT enable the REST API: nothing in the devnet workflow
+// needs it, and every listener is one more thing to secure.
 type NodeProfile string
 
 const (
@@ -1273,11 +1308,14 @@ const (
 	NodeProfileValidator NodeProfile = "validator"
 	// NodeProfileSeed additionally enables the REST API and EVM JSON-RPC.
 	NodeProfileSeed NodeProfile = "seed"
+	// NodeProfileBootstrap is validator consensus + loopback CometBFT RPC +
+	// loopback EVM JSON-RPC. Single-node `genesis init-files` only.
+	NodeProfileBootstrap NodeProfile = "bootstrap"
 )
 
 // IsValid reports whether p is a recognised node profile.
 func (p NodeProfile) IsValid() bool {
-	return p == NodeProfileValidator || p == NodeProfileSeed
+	return p == NodeProfileValidator || p == NodeProfileSeed || p == NodeProfileBootstrap
 }
 
 // DefaultNodeProfile is the profile every generator falls back to. It is
@@ -1305,17 +1343,25 @@ const DefaultNodeProfile = NodeProfileValidator
 //   - JSON-RPC is disabled on validators because `eth_sendRawTransaction` on a
 //     publicly reachable validator turns it into an open transaction relay —
 //     a mempool-flooding and DoS vector.
+//
+//   - The bootstrap profile enables JSON-RPC but NOT the REST API: it exists so a
+//     locally-run genesis node can serve wallets and be debugged, and REST is not
+//     needed for either.
 func ApplyNodeProfile(cfg *config.Config, profile NodeProfile) {
-	if profile == NodeProfileSeed {
+	switch profile {
+	case NodeProfileSeed:
 		cfg.API.Enable = true
 		cfg.JSONRPC.Enable = true
-		return
+	case NodeProfileBootstrap:
+		// JSON-RPC only; REST stays off.
+		cfg.API.Enable = false
+		cfg.JSONRPC.Enable = true
+	default:
+		// Validator-safe: no REST, no EVM JSON-RPC. Both are served by dedicated
+		// public nodes; a validator needs neither to validate or to onboard.
+		cfg.API.Enable = false
+		cfg.JSONRPC.Enable = false
 	}
-
-	// Validator-safe: no REST, no EVM JSON-RPC. Both are served by dedicated
-	// public nodes; a validator needs neither to validate or to onboard.
-	cfg.API.Enable = false
-	cfg.JSONRPC.Enable = false
 }
 
 // DefaultAppConfig returns the app.toml configuration that EVERY Hoodium node

@@ -323,6 +323,69 @@ func (suite *BackendTestSuite) TestGlobalMinGasPrice() {
 	}
 }
 
+// TestGasPriceMeetsRegularFloor is a regression test for the bug where the RPC
+// advertised MinGasPrice (2.25e10) while the ante chain enforced
+// MinRegularGasPrice (2.5e12), so every wallet-produced transaction was rejected
+// with "requires a gas price of at least 2500000000000 arune".
+//
+// It asserts the two properties a wallet depends on:
+//
+//  1. eth_gasPrice >= MinRegularGasPrice          (legacy txs)
+//  2. tip + baseFee >= MinRegularGasPrice         (EIP-1559 txs, where the
+//     effective price is min(feeCap, tipCap+baseFee) and therefore CANNOT be
+//     rescued by raising maxFeePerGas alone)
+func (suite *BackendTestSuite) TestGasPriceMeetsRegularFloor() {
+	testCases := []struct {
+		name          string
+		minRegular    sdkmath.LegacyDec
+		minDeployment sdkmath.LegacyDec
+	}{
+		{
+			name:          "hoodium defaults 2.5e12 / 5e12",
+			minRegular:    sdkmath.LegacyNewDec(2_500_000_000_000),
+			minDeployment: sdkmath.LegacyNewDec(5_000_000_000_000),
+		},
+		{
+			name:          "equal floors 2e10 / 4e10",
+			minRegular:    sdkmath.LegacyNewDec(20_000_000_000),
+			minDeployment: sdkmath.LegacyNewDec(40_000_000_000),
+		},
+	}
+
+	for _, tc := range testCases {
+		suite.Run(fmt.Sprintf("case %s", tc.name), func() {
+			suite.SetupTest()
+			feeMarketClient := suite.backend.queryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
+			RegisterFeeMarketParamsWithFloors(feeMarketClient, 1, tc.minRegular, tc.minDeployment)
+
+			header := suite.backend.CurrentHeader()
+			suite.Require().NotNil(header)
+			suite.Require().NotNil(header.BaseFee)
+
+			floor := tc.minRegular.TruncateInt().BigInt()
+
+			// 1. Legacy price.
+			gasPrice, err := suite.backend.GasPrice()
+			suite.Require().NoError(err)
+			suite.Require().GreaterOrEqual(
+				(*big.Int)(gasPrice).Cmp(floor), 0,
+				"eth_gasPrice %s is below MinRegularGasPrice %s", gasPrice.ToInt(), floor,
+			)
+
+			// 2. EIP-1559: the effective price the chain will charge.
+			tip, err := suite.backend.SuggestGasTipCap(header.BaseFee)
+			suite.Require().NoError(err)
+
+			effective := new(big.Int).Add(tip, header.BaseFee)
+			suite.Require().GreaterOrEqual(
+				effective.Cmp(floor), 0,
+				"tip %s + baseFee %s = %s is below MinRegularGasPrice %s; no maxFeePerGas can rescue such a tx",
+				tip, header.BaseFee, effective, floor,
+			)
+		})
+	}
+}
+
 func (suite *BackendTestSuite) TestFeeHistory() {
 	testCases := []struct {
 		name           string

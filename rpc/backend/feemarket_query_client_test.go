@@ -27,6 +27,27 @@ func RegisterFeeMarketParams(feeMarketClient *mocks.FeeMarketQueryClient, height
 		Return(&feemarkettypes.QueryParamsResponse{Params: params}, nil)
 }
 
+// RegisterFeeMarketParamsWithFloors registers FeeMarket params that carry real
+// gas-price floors, unlike RegisterFeeMarketParams which zeroes them out.
+//
+// The zero-floor variant exists so the gas-price derivation tests can assert raw
+// arithmetic. Any test that checks the RPC against Hoodium's actual fee policy
+// must use THIS helper, because the RPC is required to advertise
+// MinRegularGasPrice.
+func RegisterFeeMarketParamsWithFloors(
+	feeMarketClient *mocks.FeeMarketQueryClient,
+	height int64,
+	minRegular, minDeployment sdkmath.LegacyDec,
+) {
+	params := feemarkettypes.DefaultParams()
+	params.MinGasPrice = sdkmath.LegacyZeroDec()
+	params.MinRegularGasPrice = minRegular
+	params.MinDeploymentGasPrice = minDeployment
+
+	feeMarketClient.On("Params", rpc.ContextWithHeight(height), &feemarkettypes.QueryParamsRequest{}).
+		Return(&feemarkettypes.QueryParamsResponse{Params: params}, nil)
+}
+
 func RegisterFeeMarketParamsError(feeMarketClient *mocks.FeeMarketQueryClient, height int64) {
 	feeMarketClient.On("Params", rpc.ContextWithHeight(height), &feemarkettypes.QueryParamsRequest{}).
 		Return(nil, sdkerrors.ErrInvalidRequest)
