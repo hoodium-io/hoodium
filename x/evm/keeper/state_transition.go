@@ -17,6 +17,7 @@ package keeper
 
 import (
 	"math/big"
+	"strings"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -420,7 +421,85 @@ func (k *Keeper) ApplyTransaction(ctx sdk.Context, tx *ethtypes.Transaction) (*t
 
 	// reset the gas meter for current cosmos transaction
 	k.ResetGasMeterAndConsumeGas(ctx, totalGasUsed)
+
+	// Log every executed EVM transaction at Info.
+	//
+	// # Why the EVM path logs here and nowhere else
+	//
+	// The EVM module reports through ABCI events, not the logger, so a devnet
+	// running at `log_level = info` shows PoNA rewards but nothing about EVM
+	// traffic: no sender, no recipient, no amount, no module=evm line. That makes
+	// local debugging ("did my MetaMask tx land?") impossible without an indexer.
+	//
+	// ApplyTransaction is the single choke point every EVM transaction passes
+	// through (eth_sendRawTransaction, Cosmos MsgEthereumTx, internal calls), so
+	// one log here covers all of them. It is emitted once per transaction, on
+	// success AND on VM failure — a reverted tx is still a landed tx, and its
+	// vm_error is the most useful thing to see.
+	//
+	// TODO: demote this call to Debug before testnet/mainnet. At devnet volume it
+	// is the only way to see EVM traffic without an indexer, which is why it is
+	// Info today. At testnet/mainnet volume it is one line PER TRANSACTION —
+	// unbounded growth per block that would drown an operator's log. Tracked as
+	// B21 in the hoodium memory bank's roadmap; the change is `Info(` -> `Debug(`.
+	//
+	// Recipient is logged as "contract creation" when To is nil, which is the
+	// standard EVM CREATE semantics.
+	recipient := "contract creation"
+	if msg.To != nil {
+		recipient = msg.To.Hex()
+	}
+
+	// Status is "success" or a short failure marker. res.Failed() is what
+	// ApplyTransaction itself used to build the receipt status above.
+	status := "success"
+	if res.Failed() {
+		status = "failed"
+	}
+
+	k.Logger(ctx).Info(
+		"evm tx executed",
+		"hash", res.Hash,
+		"status", status,
+		"from", msg.From.Hex(),
+		"to", recipient,
+		"value", msg.Value.String(),
+		"value_rune", runeString(msg.Value),
+		"gas_used", res.GasUsed,
+		"gas_limit", msg.GasLimit,
+		"vm_error", res.VmError,
+	)
+
 	return res, nil
+}
+
+// runeString formats an arune amount as a decimal RUNE string for the EVM tx log.
+//
+// It mirrors x/pona/types.RuneString without importing that package: x/pona
+// imports x/evm (via the app wiring), so depending on it from here would be a
+// cycle for the sake of a log field.
+func runeString(amount *big.Int) string {
+	if amount == nil || amount.Sign() == 0 {
+		return "0"
+	}
+
+	unit := runetypes.PowerReduction
+	quo, rem := new(big.Int).QuoRem(amount, unit.BigInt(), new(big.Int))
+	if rem.Sign() == 0 {
+		return quo.String()
+	}
+
+	fraction := rem.String()
+	for len(fraction) < runetypes.BaseDenomUnit {
+		fraction = "0" + fraction
+	}
+
+	fraction = strings.TrimRight(fraction, "0")
+	if fraction == "" {
+		return quo.String()
+	}
+
+	return quo.String() + "." + fraction
 }
 
 // ApplyMessage calls ApplyMessageWithConfig with an empty TxConfig.
