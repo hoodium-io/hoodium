@@ -354,17 +354,29 @@ func (suite *BackendTestSuite) TestGasPriceMeetsRegularFloor() {
 
 	for _, tc := range testCases {
 		suite.Run(fmt.Sprintf("case %s", tc.name), func() {
-			suite.SetupTest()
-			feeMarketClient := suite.backend.queryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
-			RegisterFeeMarketParamsWithFloors(feeMarketClient, 1, tc.minRegular, tc.minDeployment)
+			suite.SetupTest() // reset test and queries
 
-			header := suite.backend.CurrentHeader()
-			suite.Require().NotNil(header)
-			suite.Require().NotNil(header.BaseFee)
+			// Mirror TestGasPrice's wiring: CurrentHeader() resolves through
+			// HeaderByNumber, which needs the block and block-results mocks.
+			var header metadata.MD
+			client := suite.backend.clientCtx.Client.(*mocks.Client)
+			queryClient := suite.backend.queryClient.QueryClient.(*mocks.EVMQueryClient)
+			feeMarketClient := suite.backend.queryClient.FeeMarket.(*mocks.FeeMarketQueryClient)
+
+			RegisterFeeMarketParamsWithFloors(feeMarketClient, 1, tc.minRegular, tc.minDeployment)
+			RegisterParams(queryClient, &header, 1)
+			_, err := RegisterBlock(client, 1, nil)
+			suite.Require().NoError(err)
+			_, err = RegisterBlockResults(client, 1)
+			suite.Require().NoError(err)
+			RegisterBaseFee(queryClient, sdkmath.NewInt(1))
+
+			hdr := suite.backend.CurrentHeader()
+			suite.Require().NotNil(hdr)
 
 			floor := tc.minRegular.TruncateInt().BigInt()
 
-			// 1. Legacy price.
+			// 1. Legacy price: eth_gasPrice must clear the regular floor.
 			gasPrice, err := suite.backend.GasPrice()
 			suite.Require().NoError(err)
 			suite.Require().GreaterOrEqual(
@@ -372,15 +384,22 @@ func (suite *BackendTestSuite) TestGasPriceMeetsRegularFloor() {
 				"eth_gasPrice %s is below MinRegularGasPrice %s", gasPrice.ToInt(), floor,
 			)
 
-			// 2. EIP-1559: the effective price the chain will charge.
-			tip, err := suite.backend.SuggestGasTipCap(header.BaseFee)
+			// 2. EIP-1559: the effective price the chain will actually charge is
+			//    min(feeCap, tipCap+baseFee), so tipCap+baseFee alone must clear
+			//    the floor — raising maxFeePerGas cannot rescue it.
+			baseFee := hdr.BaseFee
+			if baseFee == nil {
+				baseFee = big.NewInt(0)
+			}
+
+			tip, err := suite.backend.SuggestGasTipCap(baseFee)
 			suite.Require().NoError(err)
 
-			effective := new(big.Int).Add(tip, header.BaseFee)
+			effective := new(big.Int).Add(tip, baseFee)
 			suite.Require().GreaterOrEqual(
 				effective.Cmp(floor), 0,
-				"tip %s + baseFee %s = %s is below MinRegularGasPrice %s; no maxFeePerGas can rescue such a tx",
-				tip, header.BaseFee, effective, floor,
+				"tip %s + baseFee %s = %s is below MinRegularGasPrice %s",
+				tip, baseFee, effective, floor,
 			)
 		})
 	}
