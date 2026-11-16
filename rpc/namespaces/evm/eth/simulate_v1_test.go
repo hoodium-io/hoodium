@@ -152,6 +152,9 @@ func (f *fakeBackend) ChainConfig() *params.ChainConfig { return nil }
 func (f *fakeBackend) GlobalMinGasPrice() (sdkmath.LegacyDec, error) {
 	return sdkmath.LegacyDec{}, nil
 }
+func (f *fakeBackend) RegularMinGasPrice() (sdkmath.LegacyDec, error) {
+	return sdkmath.LegacyDec{}, nil
+}
 func (f *fakeBackend) BaseFee(*tmrpctypes.ResultBlockResults) (*big.Int, error) { return nil, nil }
 func (f *fakeBackend) CurrentHeader() *ethtypes.Header                          { return nil }
 func (f *fakeBackend) PendingTransactions() ([]*sdk.Tx, error)                  { return nil, nil }

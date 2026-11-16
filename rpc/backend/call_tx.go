@@ -506,8 +506,13 @@ func (b *Backend) GasPrice() (*hexutil.Big, error) {
 		result = big.NewInt(b.RPCMinGasPrice())
 	}
 
-	// return at least GlobalMinGasPrice from FeeMarket module
-	minGasPrice, err := b.GlobalMinGasPrice()
+	// Floor at the REGULAR minimum from x/feemarket.
+	//
+	// That is the per-gas price the ante chain enforces on a non-deployment EVM
+	// transaction (app/ante/evm/deployment_fee.go), so it is what a wallet must
+	// send. Clamping to MinGasPrice instead advertised a price the chain rejects —
+	// MinGasPrice is the legacy global floor and defaults to zero (disabled).
+	minGasPrice, err := b.RegularMinGasPrice()
 	if err != nil {
 		return nil, err
 	}

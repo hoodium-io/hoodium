@@ -110,6 +110,7 @@ type EVMBackend interface {
 	ChainID() (*hexutil.Big, error)
 	ChainConfig() *params.ChainConfig
 	GlobalMinGasPrice() (sdkmath.LegacyDec, error)
+	RegularMinGasPrice() (sdkmath.LegacyDec, error)
 	BaseFee(blockRes *tmrpctypes.ResultBlockResults) (*big.Int, error)
 	CurrentHeader() *ethtypes.Header
 	PendingTransactions() ([]*sdk.Tx, error)

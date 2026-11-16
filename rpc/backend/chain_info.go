@@ -78,6 +78,33 @@ func (b *Backend) GlobalMinGasPrice() (sdkmath.LegacyDec, error) {
 	return res.Params.MinGasPrice, nil
 }
 
+// RegularMinGasPrice returns the FeeMarket MinRegularGasPrice param: the floor a
+// NON-deployment EVM transaction must pay.
+//
+// # Why the RPC must advertise THIS floor, not MinGasPrice
+//
+// Hoodium has a three-floor model. `MinGasPrice` is the legacy global floor and
+// defaults to zero (disabled); the floors the ante chain actually enforces on EVM
+// transactions are the per-kind pair `MinRegularGasPrice` /
+// `MinDeploymentGasPrice` (app/ante/evm/deployment_fee.go).
+//
+// Advertising `MinGasPrice` therefore hands wallets a gas price the chain will
+// reject. That is what produced:
+//
+//	regular transaction requires a gas price of at least 2500000000000 arune,
+//	got 22500000000 arune
+//
+// Deployment transactions stay the ante chain's job: it compares the tx's own
+// fee cap against MinDeploymentGasPrice, so the RPC only ever has to advertise
+// the regular floor.
+func (b *Backend) RegularMinGasPrice() (sdkmath.LegacyDec, error) {
+	res, err := b.queryClient.FeeMarket.Params(b.ctx, &feemarkettypes.QueryParamsRequest{})
+	if err != nil {
+		return sdkmath.LegacyZeroDec(), err
+	}
+	return res.Params.MinRegularGasPrice, nil
+}
+
 // BaseFee returns the base fee tracked by the Fee Market module.
 // If the base fee is not enabled globally, the query returns nil.
 // If the London hard fork is not activated at the current height, the query will
@@ -290,5 +317,30 @@ func (b *Backend) SuggestGasTipCap(baseFee *big.Int) (*big.Int, error) {
 		// impossible if the parameter validation passed.
 		maxDelta = 0
 	}
-	return big.NewInt(maxDelta), nil
+
+	tip := big.NewInt(maxDelta)
+
+	// An EIP-1559 transaction pays min(feeCap, tipCap+baseFee) per gas. That
+	// formula CAPS the price; it never floors it. So if tipCap+baseFee sits below
+	// the chain's MinRegularGasPrice, no value of `maxFeePerGas` can rescue the
+	// tx — the effective price is pinned to tipCap+baseFee and the ante handler
+	// rejects it.
+	//
+	// The tip is therefore raised here so that tipCap+baseFee equals the regular
+	// floor when the computed delta is smaller than that. Wallets build
+	// maxFeePerGas from exactly this value (eth_maxPriorityFeePerGas), which is
+	// what makes them produce a tx the chain accepts.
+	//
+	// Worst case the wallet over-pays by the difference between the floor and
+	// tipCap+baseFee, and only when a block is actually congested enough to
+	// charge it; base fee alone still sets the normal-case price.
+	if regularMin, err := b.RegularMinGasPrice(); err == nil && !regularMin.IsNil() {
+		if floor := regularMin.TruncateInt().BigInt(); floor.Sign() > 0 {
+			if requiredTip := new(big.Int).Sub(floor, baseFee); requiredTip.Cmp(tip) > 0 {
+				tip = requiredTip
+			}
+		}
+	}
+
+	return tip, nil
 }
