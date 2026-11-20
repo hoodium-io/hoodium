@@ -1007,6 +1007,18 @@ func (suite *KeeperTestSuite) TestDeleteAccount() {
 	}
 }
 
+// requireIntEqual compares two sdkmath.Int values by numeric value.
+//
+// require.Equal cannot be used for these: Int wraps a *big.Int, and two
+// arithmetically equal values can differ structurally — most notably zero, which
+// may be either `abs: big.nat{}` (empty, non-nil) or `abs: nil`, depending on how
+// it was produced. A reflect-based comparison then fails on a correct result.
+func (suite *KeeperTestSuite) requireIntEqual(expected, actual sdkmath.Int, msgAndArgs ...interface{}) {
+	suite.Require().True(expected.Equal(actual), append(
+		[]interface{}{"expected %s, got %s", expected, actual}, msgAndArgs...,
+	)...)
+}
+
 // fundAccount mints arune into the EVM module account and sends it to addr, so
 // the account exists in x/auth with a spendable balance.
 func (suite *KeeperTestSuite) fundAccount(addr common.Address, amount int64) {
@@ -1034,7 +1046,7 @@ func (suite *KeeperTestSuite) fillSupplyToCap() {
 	suite.Require().NoError(suite.app.BankKeeper.MintCoins(
 		suite.ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin(denom, headroom)),
 	))
-	suite.Require().Equal(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, denom).Amount)
+	suite.requireIntEqual(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, denom).Amount)
 }
 
 // TestCommitAccountsSettlesTransferAtSupplyCap is the regression test for:
@@ -1072,8 +1084,8 @@ func (suite *KeeperTestSuite) TestCommitAccountsSettlesTransferAtSupplyCap() {
 	suite.Require().Equal(big.NewInt(600), suite.app.EvmKeeper.GetBalance(suite.ctx, to))
 
 	// The transfer moved coins and created none: supply is untouched.
-	suite.Require().Equal(supplyBefore, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
-	suite.Require().Equal(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
+	suite.requireIntEqual(supplyBefore, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
+	suite.requireIntEqual(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
 }
 
 // TestCommitAccountsRejectsInflationPastCap guards the other half of the fix: the
@@ -1099,7 +1111,7 @@ func (suite *KeeperTestSuite) TestCommitAccountsRejectsInflationPastCap() {
 
 	// The rejected commit left nothing behind.
 	suite.Require().Equal(big.NewInt(0), suite.app.EvmKeeper.GetBalance(suite.ctx, addr))
-	suite.Require().Equal(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
+	suite.requireIntEqual(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
 }
 
 // TestCommitAccountsBurnsDeficit proves the batch still destroys coins when a
@@ -1124,7 +1136,9 @@ func (suite *KeeperTestSuite) TestCommitAccountsBurnsDeficit() {
 	suite.Require().NoError(err)
 
 	suite.Require().Equal(big.NewInt(0), suite.app.EvmKeeper.GetBalance(suite.ctx, holder))
-	suite.Require().Equal(
+	// The account's coins vanish: no credit offsets the debit, so the difference
+	// is burned. requireIntEqual compares by value — see its doc comment.
+	suite.requireIntEqual(
 		supplyBefore.Sub(sdkmath.NewInt(500)),
 		suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount,
 	)

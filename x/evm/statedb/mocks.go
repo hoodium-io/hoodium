@@ -109,14 +109,34 @@ func (k MockKeeper) SetAccount(_ sdk.Context, addr common.Address, account Accou
 	return nil
 }
 
+// SetState writes a storage slot.
+//
+// It creates the mock account if it does not exist yet, mirroring the real
+// keeper: Keeper.SetState writes straight to the KV store and has no account
+// precondition. Without this, a commit that writes storage for a not-yet-known
+// account would silently lose the write here while succeeding in production —
+// which is exactly how CommitAccounts (metadata last) exposes the difference.
 func (k MockKeeper) SetState(_ sdk.Context, addr common.Address, key common.Hash, value []byte) {
-	if acct, ok := k.Accounts[addr]; ok {
+	acct, ok := k.Accounts[addr]
+	if !ok {
+		// Nothing to delete from a storage map that does not exist.
 		if len(value) == 0 {
-			delete(acct.States, key)
-		} else {
-			acct.States[key] = common.BytesToHash(value)
+			return
 		}
+		acct = MockAccount{Account: *NewEmptyAccount(), States: make(Storage)}
 	}
+
+	if acct.States == nil {
+		acct.States = make(Storage)
+	}
+
+	if len(value) == 0 {
+		delete(acct.States, key)
+	} else {
+		acct.States[key] = common.BytesToHash(value)
+	}
+
+	k.Accounts[addr] = acct
 }
 
 func (k MockKeeper) SetCode(_ sdk.Context, codeHash []byte, code []byte) {
