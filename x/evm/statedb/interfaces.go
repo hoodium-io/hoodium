@@ -34,6 +34,26 @@ type ExtStateDB interface {
 	AppendJournalEntry(JournalEntry)
 }
 
+// AccountUpdate is the final state of one dirty account produced by a single
+// StateDB commit.
+//
+// A commit hands the whole slice of these to the keeper in one call, rather
+// than writing account by account, because a balance change is only meaningful
+// relative to the other balance changes of the same transaction: an EVM value
+// transfer credits one account while debiting another, and settling the two
+// halves independently would have to create and then destroy supply for a
+// movement that does not change supply at all. See Keeper.CommitAccounts.
+type AccountUpdate struct {
+	// Address is the Ethereum address of the account.
+	Address common.Address
+	// Account carries the final nonce, balance and code hash of the account.
+	Account Account
+	// SelfDestructed is true for accounts destroyed during execution. The
+	// keeper removes the auth account (and its storage) instead of writing
+	// Account's metadata.
+	SelfDestructed bool
+}
+
 // Keeper provide underlying storage of StateDB
 type Keeper interface {
 	// Read methods
@@ -46,6 +66,12 @@ type Keeper interface {
 	GetMaxPrecompilesCallsPerExecution(ctx sdk.Context) uint
 
 	// Write methods, only called by `StateDB.Commit()`
+	//
+	// CommitAccounts writes the whole batch produced by one commit. Balances are
+	// settled as a set so that value movements between accounts never need to
+	// mint; only the net supply change of the transaction does. Implementations
+	// must therefore not be reduced to a loop over SetAccount.
+	CommitAccounts(ctx sdk.Context, updates []AccountUpdate) error
 	SetAccount(ctx sdk.Context, addr common.Address, account Account) error
 	SetState(ctx sdk.Context, addr common.Address, key common.Hash, value []byte)
 	SetCode(ctx sdk.Context, codeHash []byte, code []byte)

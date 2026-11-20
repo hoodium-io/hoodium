@@ -59,6 +59,41 @@ func (k MockKeeper) ForEachStorage(_ sdk.Context, addr common.Address, cb func(k
 	}
 }
 
+// CommitAccounts applies a whole commit batch.
+//
+// Unlike the real keeper this mock has no supply to settle, so a balance is just
+// a field: what it has to preserve is the *shape* of the batch — one validation
+// pass over every account before any of them is written, survivors updated, and
+// self-destructed accounts removed through DeleteAccount.
+func (k MockKeeper) CommitAccounts(_ sdk.Context, updates []AccountUpdate) error {
+	// Validate the whole batch first: a failure part-way through the writes would
+	// leave the mock in a state the real keeper's cache-context rollback prevents.
+	for _, update := range updates {
+		if update.Address == errAddress {
+			return errors.New("mock db error")
+		}
+	}
+
+	for _, update := range updates {
+		if update.SelfDestructed {
+			if err := k.DeleteAccount(sdk.Context{}, update.Address, nil); err != nil {
+				return err
+			}
+			continue
+		}
+
+		acct, exists := k.Accounts[update.Address]
+		if exists {
+			acct.Account = update.Account
+			k.Accounts[update.Address] = acct
+			continue
+		}
+		k.Accounts[update.Address] = MockAccount{Account: update.Account, States: make(Storage)}
+	}
+
+	return nil
+}
+
 func (k MockKeeper) SetAccount(_ sdk.Context, addr common.Address, account Account) error {
 	if addr == errAddress {
 		return errors.New("mock db error")

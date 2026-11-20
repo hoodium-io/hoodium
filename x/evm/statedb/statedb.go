@@ -801,30 +801,50 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 // the StateDB object should be discarded after committed.
 func (s *StateDB) commit(ctx sdk.Context) error {
 	s.committedStateChanges = nil
-	for _, addr := range s.journal.sortedDirties() {
+
+	// Collect the accounts into one batch instead of writing them one by one, so
+	// the keeper can settle balances across the whole transaction. Writing each
+	// account independently would turn a value transfer (one account up, one down,
+	// supply unchanged) into a mint/burn pair, which fails whenever supply is at
+	// its cap. See Keeper.CommitAccounts.
+	dirties := s.journal.sortedDirties()
+	updates := make([]AccountUpdate, 0, len(dirties))
+
+	for _, addr := range dirties {
 		obj := s.stateObjects[addr]
 		if obj.selfDestructed {
-			if err := s.keeper.DeleteAccount(ctx, obj.Address(), obj.Balance().ToBig()); err != nil {
-				return errorsmod.Wrap(err, "failed to delete account")
-			}
-		} else {
-			if obj.code != nil && obj.dirtyCode {
-				s.keeper.SetCode(ctx, obj.CodeHash(), obj.code)
-			}
-			if err := s.keeper.SetAccount(ctx, obj.Address(), obj.account); err != nil {
-				return errorsmod.Wrap(err, "failed to set account")
-			}
-			for _, key := range obj.dirtyStorage.SortedKeys() {
-				value := obj.dirtyStorage[key]
-				s.keeper.SetState(ctx, obj.Address(), key, value.Bytes())
-				s.committedStateChanges = append(s.committedStateChanges, StateChange{
-					Address: obj.Address(),
-					Key:     key,
-					Value:   value,
-				})
-			}
+			updates = append(updates, AccountUpdate{
+				Address:        obj.Address(),
+				Account:        obj.account,
+				SelfDestructed: true,
+			})
+			continue
+		}
+
+		if obj.code != nil && obj.dirtyCode {
+			s.keeper.SetCode(ctx, obj.CodeHash(), obj.code)
+		}
+
+		updates = append(updates, AccountUpdate{
+			Address: obj.Address(),
+			Account: obj.account,
+		})
+
+		for _, key := range obj.dirtyStorage.SortedKeys() {
+			value := obj.dirtyStorage[key]
+			s.keeper.SetState(ctx, obj.Address(), key, value.Bytes())
+			s.committedStateChanges = append(s.committedStateChanges, StateChange{
+				Address: obj.Address(),
+				Key:     key,
+				Value:   value,
+			})
 		}
 	}
+
+	if err := s.keeper.CommitAccounts(ctx, updates); err != nil {
+		return errorsmod.Wrap(err, "failed to set account")
+	}
+
 	return nil
 }
 

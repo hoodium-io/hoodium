@@ -112,7 +112,167 @@ func (k *Keeper) ForEachStorage(ctx sdk.Context, addr common.Address, cb func(ke
 	}
 }
 
-// SetBalance update account's balance, compare with current balance first, then decide to mint or burn.
+// balanceDelta is one account's requested balance change within a single
+// commit: the address, and the (always positive) magnitude of the change.
+type balanceDelta struct {
+	addr   sdk.AccAddress
+	amount sdkmath.Int
+}
+
+// accountBalance returns the balance of an account, treating a nil balance as
+// zero so a partially populated account cannot panic the commit path.
+func accountBalance(account statedb.Account) *big.Int {
+	if account.Balance == nil {
+		return new(big.Int)
+	}
+
+	return account.Balance.ToBig()
+}
+
+// CommitAccounts writes the accounts produced by one StateDB commit.
+//
+// # Why this is a batch and not a loop over SetAccount
+//
+// The EVM only reports the final balance of each account, so a commit arrives as
+// a set of *absolute* balances and each account's change has to be recovered by
+// comparing against the bank. Applying those changes one account at a time forces
+// every credit to be minted and every debit to be burned, which turns a plain
+// value transfer — one account up, one down, supply unchanged — into a mint/burn
+// pair. That only works while supply has headroom: once total supply reaches the
+// cap (which the devnet genesis does exactly, emitting the whole 10B RUNE supply
+// up front) the mint half of every transfer is rejected by the bank's mint
+// restriction and the whole transaction reverts. Transfers between existing
+// holders must not depend on headroom, because they create no coins.
+//
+// So balances are settled as a set. Debits are collected into the EVM module
+// account, credits are paid out of it, and only the *net* change of the batch
+// touches supply:
+//
+//	net = Σ credits − Σ debits
+//
+// For a transfer, a fee payment, a contract payout, a self-destruct, or any
+// combination of them within one transaction, net is zero and no coin is minted
+// or burned. A genuinely inflationary write still mints and must still pass the
+// supply cap; a deflationary one still burns. Neither is weakened here — the cap
+// keeps guarding the only path that can create coins.
+//
+// NOTE: net is per commit, and a commit is not always a whole transaction — a
+// custom precompile mid-execution calls CommitCacheContext, which commits the
+// deltas accumulated so far. Such a partial commit can be unbalanced, and then it
+// mints or burns the difference exactly as the per-account code would have; the
+// surrounding cache context rolls it back if the precompile or the transaction
+// fails. The guarantee this change adds is that a *balanced* set of deltas never
+// touches supply, which is what a transfer always produces.
+func (k *Keeper) CommitAccounts(ctx sdk.Context, updates []statedb.AccountUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	denom := k.GetParams(ctx).EvmDenom
+	if denom == "" {
+		// A pruned node has no params; refuse rather than guessing a denom and
+		// writing balances against it.
+		return errorsmod.Wrap(types.ErrInvalidState, "cannot commit balances: evm denom is not set")
+	}
+
+	var (
+		credits, debits []balanceDelta
+		totalCredit     = sdkmath.ZeroInt()
+		totalDebit      = sdkmath.ZeroInt()
+		survivors       = make([]statedb.AccountUpdate, 0, len(updates))
+		removals        = make([]common.Address, 0, len(updates))
+	)
+
+	for _, update := range updates {
+		// A self-destructed account is removed after its balance is settled, so
+		// its metadata is never written.
+		if update.SelfDestructed {
+			removals = append(removals, update.Address)
+		} else {
+			survivors = append(survivors, update)
+		}
+
+		// The baseline is the live bank balance, not the balance the state object
+		// was loaded with: a precompile (e.g. the RUNE token) can move coins
+		// through x/bank mid-execution, and such a movement is already in the bank
+		// while the state object still holds the pre-call value. Comparing against
+		// the bank makes the recovered delta the change this commit is actually
+		// responsible for.
+		addr := sdk.AccAddress(update.Address.Bytes())
+		current := k.bankKeeper.GetBalance(ctx, addr, denom).Amount
+		target := sdkmath.NewIntFromBigInt(accountBalance(update.Account))
+
+		switch delta := target.Sub(current); delta.Sign() {
+		case 1:
+			credits = append(credits, balanceDelta{addr, delta})
+			totalCredit = totalCredit.Add(delta)
+		case -1:
+			debits = append(debits, balanceDelta{addr, delta.Neg()})
+			totalDebit = totalDebit.Add(delta.Neg())
+		default:
+			// Balance unchanged: nothing to move.
+		}
+	}
+
+	// Fund the batch before paying anything out, so credits are always covered by
+	// coins already collected. When net is positive this is the only mint.
+	net := totalCredit.Sub(totalDebit)
+	if net.IsPositive() {
+		coins := sdk.NewCoins(sdk.NewCoin(denom, net))
+		if err := k.bankKeeper.MintCoins(ctx, types.ModuleName, coins); err != nil {
+			return err
+		}
+	}
+
+	// Debits first: they fund the module account the credits are paid from.
+	for _, d := range debits {
+		coins := sdk.NewCoins(sdk.NewCoin(denom, d.amount))
+		if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, d.addr, types.ModuleName, coins); err != nil {
+			return err
+		}
+	}
+
+	// Credits go module -> account rather than through a bare SendCoins so the
+	// bank's blocked-address rule keeps applying to EVM recipients as before.
+	for _, c := range credits {
+		coins := sdk.NewCoins(sdk.NewCoin(denom, c.amount))
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, c.addr, coins); err != nil {
+			return err
+		}
+	}
+
+	// Anything left over is a genuine supply reduction.
+	if net.IsNegative() {
+		coins := sdk.NewCoins(sdk.NewCoin(denom, net.Neg()))
+		if err := k.bankKeeper.BurnCoins(ctx, types.ModuleName, coins); err != nil {
+			return err
+		}
+	}
+
+	// Metadata is written only once every balance movement has succeeded, so a
+	// rejected balance cannot leave a half-updated account behind.
+	for _, update := range survivors {
+		if err := k.setAccountMeta(ctx, update.Address, update.Account); err != nil {
+			return err
+		}
+	}
+
+	for _, addr := range removals {
+		if err := k.removeAccount(ctx, addr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// SetBalance sets an account's balance to amount by comparing with the current
+// balance, then minting or burning the difference.
+//
+// NOTE: being single-account, this cannot recognise a value movement: a caller
+// that credits one account and debits another must use CommitAccounts, or it
+// will mint and burn coins for a transfer that creates none. Commits go through
+// CommitAccounts for exactly that reason.
 func (k *Keeper) SetBalance(ctx sdk.Context, addr common.Address, amount *big.Int) error {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 
@@ -172,9 +332,13 @@ func (k *Keeper) bumpAccNonce(ctx sdk.Context, addr common.Address) error {
 	return k.SetAccount(ctx, addr, *acct)
 }
 
-// SetAccount updates nonce/balance/codeHash together.
-func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error {
-	// update account
+// setAccountMeta writes the nonce and code hash of an account, creating the auth
+// account if it does not exist yet, and leaves the balance to the caller.
+//
+// Balance is deliberately out of scope here: it is not a per-account fact during
+// a commit, it is one half of a movement that CommitAccounts settles across the
+// whole batch.
+func (k *Keeper) setAccountMeta(ctx sdk.Context, addr common.Address, account statedb.Account) error {
 	cosmosAddr := sdk.AccAddress(addr.Bytes())
 	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
 	if acct == nil {
@@ -195,17 +359,89 @@ func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account stated
 
 	k.accountKeeper.SetAccount(ctx, acct)
 
-	if err := k.SetBalance(ctx, addr, account.Balance.ToBig()); err != nil {
-		return err
-	}
-
 	k.Logger(ctx).Debug(
 		"account updated",
 		"ethereum-address", addr.Hex(),
 		"nonce", account.Nonce,
 		"codeHash", codeHash.Hex(),
-		"balance", account.Balance,
+		"balance", accountBalance(account),
 	)
+	return nil
+}
+
+// SetAccount updates nonce/balance/codeHash together.
+//
+// NOTE: this is the single-account form, so it writes the balance with
+// SetBalance and therefore mints or burns the difference. Batch commits must use
+// CommitAccounts instead — see its doc comment for why.
+func (k *Keeper) SetAccount(ctx sdk.Context, addr common.Address, account statedb.Account) error {
+	if err := k.setAccountMeta(ctx, addr, account); err != nil {
+		return err
+	}
+
+	return k.SetBalance(ctx, addr, accountBalance(account))
+}
+
+// deletableAccount returns the auth account at addr, or nil when there is none,
+// and refuses account types that must never be destroyed.
+//
+// NOTE: only Ethereum accounts (contracts) can be selfdestructed.
+func (k *Keeper) deletableAccount(ctx sdk.Context, addr common.Address) (sdk.AccountI, error) {
+	acct := k.accountKeeper.GetAccount(ctx, sdk.AccAddress(addr.Bytes()))
+	if acct == nil {
+		return nil, nil
+	}
+
+	if _, ok := acct.(runetypes.EthAccountI); !ok {
+		return nil, errorsmod.Wrapf(types.ErrInvalidAccount, "type %T, address %s", acct, addr)
+	}
+
+	return acct, nil
+}
+
+// removeAccount deletes an account's stored contract state, its x/evm account
+// record and its auth account. It does not touch balances — the caller settles
+// those first, because the coins of a destroyed account are transferred to the
+// beneficiary rather than disappearing.
+//
+// Storage is cleared even when the account has no x/auth record: an address can
+// hold contract state and a bank balance without an auth account, and a destroyed
+// contract must not leave its storage readable.
+func (k *Keeper) removeAccount(ctx sdk.Context, addr common.Address) error {
+	acct, err := k.deletableAccount(ctx, addr)
+	if err != nil {
+		return err
+	}
+
+	// clear storage
+	store := ctx.KVStore(k.storeKey)
+	prefix := types.AddressStoragePrefix(addr)
+	iterator := storetypes.KVStorePrefixIterator(store, prefix)
+
+	var keys []common.Hash
+	for ; iterator.Valid(); iterator.Next() {
+		key := common.BytesToHash(iterator.Key())
+		keys = append(keys, key)
+	}
+	iterator.Close()
+
+	for _, key := range keys {
+		k.SetState(ctx, addr, key, nil)
+	}
+
+	if acct == nil {
+		return nil
+	}
+
+	// remove auth account
+	k.accountKeeper.RemoveAccount(ctx, acct)
+
+	k.Logger(ctx).Debug(
+		"account suicided",
+		"ethereum-address", addr.Hex(),
+		"cosmos-address", sdk.AccAddress(addr.Bytes()).String(),
+	)
+
 	return nil
 }
 
@@ -262,16 +498,9 @@ func (k *Keeper) SetCode(ctx sdk.Context, codeHash, code []byte) {
 // - remove states
 // - remove auth account
 func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address, balance *big.Int) error {
-	cosmosAddr := sdk.AccAddress(addr.Bytes())
-	acct := k.accountKeeper.GetAccount(ctx, cosmosAddr)
-	if acct == nil {
-		return nil
-	}
-
-	// NOTE: only Ethereum accounts (contracts) can be selfdestructed
-	_, ok := acct.(runetypes.EthAccountI)
-	if !ok {
-		return errorsmod.Wrapf(types.ErrInvalidAccount, "type %T, address %s", acct, addr)
+	acct, err := k.deletableAccount(ctx, addr)
+	if err != nil || acct == nil {
+		return err
 	}
 
 	// clear balance
@@ -279,30 +508,5 @@ func (k *Keeper) DeleteAccount(ctx sdk.Context, addr common.Address, balance *bi
 		return err
 	}
 
-	// clear storage
-	store := ctx.KVStore(k.storeKey)
-	prefix := types.AddressStoragePrefix(addr)
-	iterator := storetypes.KVStorePrefixIterator(store, prefix)
-
-	var keys []common.Hash
-	for ; iterator.Valid(); iterator.Next() {
-		key := common.BytesToHash(iterator.Key())
-		keys = append(keys, key)
-	}
-	iterator.Close()
-
-	for _, key := range keys {
-		k.SetState(ctx, addr, key, nil)
-	}
-
-	// remove auth account
-	k.accountKeeper.RemoveAccount(ctx, acct)
-
-	k.Logger(ctx).Debug(
-		"account suicided",
-		"ethereum-address", addr.Hex(),
-		"cosmos-address", cosmosAddr.String(),
-	)
-
-	return nil
+	return k.removeAccount(ctx, addr)
 }

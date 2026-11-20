@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	sdkmath "cosmossdk.io/math"
 	"cosmossdk.io/store/prefix"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -18,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
+	"github.com/hoodium-io/hoodium/core/runetoken"
 	"github.com/hoodium-io/hoodium/crypto/ethsecp256k1"
 	utiltx "github.com/hoodium-io/hoodium/testutil/tx"
 	"github.com/hoodium-io/hoodium/x/evm/statedb"
@@ -1005,12 +1007,134 @@ func (suite *KeeperTestSuite) TestDeleteAccount() {
 	}
 }
 
-func (suite *KeeperTestSuite) fundWithoutAuthAccount(addr common.Address, amount int64) {
+// fundAccount mints arune into the EVM module account and sends it to addr, so
+// the account exists in x/auth with a spendable balance.
+func (suite *KeeperTestSuite) fundAccount(addr common.Address, amount int64) {
 	coins := sdk.NewCoins(sdk.NewInt64Coin(types.DefaultEVMDenom, amount))
 	suite.Require().NoError(suite.app.BankKeeper.MintCoins(suite.ctx, types.ModuleName, coins))
 	suite.Require().NoError(suite.app.BankKeeper.SendCoinsFromModuleToAccount(
 		suite.ctx, types.ModuleName, sdk.AccAddress(addr.Bytes()), coins,
 	))
+}
+
+// fillSupplyToCap mints the remaining arune headroom so total supply sits exactly
+// at runetoken.MaxSupply — the state the devnet genesis produces, because it
+// emits the whole 10B RUNE emission up front (premine + reward reserve + bonded
+// pool). With headroom at zero, any mint is rejected by the bank's mint
+// restriction.
+//
+// The coins are minted into the EVM module account because it is the only holder
+// of the Minter permission besides x/pona, and moving them elsewhere would need a
+// second module send for no benefit here.
+func (suite *KeeperTestSuite) fillSupplyToCap() {
+	denom := types.DefaultEVMDenom
+	headroom := runetoken.MaxSupply.Sub(suite.app.BankKeeper.GetSupply(suite.ctx, denom).Amount)
+	suite.Require().True(headroom.IsPositive(), "test setup expects headroom before filling to the cap")
+
+	suite.Require().NoError(suite.app.BankKeeper.MintCoins(
+		suite.ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin(denom, headroom)),
+	))
+	suite.Require().Equal(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, denom).Amount)
+}
+
+// TestCommitAccountsSettlesTransferAtSupplyCap is the regression test for:
+//
+//	failed to apply ethereum core message: failed to commit stateDB:
+//	failed to set account: mint rejected: projected supply of denom arune
+//	would exceed max supply
+//
+// A value transfer credits one account and debits another and leaves total supply
+// untouched. The commit used to apply the two halves independently — minting for
+// the credit, burning for the debit — so with the chain's whole emission already
+// circulating, the mint was rejected and the transaction reverted even though it
+// created no coins. Balances are now settled as a set and only the net of the
+// batch touches supply, so a transfer needs no headroom at all.
+func (suite *KeeperTestSuite) TestCommitAccountsSettlesTransferAtSupplyCap() {
+	suite.SetupTest()
+
+	from := utiltx.GenerateAddress()
+	to := utiltx.GenerateAddress()
+
+	// Fund the sender while headroom still exists, then consume all of it.
+	suite.fundAccount(from, 1_000)
+	suite.fillSupplyToCap()
+
+	supplyBefore := suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount
+
+	// A plain value transfer, exactly as the EVM performs it: debit, credit, then
+	// commit both account balances together.
+	db := suite.StateDB()
+	db.SubBalance(from, uint256.NewInt(600), tracing.BalanceChangeTransfer)
+	db.AddBalance(to, uint256.NewInt(600), tracing.BalanceChangeTransfer)
+	suite.Require().NoError(db.Commit())
+
+	suite.Require().Equal(big.NewInt(400), suite.app.EvmKeeper.GetBalance(suite.ctx, from))
+	suite.Require().Equal(big.NewInt(600), suite.app.EvmKeeper.GetBalance(suite.ctx, to))
+
+	// The transfer moved coins and created none: supply is untouched.
+	suite.Require().Equal(supplyBefore, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
+	suite.Require().Equal(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
+}
+
+// TestCommitAccountsRejectsInflationPastCap guards the other half of the fix: the
+// supply cap must still reject a commit that genuinely creates coins. Without
+// this, dropping the mint from the transfer path could be mistaken for licence to
+// mint freely.
+func (suite *KeeperTestSuite) TestCommitAccountsRejectsInflationPastCap() {
+	suite.SetupTest()
+
+	suite.fillSupplyToCap()
+
+	// A single credited account with no offsetting debit is real inflation.
+	addr := utiltx.GenerateAddress()
+	err := suite.app.EvmKeeper.CommitAccounts(suite.ctx, []statedb.AccountUpdate{{
+		Address: addr,
+		Account: statedb.Account{
+			Balance:  uint256.NewInt(500),
+			CodeHash: crypto.Keccak256(nil),
+		},
+	}})
+	suite.Require().Error(err)
+	suite.Require().Contains(err.Error(), "mint rejected")
+
+	// The rejected commit left nothing behind.
+	suite.Require().Equal(big.NewInt(0), suite.app.EvmKeeper.GetBalance(suite.ctx, addr))
+	suite.Require().Equal(runetoken.MaxSupply, suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount)
+}
+
+// TestCommitAccountsBurnsDeficit proves the batch still destroys coins when a
+// commit genuinely removes them (a self-destruct with no beneficiary), so the
+// net-settlement path is not simply "never burn".
+func (suite *KeeperTestSuite) TestCommitAccountsBurnsDeficit() {
+	suite.SetupTest()
+
+	holder := utiltx.GenerateAddress()
+	suite.fundAccount(holder, 500)
+
+	supplyBefore := suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount
+
+	// The account's coins vanish: no credit offsets the debit.
+	err := suite.app.EvmKeeper.CommitAccounts(suite.ctx, []statedb.AccountUpdate{{
+		Address: holder,
+		Account: statedb.Account{
+			Balance:  uint256.NewInt(0),
+			CodeHash: crypto.Keccak256(nil),
+		},
+	}})
+	suite.Require().NoError(err)
+
+	suite.Require().Equal(big.NewInt(0), suite.app.EvmKeeper.GetBalance(suite.ctx, holder))
+	suite.Require().Equal(
+		supplyBefore.Sub(sdkmath.NewInt(500)),
+		suite.app.BankKeeper.GetSupply(suite.ctx, types.DefaultEVMDenom).Amount,
+	)
+}
+
+// fundWithoutAuthAccount funds addr and then removes its x/auth record, leaving a
+// balance the bank knows about but x/auth does not — the "bank-only" account shape
+// GetAccount has to tolerate.
+func (suite *KeeperTestSuite) fundWithoutAuthAccount(addr common.Address, amount int64) {
+	suite.fundAccount(addr, amount)
 
 	acct := suite.app.AccountKeeper.GetAccount(suite.ctx, sdk.AccAddress(addr.Bytes()))
 	suite.Require().NotNil(acct)
