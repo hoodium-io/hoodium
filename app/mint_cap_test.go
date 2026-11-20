@@ -140,3 +140,112 @@ func TestDenomMaxSupplies(t *testing.T) {
 	// Sanity: exactly the two production token denoms are capped.
 	require.Len(t, caps, 2)
 }
+
+// TestValidateGenesisSupply covers the only supply-writing path that bypasses the
+// mint restriction. Genesis writes supply directly (bank's InitGenesis calls
+// setSupply, never MintCoins), so the cap has to be checked here or nowhere.
+func TestValidateGenesisSupply(t *testing.T) {
+	runeCap := runetoken.MaxSupply   // 10,000,000,000 * 10^18
+	hoodiCap := hooditoken.MaxSupply // 10,000,000 * 10^18
+	one := sdkmath.OneInt()
+
+	testCases := []struct {
+		name        string
+		supply      sdk.Coins
+		expectError bool
+	}{
+		{
+			name:        "empty genesis supply is within cap",
+			supply:      sdk.NewCoins(),
+			expectError: false,
+		},
+		{
+			name:        "rune exactly at cap is allowed (the shipped devnet shape)",
+			supply:      sdk.NewCoins(sdk.NewCoin(utils.BaseDenom, runeCap)),
+			expectError: false,
+		},
+		{
+			name:        "rune one arune over cap is rejected",
+			supply:      sdk.NewCoins(sdk.NewCoin(utils.BaseDenom, runeCap.Add(one))),
+			expectError: true,
+		},
+		{
+			name:        "rune far over cap is rejected",
+			supply:      sdk.NewCoins(sdk.NewCoin(utils.BaseDenom, runeCap.MulRaw(2))),
+			expectError: true,
+		},
+		{
+			name:        "hoodi exactly at cap is allowed",
+			supply:      sdk.NewCoins(sdk.NewCoin(utils.HoodiDenom, hoodiCap)),
+			expectError: false,
+		},
+		{
+			name:        "hoodi over cap is rejected",
+			supply:      sdk.NewCoins(sdk.NewCoin(utils.HoodiDenom, hoodiCap.Add(one))),
+			expectError: true,
+		},
+		{
+			name: "both denoms exactly at cap is allowed (full emission)",
+			supply: sdk.NewCoins(
+				sdk.NewCoin(utils.BaseDenom, runeCap),
+				sdk.NewCoin(utils.HoodiDenom, hoodiCap),
+			),
+			expectError: false,
+		},
+		{
+			name: "one denom at cap and the other over is rejected",
+			supply: sdk.NewCoins(
+				sdk.NewCoin(utils.BaseDenom, runeCap),
+				sdk.NewCoin(utils.HoodiDenom, hoodiCap.Add(one)),
+			),
+			expectError: true,
+		},
+		{
+			name:        "uncapped denom is ignored no matter how large",
+			supply:      sdk.NewCoins(sdk.NewCoin("uatom", sdkmath.NewIntWithDecimal(1, 30))),
+			expectError: false,
+		},
+		{
+			name: "an over-cap rune is caught even alongside an uncapped denom",
+			supply: sdk.NewCoins(
+				sdk.NewCoin("uatom", sdkmath.NewIntWithDecimal(1, 30)),
+				sdk.NewCoin(utils.BaseDenom, runeCap.Add(one)),
+			),
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateGenesisSupply(tc.supply)
+			if tc.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "exceeds max supply")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateGenesisSupplyDeterministicDenom pins the *order* of reporting when
+// more than one capped denom is over its cap. The check sorts denom names so the
+// panic message a node operator sees is identical on every machine — an
+// unordered map iteration would make the same broken genesis report "arune" on
+// one node and "ahoodi" on another.
+func TestValidateGenesisSupplyDeterministicDenom(t *testing.T) {
+	overCap := sdk.NewCoins(
+		sdk.NewCoin(utils.BaseDenom, runetoken.MaxSupply.Add(sdkmath.OneInt())),
+		sdk.NewCoin(utils.HoodiDenom, hooditoken.MaxSupply.Add(sdkmath.OneInt())),
+	)
+
+	// Repeat: Go randomises map iteration order, so a non-deterministic
+	// implementation would eventually report the other denom.
+	for i := 0; i < 50; i++ {
+		err := ValidateGenesisSupply(overCap)
+		require.Error(t, err)
+		// "ahoodi" sorts before "arune".
+		require.Contains(t, err.Error(), utils.HoodiDenom,
+			"the alphabetically first over-cap denom must always be reported")
+	}
+}

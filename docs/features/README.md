@@ -9,7 +9,8 @@ things Hoodium does differently from a stock Cosmos/EVM chain.
 | Slashing & validator accountability | [`slashing.md`](./slashing.md) |
 | Multisig keys (K-of-N threshold accounts) | [`keys-multisig.md`](./keys-multisig.md) |
 | Guided first-run setup (`runed setup`) | [`../node-setup.md`](../node-setup.md) |
-| EVM wallets (connect & send) | [`../evm-wallets.md`](../evm-wallets.md) |
+| EVM wallets (connect & send) | [`../evm/evm-wallets.md`](../evm/evm-wallets.md) |
+| EVM transaction mechanism | [`../evm/evm-tx-mechanism.md`](../evm/evm-tx-mechanism.md) |
 | PoNA (RUNE rewards) | [`../technologies/pona.md`](../technologies/pona.md) |
 | `x/pona` (Proof of Network Activity) | [`../technologies/pona.md`](../technologies/pona.md) |
 

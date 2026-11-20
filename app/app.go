@@ -767,6 +767,21 @@ func (app *Hoodium) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*a
 		panic(err)
 	}
 
+	// Enforce the token supply caps against the genesis bank state BEFORE any
+	// module writes it. x/bank's InitGenesis sets supply directly and therefore
+	// bypasses the mint restriction that guards every runtime supply increase
+	// (see app/mint_cap.go), which makes this the only place the cap can be
+	// checked for a chain's initial state.
+	//
+	// This panics instead of returning an error on purpose: an over-cap genesis
+	// leaves the chain permanently unable to mint (PoNA rewards included) and
+	// reporting totalSupply > maxSupply, which is not a recoverable state.
+	var bankGenesis banktypes.GenesisState
+	app.appCodec.MustUnmarshalJSON(genesisState[banktypes.ModuleName], &bankGenesis)
+	if err := ValidateGenesisSupply(bankGenesis.Supply); err != nil {
+		panic(err)
+	}
+
 	err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.mm.GetVersionMap())
 	if err != nil {
 		panic(err)

@@ -875,4 +875,4 @@ crontab -e -u runed
 - **Firewall the RPC ports.** `26657` (CometBFT RPC) and `8545` (EVM JSON-RPC) should
   not be exposed publicly unless you intend to serve them. Keep `26656` (p2p) open.
 - **Do not enable the `personal` JSON-RPC namespace** — see
-  [`evm-wallets.md`](./evm-wallets.md).
+  [`evm-wallets.md`](./evm/evm-wallets.md).

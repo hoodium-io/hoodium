@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -33,6 +34,54 @@ var denomMaxSupplies = map[string]sdkmath.Int{
 // not be mutated by callers.
 func DenomMaxSupplies() map[string]sdkmath.Int {
 	return denomMaxSupplies
+}
+
+// ValidateGenesisSupply returns an error when the genesis bank supply of a
+// capped denom exceeds that denom's hard cap.
+//
+// # Why genesis needs its own check
+//
+// The mint restriction installed by NewMintCapRestriction guards MintCoins, and
+// MintCoins is the only way supply can grow at runtime. Genesis is the one
+// exception: x/bank's InitGenesis writes balances and supply directly
+// (bank/keeper/genesis.go: it calls k.setSupply, never MintCoins), so a genesis
+// file bypasses the restriction entirely. That makes this the only place the cap
+// can be enforced for a chain's initial state.
+//
+// An over-cap genesis is not a recoverable misconfiguration:
+//   - totalSupply() would permanently report more than maxSupply(), an
+//     incoherent token, and
+//   - headroom would be negative, so *no* mint could ever succeed again —
+//     including PoNA's and any future module's.
+//
+// It must therefore fail the chain's first block rather than limp along. Sitting
+// exactly AT the cap is legal and is the intended fully-emitted state (the devnet
+// genesis emits the whole 10B RUNE emission up front), so this rejects only a
+// strict excess.
+func ValidateGenesisSupply(supply sdk.Coins) error {
+	// Iterate the capped denoms in sorted order so the reported denom (and the
+	// resulting panic message) is deterministic when more than one denom is
+	// over its cap.
+	denoms := make([]string, 0, len(denomMaxSupplies))
+	for denom := range denomMaxSupplies {
+		denoms = append(denoms, denom)
+	}
+	sort.Strings(denoms)
+
+	for _, denom := range denoms {
+		cap := denomMaxSupplies[denom]
+		amount := supply.AmountOf(denom)
+		if amount.GT(cap) {
+			return fmt.Errorf(
+				"genesis supply of denom %s is %s, which exceeds max supply %s; "+
+					"a chain above its cap can never mint again (including PoNA rewards) "+
+					"and would report totalSupply > maxSupply",
+				denom, amount, cap,
+			)
+		}
+	}
+
+	return nil
 }
 
 // NewMintCapRestriction returns a bank MintingRestrictionFn that rejects any

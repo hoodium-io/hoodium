@@ -409,6 +409,6 @@ runed query tx <TX_HASH> --home ~/.runed
 - [validator.md](./validator.md) — full validator onboarding
 - [node-setup.md](./node-setup.md) — running a node
 - [tx-fees.md](./tx-fees.md) — the two-gas-price model (EVM)
-- [evm-wallets.md](./evm-wallets.md) — connecting EVM wallets
+- [evm-wallets.md](./evm/evm-wallets.md) — connecting EVM wallets
 - [precompile.md](./precompile.md) — precompile reference
 

@@ -17,7 +17,7 @@ Ethereum.
 > ```
 >
 > An EVM JSON-RPC endpoint is **disabled by default on validator nodes** (see
-> [validator.md](./validator.md#node-profiles-what-runs-on-your-node)); point these at a
+> [validator.md](../validator.md#node-profiles-what-runs-on-your-node)); point these at a
 > node that actually serves JSON-RPC.
 
 ## EVM forks support
@@ -194,7 +194,7 @@ Pectra EIP list.
 
 Prague is active on Rune: at genesis on fresh chains, and via the
 v11.0 upgrade on living chains (see
-[`docs/upgrades.md`](./upgrades.md)).
+[`upgrades.md`](../upgrades.md)).
 
 - EIP-2537 (BLS12-381 precompiles)
     - Description: adds seven precompiled contracts at addresses `0x0b`
@@ -293,7 +293,7 @@ v11.0 upgrade on living chains (see
       delegation; authorizations whose target is in `evm.Precompiles()`
       (the union of stock and Rune custom precompiles) are rejected per
       the EIP's per-tuple rule. See
-      [`docs/spec/eip7702-set-code.md`](./spec/eip7702-set-code.md) for
+      [`spec/eip7702-set-code.md`](../spec/eip7702-set-code.md) for
       the canonical runed behavior, configuration, and Rune-specific
       divergences from upstream geth.
     - Ref: https://eips.ethereum.org/EIPS/eip-7702
@@ -334,7 +334,7 @@ the full Fusaka EIP list.
 
 Osaka is active on Rune. The v11.0 upgrade activates Prague and Osaka
 together on living chains (see
-[`docs/upgrades.md`](./upgrades.md)); on fresh chains both activate at
+[`upgrades.md`](../upgrades.md)); on fresh chains both activate at
 genesis. Rune collapses Cancun → Prague → Osaka into a single chain
 upgrade (Cancun → Prague was never rolled out separately).
 
@@ -635,7 +635,7 @@ account this is the deployed bytecode; for a plain externally owned account
 an EOA that has signed an EIP-7702 authorization returns its 23-byte
 delegation designator `0xef0100 || target_address` rather than empty bytes.
 Callers that key behavior off "code present means contract" must account for
-the designator case. See [`docs/spec/eip7702-set-code.md`](./spec/eip7702-set-code.md)
+the designator case. See [`spec/eip7702-set-code.md`](../spec/eip7702-set-code.md)
 and the [Prague](#prague) section for details.
 - **Parameters**:
     - `String` - Address to get code from.
@@ -680,7 +680,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_sign","params":["0x<address>
       tuples (`chainId`, `address`, `nonce`, `v`, `r`, `s`) applied before
       the transaction executes. Submitting a non-empty list produces a
       type-`0x04` transaction; each entry adds an intrinsic gas charge. See
-      [`docs/spec/eip7702-set-code.md`](./spec/eip7702-set-code.md).
+      [`spec/eip7702-set-code.md`](../spec/eip7702-set-code.md).
 - **Returns**: `String` - The transaction hash.
 
 ```bash
@@ -721,7 +721,7 @@ functions.
         - authorizationList: Array of objects - (optional) EIP-7702 authorization
           tuples (`chainId`, `address`, `nonce`, `v`, `r`, `s`) applied before
           the call executes. See
-          [`docs/spec/eip7702-set-code.md`](./spec/eip7702-set-code.md).
+          [`spec/eip7702-set-code.md`](../spec/eip7702-set-code.md).
     - `String` (optional) - Block number.
     - `Object` (optional) - State override set. A mapping of addresses to
       override objects. Each override object may contain:
@@ -744,7 +744,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_call","params":[{see above}]
 
 - **Description**: Simulates a chain of transactions across one or more
 synthetic blocks, with state and block overrides. See
-[`docs/spec/eth-simulate-v1.md`](./spec/eth-simulate-v1.md) for the full spec.
+[`spec/eth-simulate-v1.md`](../spec/eth-simulate-v1.md) for the full spec.
 
 ```bash
 curl -X POST --data '{"jsonrpc":"2.0","method":"eth_simulateV1","params":[{"blockStateCalls":[{"stateOverrides":{"0xc100000000000000000000000000000000000001":{"balance":"0x56bc75e2d63100000"}},"calls":[{"from":"0xc100000000000000000000000000000000000001","to":"0xc100000000000000000000000000000000000002","value":"0x1"}]}]},"latest"],"id":1}' -H "Content-Type: application/json" $RPC_URL
@@ -767,7 +767,7 @@ curl -X POST --data '{"jsonrpc":"2.0","method":"eth_simulateV1","params":[{"bloc
           tuples (`chainId`, `address`, `nonce`, `v`, `r`, `s`) included in the
           estimated transaction. Each entry adds an intrinsic gas charge to the
           returned estimate. See
-          [`docs/spec/eip7702-set-code.md`](./spec/eip7702-set-code.md).
+          [`spec/eip7702-set-code.md`](../spec/eip7702-set-code.md).
     - `String` (optional) - Block number.
     - `Object` (optional) - State override set. A mapping of addresses to
       override objects. Each override object may contain:
