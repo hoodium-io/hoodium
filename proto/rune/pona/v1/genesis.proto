@@ -31,21 +31,22 @@ option go_package = "github.com/hoodium-io/hoodium/x/pona/types";
 //
 // zero_activity_reward is also the FLOOR: no block is ever paid less than it.
 //
-// FIELD ORDER IS DELIBERATE: fields are numbered and declared from ZERO upward
-// to max, so the genesis file reads as a ladder bottom-to-top. Each band's rate
-// is immediately followed by its lower bound. protoc emits the generated Go
-// struct in declaration order, so this ordering is what the genesis JSON shows:
+// FIELD ORDER IS DELIBERATE: bands are declared MAX at the top down to ZERO at
+// the bottom, each band's rate immediately followed by its lower bound. A reader
+// therefore scans the ladder top-down (busiest block first), and the genesis file
+// shows exactly the same order. protoc emits the generated Go struct in
+// declaration order, which is what the genesis JSON follows.
 //
-//	zero_activity_reward,
-//	single_activity_reward,
-//	duo_activity_reward,
-//	trio_activity_reward,
-//	quart_activity_reward,
-//	quint_activity_reward,
-//	low_activity_reward,  low_tx_count_threshold,
-//	mid_activity_reward,  mid_tx_count_threshold,
+//	max_activity_reward,  max_tx_count_threshold,
 //	high_activity_reward, high_tx_count_threshold,
-//	max_activity_reward,  max_tx_count_threshold
+//	mid_activity_reward,  mid_tx_count_threshold,
+//	low_activity_reward,  low_tx_count_threshold,
+//	quint_activity_reward,
+//	quart_activity_reward,
+//	trio_activity_reward,
+//	duo_activity_reward,
+//	single_activity_reward,
+//	zero_activity_reward
 //
 // NOTE: this numbering deliberately does NOT preserve wire compatibility with
 // the previous five-band layout. There is no live chain yet (devnet only), so
@@ -64,50 +65,32 @@ message Tier {
   // stopped at.
   uint64 end_height = 2;
 
-  // ---- band: zero (tx_count == 0) ---------------------------------------
-  // Paid when tx_count == 0. Also the FLOOR of the paid reward.
-  string zero_activity_reward = 3 [
+  // ---- band: max (tx_count >= max_tx_count_threshold) -----------------
+  string max_activity_reward = 3 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"zero_activity_reward\""
+    (gogoproto.moretags) = "yaml:\"max_activity_reward\""
   ];
+  // Minimum count for the MAX band. Must be greater than high.
+  uint64 max_tx_count_threshold = 4;
 
-  // ---- band: single (tx_count == low - 5 and below) ---------------------
-  // Paid for exactly ONE transaction, or -- once the dPona offset is active --
-  // any count below the duo band. Required, like every other rate.
-  string single_activity_reward = 4 [
+  // ---- band: high (high_tx_count_threshold <= tx < max) ---------------
+  string high_activity_reward = 5 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"single_activity_reward\""
+    (gogoproto.moretags) = "yaml:\"high_activity_reward\""
   ];
+  // Minimum count for the HIGH band. Required to satisfy mid < high < max.
+  uint64 high_tx_count_threshold = 6;
 
-  // ---- band: duo (tx_count == low - 4) ---------------------------------
-  string duo_activity_reward = 5 [
+  // ---- band: mid (mid_tx_count_threshold <= tx < high) ----------------
+  string mid_activity_reward = 7 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"duo_activity_reward\""
+    (gogoproto.moretags) = "yaml:\"mid_activity_reward\""
   ];
-
-  // ---- band: trio (tx_count == low - 3) --------------------------------
-  string trio_activity_reward = 6 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"trio_activity_reward\""
-  ];
-
-  // ---- band: quart (tx_count == low - 2) -------------------------------
-  string quart_activity_reward = 7 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"quart_activity_reward\""
-  ];
-
-  // ---- band: quint (tx_count == low - 1) -------------------------------
-  string quint_activity_reward = 8 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"quint_activity_reward\""
-  ];
+  // Minimum count for the MID band. Required to satisfy low < mid < high.
+  uint64 mid_tx_count_threshold = 8;
 
   // ---- band: low (low_tx_count_threshold <= tx < mid) ------------------
   string low_activity_reward = 9 [
@@ -120,32 +103,50 @@ message Tier {
   // so every exact band lands on a count >= 1 and never collides with zero.
   uint64 low_tx_count_threshold = 10;
 
-  // ---- band: mid (mid_tx_count_threshold <= tx < high) ----------------
-  string mid_activity_reward = 11 [
+  // ---- band: quint (tx_count == low - 1) -------------------------------
+  string quint_activity_reward = 11 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"mid_activity_reward\""
+    (gogoproto.moretags) = "yaml:\"quint_activity_reward\""
   ];
-  // Minimum count for the MID band. Required to satisfy low < mid < high.
-  uint64 mid_tx_count_threshold = 12;
 
-  // ---- band: high (high_tx_count_threshold <= tx < max) ---------------
-  string high_activity_reward = 13 [
+  // ---- band: quart (tx_count == low - 2) -------------------------------
+  string quart_activity_reward = 12 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"high_activity_reward\""
+    (gogoproto.moretags) = "yaml:\"quart_activity_reward\""
   ];
-  // Minimum count for the HIGH band. Required to satisfy mid < high < max.
-  uint64 high_tx_count_threshold = 14;
 
-  // ---- band: max (tx_count >= max_tx_count_threshold) -----------------
-  string max_activity_reward = 15 [
+  // ---- band: trio (tx_count == low - 3) --------------------------------
+  string trio_activity_reward = 13 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"max_activity_reward\""
+    (gogoproto.moretags) = "yaml:\"trio_activity_reward\""
   ];
-  // Minimum count for the MAX band. Must be greater than high.
-  uint64 max_tx_count_threshold = 16;
+
+  // ---- band: duo (tx_count == low - 4) ---------------------------------
+  string duo_activity_reward = 14 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"duo_activity_reward\""
+  ];
+
+  // ---- band: single (tx_count == low - 5 and below) ---------------------
+  // Paid for exactly ONE transaction, or -- once the dPona offset is active --
+  // any count below the duo band. Required, like every other rate.
+  string single_activity_reward = 15 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"single_activity_reward\""
+  ];
+
+  // ---- band: zero (tx_count == 0) ---------------------------------------
+  // Paid when tx_count == 0. Also the FLOOR of the paid reward.
+  string zero_activity_reward = 16 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"zero_activity_reward\""
+  ];
 }
 
 // Params holds the runerewards module parameters.

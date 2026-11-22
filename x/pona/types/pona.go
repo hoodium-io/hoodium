@@ -79,9 +79,9 @@ const MinLowTxCountThreshold = uint64(6)
 // (Tier.BandForTxCount) and is shared by the payout path, the emitted event, the
 // CLI and the block explorer.
 //
-// The constants are declared from MAX down to ZERO, mirroring the numeric
-// ordering helpers in Tier.Ladder. Display code that wants bottom-to-top order
-// should use Tier.Ladder(), which returns zero first.
+// The constants are declared from MAX down to ZERO, matching the proto field
+// declaration order and Tier.Ladder(), so the code, the genesis file and any UI
+// all read the ladder the same way: busiest band first, empty block last.
 type ActivityBand string
 
 const (
@@ -126,20 +126,24 @@ const (
 // BandForTxCount returns the PoNA band that applies to a block containing
 // txCount regular transactions.
 //
-// The ten bands are selected by four stored thresholds (low/mid/high/max); the
+// The ten bands are selected by four stored thresholds (max/high/mid/low); the
 // five exact-count bands (quint..single) are DERIVED from low, so the ladder has
-// no gaps and no overlaps at any difficulty:
+// no gaps and no overlaps at any difficulty.
 //
-//	txCount == 0                       -> Zero
-//	txCount <  DuoThreshold            -> Single   (clamped floor)
-//	txCount == DuoThreshold            -> Duo
-//	txCount == TrioThreshold           -> Trio
-//	txCount == QuartThreshold          -> Quart
-//	txCount == QuintThreshold          -> Quint
-//	txCount <  MidThreshold            -> Low
-//	txCount <  HighThreshold           -> Mid
-//	txCount <  MaxThreshold            -> High
-//	otherwise                          -> Max
+// The cases are evaluated MAX -> ZERO, matching the order the ladder is declared
+// in the proto, the genesis file and Tier.Ladder(). Reading the switch is
+// therefore the same as reading the ladder top-down:
+//
+//	txCount >= MaxThreshold    -> Max
+//	txCount >= HighThreshold   -> High
+//	txCount >= MidThreshold    -> Mid
+//	txCount >= LowThreshold    -> Low
+//	txCount == LowThreshold-1  -> Quint
+//	txCount == LowThreshold-2  -> Quart
+//	txCount == LowThreshold-3  -> Trio
+//	txCount == LowThreshold-4  -> Duo
+//	txCount == 0               -> Zero
+//	otherwise                  -> Single  (clamped floor: 1 .. LowThreshold-5)
 //
 // # Why the exact bands are derived and not stored
 //
@@ -152,32 +156,36 @@ func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
 	low := t.LowTxCountThreshold
 
 	switch {
-	case txCount == 0:
-		return BandZero
-
-	// The five exact-count bands, descending. `low` is validated to be >= 6, so
-	// quint..duo are all >= 2 and never collide with the zero band.
-	case txCount == low-5 || txCount < low-5:
-		return BandSingle
-	case txCount == low-4:
-		return BandDuo
-	case txCount == low-3:
-		return BandTrio
-	case txCount == low-2:
-		return BandQuart
-	case txCount == low-1:
-		return BandQuint
-
+	// Range bands, descending from the top.
 	case txCount >= t.MaxTxCountThreshold:
 		return BandMax
 	case txCount >= t.HighTxCountThreshold:
 		return BandHigh
 	case txCount >= t.MidTxCountThreshold:
 		return BandMid
-	default:
-		// MidTxCountThreshold is validated to be > low, so every count reaching
-		// here is in the low band.
+	case txCount >= low:
 		return BandLow
+
+	// The five exact-count bands, still descending. `low` is validated to be >= 6,
+	// so quint..duo are all >= 2 and never collide with the zero band.
+	case txCount == low-1:
+		return BandQuint
+	case txCount == low-2:
+		return BandQuart
+	case txCount == low-3:
+		return BandTrio
+	case txCount == low-4:
+		return BandDuo
+
+	// The empty block is its own band and is NOT the floor of this ladder: the
+	// floor is the single band, which absorbs every count below duo.
+	case txCount == 0:
+		return BandZero
+
+	// Remaining counts (1 .. low-5) clamp into single, so no count is ever
+	// unbanded at any difficulty.
+	default:
+		return BandSingle
 	}
 }
 
@@ -207,8 +215,12 @@ type BandLadderEntry struct {
 	Reward   sdkmath.Int
 }
 
-// Ladder returns the tier's ten bands from ZERO to MAX, in that order, with
-// their resolved transaction-count ranges and configured rates.
+// Ladder returns the tier's ten bands from MAX down to ZERO, with their resolved
+// transaction-count ranges and configured rates.
+//
+// The order is deliberate and matches the proto field declaration order, so the
+// genesis file, `runed query pona params` and any UI all read the ladder the same
+// way: busiest band first, empty block last.
 //
 // The ranges are derived from the same thresholds BandForTxCount uses, so the
 // rendered ladder cannot disagree with what is actually paid.
@@ -217,16 +229,16 @@ func (t Tier) Ladder() []BandLadderEntry {
 	low := t.LowTxCountThreshold
 
 	return []BandLadderEntry{
-		{BandZero, 0, 0, t.ZeroActivityReward},
-		{BandSingle, 1, low - 5, t.SingleActivityReward},
-		{BandDuo, low - 4, low - 4, t.DuoActivityReward},
-		{BandTrio, low - 3, low - 3, t.TrioActivityReward},
-		{BandQuart, low - 2, low - 2, t.QuartActivityReward},
-		{BandQuint, low - 1, low - 1, t.QuintActivityReward},
-		{BandLow, low, t.MidTxCountThreshold - 1, t.LowActivityReward},
-		{BandMid, t.MidTxCountThreshold, t.HighTxCountThreshold - 1, t.MidActivityReward},
-		{BandHigh, t.HighTxCountThreshold, t.MaxTxCountThreshold - 1, t.HighActivityReward},
 		{BandMax, t.MaxTxCountThreshold, top, t.MaxActivityReward},
+		{BandHigh, t.HighTxCountThreshold, t.MaxTxCountThreshold - 1, t.HighActivityReward},
+		{BandMid, t.MidTxCountThreshold, t.HighTxCountThreshold - 1, t.MidActivityReward},
+		{BandLow, low, t.MidTxCountThreshold - 1, t.LowActivityReward},
+		{BandQuint, low - 1, low - 1, t.QuintActivityReward},
+		{BandQuart, low - 2, low - 2, t.QuartActivityReward},
+		{BandTrio, low - 3, low - 3, t.TrioActivityReward},
+		{BandDuo, low - 4, low - 4, t.DuoActivityReward},
+		{BandSingle, 1, low - 5, t.SingleActivityReward},
+		{BandZero, 0, 0, t.ZeroActivityReward},
 	}
 }
 
@@ -426,22 +438,22 @@ func (p Params) TierForHeightWithDiff(height, diff uint64) (int, Tier, bool) {
 // bands. Such a tier would be dead configuration.
 func (t Tier) validatePoNA(idx int) error {
 	// Every band's rate is required and must be non-negative. Declared in the
-	// same zero-to-max order as Tier.Ladder, so a validation failure reads in the
-	// order an operator sees on the panel.
+	// same max-to-zero order as Tier.Ladder, so a validation failure names the
+	// band in the order an operator reads the ladder on the panel.
 	for _, r := range []struct {
 		name   string
 		amount sdkmath.Int
 	}{
-		{"zero activity", t.ZeroActivityReward},
-		{"single activity", t.SingleActivityReward},
-		{"duo activity", t.DuoActivityReward},
-		{"trio activity", t.TrioActivityReward},
-		{"quart activity", t.QuartActivityReward},
-		{"quint activity", t.QuintActivityReward},
-		{"low activity", t.LowActivityReward},
-		{"mid activity", t.MidActivityReward},
-		{"high activity", t.HighActivityReward},
 		{"max activity", t.MaxActivityReward},
+		{"high activity", t.HighActivityReward},
+		{"mid activity", t.MidActivityReward},
+		{"low activity", t.LowActivityReward},
+		{"quint activity", t.QuintActivityReward},
+		{"quart activity", t.QuartActivityReward},
+		{"trio activity", t.TrioActivityReward},
+		{"duo activity", t.DuoActivityReward},
+		{"single activity", t.SingleActivityReward},
+		{"zero activity", t.ZeroActivityReward},
 	} {
 		if r.amount.IsNil() {
 			return fmt.Errorf("pona: tier %d %s reward must be set", idx, r.name)
@@ -482,25 +494,32 @@ func (t Tier) validatePoNA(idx int) error {
 		)
 	}
 
-	// Rate ordering: zero <= single <= duo <= trio <= quart <= quint <= low <= mid
-	// <= high <= max.
+	// Rate ordering: max >= high >= mid >= low >= quint >= quart >= trio >= duo
+	// >= single >= zero.
+	//
+	// Evaluated MAX -> ZERO, matching the order the ladder is declared everywhere
+	// else (proto, genesis, Tier.Ladder, the switch above). Each entry asserts
+	// "this band must not pay LESS than the band below it".
 	for _, pair := range []struct {
 		name     string
-		lower    sdkmath.Int
-		lowerKey string
 		upper    sdkmath.Int
+		upperKey string
+		lower    sdkmath.Int
 	}{
-		{"single activity", t.ZeroActivityReward, "zero activity", t.SingleActivityReward},
-		{"duo activity", t.SingleActivityReward, "single activity", t.DuoActivityReward},
-		{"trio activity", t.DuoActivityReward, "duo activity", t.TrioActivityReward},
-		{"quart activity", t.TrioActivityReward, "trio activity", t.QuartActivityReward},
-		{"quint activity", t.QuartActivityReward, "quart activity", t.QuintActivityReward},
-		{"low activity", t.QuintActivityReward, "quint activity", t.LowActivityReward},
-		{"mid activity", t.LowActivityReward, "low activity", t.MidActivityReward},
-		{"high activity", t.MidActivityReward, "mid activity", t.HighActivityReward},
-		{"max", t.HighActivityReward, "high activity", t.MaxActivityReward},
+		{"max", t.MaxActivityReward, "high activity", t.HighActivityReward},
+		{"high activity", t.HighActivityReward, "mid activity", t.MidActivityReward},
+		{"mid activity", t.MidActivityReward, "low activity", t.LowActivityReward},
+		{"low activity", t.LowActivityReward, "quint activity", t.QuintActivityReward},
+		{"quint activity", t.QuintActivityReward, "quart activity", t.QuartActivityReward},
+		{"quart activity", t.QuartActivityReward, "trio activity", t.TrioActivityReward},
+		{"trio activity", t.TrioActivityReward, "duo activity", t.DuoActivityReward},
+		{"duo activity", t.DuoActivityReward, "single activity", t.SingleActivityReward},
+		{"single activity", t.SingleActivityReward, "zero activity", t.ZeroActivityReward},
 	} {
-		if pair.upper.LT(pair.lower) {
+		// Violation: the band BELOW pays more than the band above it, i.e. the
+		// upper band's reward is below the lower band's. Reported that way round so
+		// the message names the band an operator must raise.
+		if pair.lower.GT(pair.upper) {
 			return fmt.Errorf(
 				"pona: tier %d %s reward %s is below the %s reward %s",
 				idx, pair.name, pair.upper.String(), pair.lowerKey, pair.lower.String(),

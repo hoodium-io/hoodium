@@ -131,16 +131,24 @@ func TestBandLadderExhaustive(t *testing.T) {
 
 // TestBandLadderNoGapsOrOverlaps asserts the Ladder() ranges tile the whole count
 // space: every count from 0 upward belongs to exactly one rung.
+//
+// The ladder is ordered MAX -> ZERO (busiest first), so contiguity is checked by
+// walking it and verifying each rung ends exactly one below the previous one, and
+// that the last rung is the zero band at count 0.
 func TestBandLadderNoGapsOrOverlaps(t *testing.T) {
 	for _, diff := range []uint64{0, 1, 2, 5} {
 		tier := tenBandTier().WithDPonaOffset(diff * types.DPonaTxCountStep)
 		ladder := tier.Ladder()
 
 		require.Len(t, ladder, 10, "ladder must have exactly ten bands")
-		require.Equal(t, uint64(0), ladder[0].Min, "ladder must start at 0")
+		require.Equal(t, types.BandMax, ladder[0].Band, "ladder must start at max")
+		require.Equal(t, types.BandZero, ladder[len(ladder)-1].Band, "ladder must end at zero")
+		require.Equal(t, uint64(0), ladder[len(ladder)-1].Min, "the last rung must be count 0")
 
+		// Walking MAX -> ZERO, each rung's Max must be exactly one below the
+		// previous rung's Min: no gap, no overlap.
 		for i := 1; i < len(ladder); i++ {
-			require.Equalf(t, ladder[i-1].Max+1, ladder[i].Min,
+			require.Equalf(t, ladder[i-1].Min-1, ladder[i].Max,
 				"diff=%d: gap or overlap between %q and %q",
 				diff, ladder[i-1].Band, ladder[i].Band)
 		}

@@ -158,9 +158,10 @@ coherently.
 on transaction count 1 rather than colliding with the zero band
 (`MinLowTxCountThreshold` in `x/pona/types/pona.go`).
 
-`Tier.Ladder()` returns the ten bands **zero → max** with their resolved
-count ranges and rates, so the CLI and the block explorer render exactly what is
-paid instead of recomputing the derivation.
+`Tier.Ladder()` returns the ten bands **max → zero** with their resolved count
+ranges and rates, so the CLI and the block explorer render exactly what is paid
+instead of recomputing the derivation. The order matches the proto field
+declaration, so the genesis file reads the same way.
 
 > **Every field is required.** Each tier carries all ten rates and all four
 > thresholds. `Params.Validate` rejects a tier that omits any of them, so a
@@ -237,8 +238,9 @@ all** — which is precisely the gap the validator rejects.
 ### 3.2 The rate ladder
 
 PoNA rates are defined **per emission tier**. The max rate is the ceiling owned by
-`x/pona`; every other band is PoNA policy. All ten bands are listed **zero → max**,
-the order `Tier.Ladder()` returns and the order the genesis file is written in.
+`x/pona`; every other band is PoNA policy. All ten bands are listed **max → zero**,
+the order `Tier.Ladder()` returns and the order the proto — and therefore the
+genesis file — declares them in.
 
 | Tier | Epoch | Max `≥20` | High `15–19` | Mid `10–14` | Low `6–9` | Quint `5` | Quart `4` | Trio `3` | Duo `2` | Single `1` | Zero `0` |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -548,12 +550,12 @@ The tx count itself is **not** a parameter: it is captured per block from
 `pona/types.KeyBlockTxCount`. The dPona controller state is stored separately
 under `pona/types.KeyDPona`.
 
-> **Field numbering.** The band fields are numbered and declared **zero → max**,
-> so the genesis file reads as a ladder bottom-to-top:
-> `zero_activity_reward, single_…, duo_…, trio_…, quart_…, quint_…, low_… (with
-> its threshold), mid_… (with its threshold), high_… (with its threshold), max_…
-> (with its threshold)`. Declaration order is also the order the generated Go
-> struct — and therefore the genesis JSON — lists them.
+> **Field numbering.** The band fields are numbered and declared **max → zero**,
+> so the genesis file reads as a ladder top-to-bottom, busiest band first:
+> `max_activity_reward + max_tx_count_threshold, high_… + its threshold,
+> mid_… + its threshold, low_… + its threshold, quint_…, quart_…, trio_…, duo_…,
+> single_…, zero_activity_reward`. Declaration order is also the order the
+> generated Go struct — and therefore the genesis JSON — lists them.
 >
 > The ten-band renumbering **deliberately broke wire compatibility** with the
 > five-band layout. That was safe because there was no live chain (devnet only);

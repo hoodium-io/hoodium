@@ -381,18 +381,18 @@ PoNA band instead of by voting power alone. Supply never grows.
 
 | Piece | State |
 |---|---|
-| `Tier` proto: 10 bands, zero-to-max field order | ✅ written |
+| `Tier` proto: 10 bands, **max-to-zero** field order | ✅ done |
 | `DPonaState` message + genesis block | ✅ written |
 | `Params.fee_only_tier` + `fee_skim_percent` | ✅ written |
 | 10-band `BandForTxCount` with derived exact bands | ✅ **tested (30 passing)** |
-| `Tier.Ladder()` (zero→max range/rate triples) | ✅ written |
+| `Tier.Ladder()` (**max→zero** range/rate triples) | ✅ done |
 | `DPonaState.ObserveBlock` transitions (no cap) | ✅ **tested (9 funcs)** |
 | `Tier.WithDPonaOffset` threshold shifting | ✅ written |
 | `ComputeBlockRewardWithDiff` + `FundingSource` | ✅ written |
 | Fee-only tier: `min(scheduled, skim% × fees)` | ✅ written |
 | `EndBlock` wiring + `advanceDPona` | ✅ written |
 | CLI / event / log: `dpona`, `pona_diff`, `funding_source` | ✅ written |
-| Devnet `genesis.json` (all 10 bands, zero→max) | ✅ written |
+| Devnet `genesis.json` (all 10 bands, **max→zero**) | ✅ done |
 | `make proto-gen` | ✅ done (regenerated `genesis.pb.go`) |
 | `pona.md` rewrite (5 bands → 10) | ⏳ pending |
 | Blockdium panel | ⏳ pending |
