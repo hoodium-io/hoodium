@@ -639,8 +639,41 @@ answerable without a new protobuf or a chain upgrade.
 | `runed query pona block-reward --tx-count 25` | what a block with 25 txs *would* pay |
 | `runed query pona tx-count` | the regular-tx count PoNA used for the last block, **plus** the block's raw entry count |
 | `runed query pona pool` | RUNE left in `validator_reward_pool`, and how long it lasts |
+| `runed query pona dpona` | the difficulty-controller state: on/off, `pona_diff`, the countdown to the next change, and the **effective threshold of every band** at the current difficulty |
+| `runed query pona pool` | RUNE left in `validator_reward_pool`, and how long it lasts |
 
 Typical output:
+
+```console
+$ runed query pona dpona
+active: false
+blocks_since_max: 0
+consecutive_max: 0
+decrement_after_blocks: 100
+effective_thresholds:
+  duo: 2
+  high: 15
+  low: 6
+  max: 20
+  mid: 10
+  quart: 4
+  quint: 5
+  single: 1
+  trio: 3
+height: 252
+increment_after_blocks: 5
+next_decrement_in_blocks: 0
+next_increment_in_blocks: 5
+note: 'dPona is OFF: the base ladder applies (max needs 20 regular txs)'
+pona_diff: 0
+tx_count_step: 10
+txs_offset: 0
+warn: false
+```
+
+With dPona active at `pona_diff: 2` the same command shows `txs_offset: 40`,
+`warn: true`, and every entry under `effective_thresholds` raised by 20 (the
+`max` band would need 40 transactions).
 
 ```console
 $ runed query pona block-reward
@@ -766,10 +799,10 @@ case** — never a bug.
    row) is not caught by the controller. **Watch the reserve once Tier 3 begins**
    and be prepared either to lower Tier 2's max or to accept an earlier handover
    to the fee-funded tier.
-8. **dPona observability** — `dpona`, `pona_diff` and `txs_offset` are now in the
-   per-block log line and the `rune_block_reward` event. A `runed query pona
-   dpona` subcommand would make the controller state queryable without parsing
-   logs; not yet implemented.
+8. **dPona observability** — **resolved**: `runed query pona dpona` reports the
+   controller state (on/off, `pona_diff`, countdowns to the next transition, and
+   every band's effective threshold at the current difficulty). The same fields
+   appear in the per-block log line and the `rune_block_reward` event.
 
 ---
 

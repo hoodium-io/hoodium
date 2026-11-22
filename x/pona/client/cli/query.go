@@ -166,6 +166,33 @@ func queryBlockTxCountAt(clientCtx client.Context, height int64) (uint64, error)
 	return sdk.BigEndianToUint64(value), nil
 }
 
+// queryDPonaAt returns the dPona difficulty-controller state recorded at the
+// given height. A height of 0 means "latest".
+//
+// Missing state is NOT an error here: the key is only written once the
+// controller has run, and a node that has just started (or a height before the
+// dPona upgrade) legitimately has no value. A zero DPonaState is exactly the
+// correct answer in that case — it means "dPona off, base ladder" — so it is
+// returned rather than reported as a failure.
+func queryDPonaAt(clientCtx client.Context, height int64) (types.DPonaState, error) {
+	value, _, err := queryStoreKeyAt(clientCtx, types.KeyDPona, height)
+	if err != nil {
+		return types.DPonaState{}, err
+	}
+
+	if len(value) == 0 {
+		// No state yet: dPona off, which is the documented starting condition.
+		return types.DPonaState{}, nil
+	}
+
+	var state types.DPonaState
+	if err := clientCtx.Codec.Unmarshal(value, &state); err != nil {
+		return types.DPonaState{}, fmt.Errorf("failed to decode dpona state: %w", err)
+	}
+
+	return state, nil
+}
+
 // queryBlockTxEntries returns the number of entries physically present in the
 // block at the given height (0 = latest), i.e. exactly what CometBFT reports as
 // num_txs.
@@ -239,6 +266,7 @@ func GetQueryCmd() *cobra.Command {
 		GetTierCmd(),
 		GetBlockRewardCmd(),
 		GetTxCountCmd(),
+		GetDPonaCmd(),
 	)
 
 	return cmd
@@ -619,6 +647,116 @@ use --height to inspect an older block.`,
 	return cmd
 }
 
+// GetDPonaCmd reports the dynamic-PoNA difficulty controller state and what it
+// does to each band's transaction threshold.
+func GetDPonaCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "dpona",
+		Short: "Show the dPona dynamic difficulty state and its effect on every band",
+		Long: `Show the dynamic Proof of Network Activity (dPona) difficulty controller.
+
+dPona raises or lowers EVERY band's transaction threshold in response to how
+often the max band is reached:
+
+  +1 difficulty  after 5 consecutive blocks in the max band
+  -1 difficulty  after 100 blocks without a single max-band block
+   hold          otherwise (mixed activity changes nothing)
+
+The difficulty is expressed in +10-transaction steps:
+
+  pona_diff = 0   dPona OFF  — the base ladder applies
+  pona_diff = 1   +10 txs to every band
+  pona_diff = 2   +20 txs to every band
+
+There is no cap. The controller is a negative feedback loop: difficulty can only
+rise while blocks are actually at max, and raising the threshold is itself what
+makes max harder and starts the decay timer. At pona_diff >= 5 the node also logs
+an operator warning, purely so a sustained-hot chain is visible.
+
+Reward AMOUNTS never change with difficulty — only the transaction count needed
+to reach each band. Use --height to inspect an older block.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			params, latestHeight, err := queryParams(clientCtx)
+			if err != nil {
+				return err
+			}
+
+			height := resolveHeight(clientCtx, latestHeight)
+
+			state, err := queryDPonaAt(clientCtx, height)
+			if err != nil {
+				return err
+			}
+
+			report := dponaReport{
+				Height:         height,
+				Active:         state.IsActive(),
+				Diff:           state.Diff,
+				TxCountOffset:  state.TxCountOffset(),
+				ConsecutiveMax: state.ConsecutiveMax,
+				BlocksSinceMax: state.BlocksSinceMax,
+				IncrementAfter: types.DPonaIncrementAfter,
+				DecrementAfter: types.DPonaDecrementAfter,
+				TxCountStep:    types.DPonaTxCountStep,
+				Warn:           state.Diff >= types.DPonaWarnDiff,
+			}
+
+			// How far the controller is from its next transition.
+			if state.ConsecutiveMax < types.DPonaIncrementAfter {
+				report.NextIncrementInBlocks = types.DPonaIncrementAfter - state.ConsecutiveMax
+			}
+			if state.Diff > 0 && state.BlocksSinceMax < types.DPonaDecrementAfter {
+				report.NextDecrementInBlocks = types.DPonaDecrementAfter - state.BlocksSinceMax
+			}
+
+			// The effective thresholds at this difficulty, so the effect of `diff`
+			// is visible rather than left as arithmetic for the reader.
+			offset := state.TxCountOffset()
+			base := params.FeeOnlyTier
+			if idx, tier, ok := params.TierForHeight(uint64(height)); ok {
+				_ = idx
+				base = tier
+			}
+			eff := base.WithDPonaOffset(offset)
+			report.EffectiveThresholds = effectiveThresholds{
+				Max:    eff.MaxTxCountThreshold,
+				High:   eff.HighTxCountThreshold,
+				Mid:    eff.MidTxCountThreshold,
+				Low:    eff.LowTxCountThreshold,
+				Quint:  eff.QuintTxCount(),
+				Quart:  eff.QuartTxCount(),
+				Trio:   eff.TrioTxCount(),
+				Duo:    eff.DuoTxCount(),
+				Single: eff.SingleTxCount(),
+			}
+
+			switch {
+			case !state.IsActive():
+				report.Note = "dPona is OFF: the base ladder applies (max needs " +
+					fmt.Sprintf("%d", report.EffectiveThresholds.Max) + " regular txs)"
+			case report.Warn:
+				report.Note = "dPona is ACTIVE at or above the operator-warning level: " +
+					"the chain has been at max activity for a sustained period"
+			default:
+				report.Note = "dPona is ACTIVE: every band threshold is raised by " +
+					fmt.Sprintf("%d", offset) + " transactions"
+			}
+
+			return printOutput(clientCtx, report)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
+}
+
 // ---------------------------------------------------------------------------
 // output types
 // ---------------------------------------------------------------------------
@@ -902,6 +1040,56 @@ type blockRewardReport struct {
 }
 
 // txCountReport is the output of `query pona tx-count`.
+// dponaReport is the output of `runed query pona dpona`.
+type dponaReport struct {
+	Height int64 `json:"height" yaml:"height"`
+	// Active is dPona on/off. It is exactly (diff > 0): there is deliberately no
+	// separate boolean on chain, so the flag and the number cannot disagree.
+	Active bool `json:"dpona" yaml:"dpona"`
+	// Diff is the difficulty in +10-transaction steps. 0 = dPona off.
+	Diff uint64 `json:"pona_diff" yaml:"pona_diff"`
+	// TxCountOffset is the number of transactions added to every band threshold
+	// (diff * 10).
+	TxCountOffset uint64 `json:"txs_offset" yaml:"txs_offset"`
+	// ConsecutiveMax counts consecutive max-band blocks toward the next +1.
+	ConsecutiveMax uint64 `json:"consecutive_max" yaml:"consecutive_max"`
+	// BlocksSinceMax counts blocks without a max band toward the next -1.
+	BlocksSinceMax uint64 `json:"blocks_since_max" yaml:"blocks_since_max"`
+	// NextIncrementInBlocks is how many more consecutive max blocks are needed
+	// before the difficulty rises. 0 means "the next max block triggers it".
+	NextIncrementInBlocks uint64 `json:"next_increment_in_blocks" yaml:"next_increment_in_blocks"`
+	// NextDecrementInBlocks is how many more blocks without a max band are needed
+	// before the difficulty falls. Only meaningful while Diff > 0.
+	NextDecrementInBlocks uint64 `json:"next_decrement_in_blocks" yaml:"next_decrement_in_blocks"`
+	// IncrementAfter / DecrementAfter / TxCountStep are the controller's rules, so
+	// a reader does not have to know the constants.
+	IncrementAfter uint64 `json:"increment_after_blocks" yaml:"increment_after_blocks"`
+	DecrementAfter uint64 `json:"decrement_after_blocks" yaml:"decrement_after_blocks"`
+	TxCountStep    uint64 `json:"tx_count_step" yaml:"tx_count_step"`
+	// Warn reports that the difficulty has reached the operator-warning level.
+	// It is NOT a cap: the controller is self-limiting, so this is informational.
+	Warn bool `json:"warn" yaml:"warn"`
+	// EffectiveThresholds shows what each band actually requires at the current
+	// difficulty, so the effect of `diff` is visible without arithmetic.
+	EffectiveThresholds effectiveThresholds `json:"effective_thresholds" yaml:"effective_thresholds"`
+	// Note explains the current state in one line.
+	Note string `json:"note" yaml:"note"`
+}
+
+// effectiveThresholds is the transaction count required to reach each band at the
+// difficulty the report was produced for.
+type effectiveThresholds struct {
+	Max    uint64 `json:"max" yaml:"max"`
+	High   uint64 `json:"high" yaml:"high"`
+	Mid    uint64 `json:"mid" yaml:"mid"`
+	Low    uint64 `json:"low" yaml:"low"`
+	Quint  uint64 `json:"quint" yaml:"quint"`
+	Quart  uint64 `json:"quart" yaml:"quart"`
+	Trio   uint64 `json:"trio" yaml:"trio"`
+	Duo    uint64 `json:"duo" yaml:"duo"`
+	Single uint64 `json:"single" yaml:"single"`
+}
+
 type txCountReport struct {
 	Height int64 `json:"height" yaml:"height"`
 	// TxCount is the number of REGULAR transactions in the block: what PoNA
