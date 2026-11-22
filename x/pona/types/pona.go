@@ -498,15 +498,19 @@ func (t Tier) validatePoNA(idx int) error {
 	// >= single >= zero.
 	//
 	// Evaluated MAX -> ZERO, matching the order the ladder is declared everywhere
-	// else (proto, genesis, Tier.Ladder, the switch above). Each entry asserts
-	// "this band must not pay LESS than the band below it".
+	// else (proto, genesis, Tier.Ladder, the switch above). Each entry asserts that
+	// the band ABOVE pays at least as much as the band BELOW it.
+	//
+	// Because the walk is top-down, the TOPMOST violation is reported first. A tier
+	// with several inversions therefore names the highest band involved, which is
+	// the one an operator should fix first.
 	for _, pair := range []struct {
-		name     string
-		upper    sdkmath.Int
-		upperKey string
-		lower    sdkmath.Int
+		band     string
+		amount   sdkmath.Int
+		below    string
+		belowAmt sdkmath.Int
 	}{
-		{"max", t.MaxActivityReward, "high activity", t.HighActivityReward},
+		{"max activity", t.MaxActivityReward, "high activity", t.HighActivityReward},
 		{"high activity", t.HighActivityReward, "mid activity", t.MidActivityReward},
 		{"mid activity", t.MidActivityReward, "low activity", t.LowActivityReward},
 		{"low activity", t.LowActivityReward, "quint activity", t.QuintActivityReward},
@@ -516,13 +520,10 @@ func (t Tier) validatePoNA(idx int) error {
 		{"duo activity", t.DuoActivityReward, "single activity", t.SingleActivityReward},
 		{"single activity", t.SingleActivityReward, "zero activity", t.ZeroActivityReward},
 	} {
-		// Violation: the band BELOW pays more than the band above it, i.e. the
-		// upper band's reward is below the lower band's. Reported that way round so
-		// the message names the band an operator must raise.
-		if pair.lower.GT(pair.upper) {
+		if pair.amount.LT(pair.belowAmt) {
 			return fmt.Errorf(
 				"pona: tier %d %s reward %s is below the %s reward %s",
-				idx, pair.name, pair.upper.String(), pair.lowerKey, pair.lower.String(),
+				idx, pair.band, pair.amount.String(), pair.below, pair.belowAmt.String(),
 			)
 		}
 	}

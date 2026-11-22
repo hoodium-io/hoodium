@@ -377,8 +377,10 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 			wantErr: "single activity reward",
 		},
 		{
+			// Only ONE inversion, so the reported band is unambiguous: single (10)
+			// exceeds duo (2). Everything else stays correctly ordered.
 			name:    "single above the duo rate",
-			tier:    mkTier(rune(50), rune(25), rune(3), rune(10), rune(1)),
+			tier:    mkTier(rune(50), rune(25), rune(20), rune(10), rune(1)),
 			wantErr: "duo activity reward",
 		},
 		{
@@ -387,9 +389,11 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 			wantErr: "mid activity reward",
 		},
 		{
-			name:    "max below the mid rate",
+			// max (10) is below the tier's fixed high rate (45). The descending walk
+			// reports the topmost inversion, so max is named first.
+			name:    "max below the high rate",
 			tier:    mkTier(rune(10), rune(25), rune(20), rune(1), sdkmath.ZeroInt()),
-			wantErr: "max reward",
+			wantErr: "max activity reward",
 		},
 
 		// Every rate is required: there are no optional fields.
