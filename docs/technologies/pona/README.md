@@ -4,7 +4,7 @@ Proof of Network Activity — the RUNE block-reward engine.
 
 | Doc | Contents | Status |
 |---|---|---|
-| [`pona.md`](./pona.md) | PoNA as it exists **on chain today** — five bands, current tier rates | Implemented |
+| [`pona.md`](./pona.md) | PoNA mechanism and module — **ten bands**, tier rates, dPona summary | Implemented |
 | [`dpona.md`](./dpona.md) | **dPona** — ten-band ladder, dynamic difficulty controller, Tier 4 fee fallback | **Designed, not implemented** |
 | [`original-design.md`](./original-design.md) | The original **Enhancement 3** design record, with a corrections log | Historical |
 

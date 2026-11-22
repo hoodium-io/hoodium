@@ -298,4 +298,4 @@ The original intent is unchanged in each case.
 | Doc | Contents |
 |---|---|
 | [`dpona.md`](./dpona.md) | The implementation specification — ten-band ladder, dPona controller, Tier 4 fee fallback |
-| [`pona.md`](./pona.md) | PoNA as it exists on chain today (five bands) |
+| [`pona.md`](./pona.md) | PoNA mechanism and module (ten bands) |

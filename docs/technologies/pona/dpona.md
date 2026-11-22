@@ -2,10 +2,11 @@
 
 > **Status: IMPLEMENTED AND TESTED.** The ten-band ladder, the dPona controller,
 > the fee-only fallback and the genesis layout are in `x/pona`; the proto has been
-> regenerated and `x/pona/types` passes all 30 tests. [`pona.md`](./pona.md) still
-> describes the previous five-band chain and is rewritten next.
+> regenerated and `x/pona/types` passes all 30 tests. [`pona.md`](./pona.md) has
+> been rewritten for the ten-band ladder and is the module reference; **this**
+> document remains the design of record for the controller.
 
-dPona is the second PoNA generation. It replaces the five-band ladder with a
+dPona is the second PoNA generation. It replaced the five-band ladder with a
 **ten-band** ladder and adds a **difficulty controller** that shifts every band's
 transaction threshold up or down in response to sustained max-band activity.
 

@@ -280,18 +280,26 @@ tier:
   ends_at_height: 10519200
   ends_at_height_meaning: exclusive
   floor_applied: false
+  high:
+    arune: "40000000000000000000"
+    rune: "40"
+  high_tx_count_threshold: 15
   low:
-    arune: "15000000000000000000"
-    rune: "15"
-  low_tx_count_threshold: 2
+    arune: "20000000000000000000"
+    rune: "20"
+  low_tx_count_threshold: 6
   max:
     arune: "50000000000000000000"
     rune: "50"
-  max_tx_count_threshold: 10
+  max_tx_count_threshold: 20
   mid:
-    arune: "25000000000000000000"
-    rune: "25"
-  mid_tx_count_threshold: 5
+    arune: "30000000000000000000"
+    rune: "30"
+  mid_tx_count_threshold: 10
+  quint:  { arune: "5000000000000000000", rune: "5" }
+  quart:  { arune: "4000000000000000000", rune: "4" }
+  trio:   { arune: "3000000000000000000", rune: "3" }
+  duo:    { arune: "2000000000000000000", rune: "2" }
   single:
     arune: "1000000000000000000"
     rune: "1"
@@ -305,21 +313,32 @@ tx_count: 0
 tx_count_source: chain (recorded for the last finalized block)
 ```
 
-The five bands are selected by the number of **regular** transactions in the
-block, and `zero` is also the **floor** — no block is ever paid less:
+The ten bands are selected by the number of **regular** transactions in the
+block, and `zero` is also the **floor** for reserve tiers — no block is ever paid
+less:
 
 | Band | Condition | Tier 1 pays |
 |---|---|---|
-| `max` | `tx_count >= 10` | 50 RUNE |
-| `mid` | `5 <= tx_count < 10` | 25 RUNE |
-| `low` | `2 <= tx_count < 5` | 15 RUNE |
+| `max` | `tx_count >= 20` | 50 RUNE |
+| `high` | `15 <= tx_count < 20` | 40 RUNE |
+| `mid` | `10 <= tx_count < 15` | 30 RUNE |
+| `low` | `6 <= tx_count < 10` | 20 RUNE |
+| `quint` | `tx_count == 5` | 5 RUNE |
+| `quart` | `tx_count == 4` | 4 RUNE |
+| `trio` | `tx_count == 3` | 3 RUNE |
+| `duo` | `tx_count == 2` | 2 RUNE |
 | `single` | `tx_count == 1` | 1 RUNE |
 | `zero` | `tx_count == 0` | 0.5 RUNE (floor) |
 
-`runed query pona params` reports the full rate ladder (`max`, `mid`, `low`,
-`single`, `zero`) with their thresholds, plus `floor_applied`, so a rate that gets
-clamped up to the floor is visible rather than silent. The shipped schedule never
-needs the floor.
+The five exact-count bands (`quint`..`single`) are **derived from
+`low_tx_count_threshold`** (`low-1` .. `low-5`), so they follow it automatically
+when dPona shifts the difficulty.
+
+`runed query pona params` reports the full rate ladder
+(`max`, `high`, `mid`, `low`, `quint`, `quart`, `trio`, `duo`, `single`, `zero`)
+with its four thresholds, plus `floor_applied`, so a rate that gets clamped up to
+the floor is visible rather than silent. The shipped schedule never needs the
+floor for reserve tiers; the fee-only tier's zero band is `0` by design.
 
 > **`num_txs=1` in the node log is not a transaction.** CometBFT's
 > `finalizing commit of block ... num_txs=1` counts every entry in the proposal,
@@ -338,12 +357,12 @@ runed query pona tier
 ```yaml
 blocks_until_next_tier: "10518945"
 height: 255
-next_tier_low_reward: "10000000000000000000"
-next_tier_low_reward_rune: "10"
-next_tier_max_reward: "25000000000000000000"
-next_tier_max_reward_rune: "25"
-next_tier_mid_reward: "15000000000000000000"
-next_tier_mid_reward_rune: "15"
+next_tier_low_reward: "20000000000000000000"
+next_tier_low_reward_rune: "20"
+next_tier_max_reward: "40000000000000000000"
+next_tier_max_reward_rune: "40"
+next_tier_mid_reward: "30000000000000000000"
+next_tier_mid_reward_rune: "30"
 next_tier_start_height: 10519200
 next_tier_zero_reward: "500000000000000000"
 next_tier_zero_reward_rune: "0.5"
@@ -351,18 +370,26 @@ tier:
   ends_at_height: 10519200
   ends_at_height_meaning: exclusive
   floor_applied: false
+  high:
+    arune: "40000000000000000000"
+    rune: "40"
+  high_tx_count_threshold: 15
   low:
-    arune: "15000000000000000000"
-    rune: "15"
-  low_tx_count_threshold: 2
+    arune: "20000000000000000000"
+    rune: "20"
+  low_tx_count_threshold: 6
   max:
     arune: "50000000000000000000"
     rune: "50"
-  max_tx_count_threshold: 10
+  max_tx_count_threshold: 20
   mid:
-    arune: "25000000000000000000"
-    rune: "25"
-  mid_tx_count_threshold: 5
+    arune: "30000000000000000000"
+    rune: "30"
+  mid_tx_count_threshold: 10
+  quint:  { arune: "5000000000000000000", rune: "5" }
+  quart:  { arune: "4000000000000000000", rune: "4" }
+  trio:   { arune: "3000000000000000000", rune: "3" }
+  duo:    { arune: "2000000000000000000", rune: "2" }
   single:
     arune: "1000000000000000000"
     rune: "1"
