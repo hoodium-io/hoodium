@@ -28,33 +28,49 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 // current block height is in [start_height, end_height). end_height == 0 means
 // the tier is open-ended (the final, effectively-infinite tier).
 //
-// Tier also carries the Proof of Network Activity (PoNA) rates for that tier.
-// The reward actually paid for a block depends on how many REGULAR transactions
-// the block contains (see docs/technologies/pona/pona.md):
+// Tier carries the ten-band Proof of Network Activity (PoNA) ladder for that
+// tier. The reward paid for a block depends on how many REGULAR transactions it
+// contains (see docs/technologies/pona/pona.md):
 //
-//	tx_count >= max_tx_count_threshold                     -> max_activity_reward
-//	mid_tx_count_threshold <= tx_count < max               -> mid_activity_reward
-//	low_tx_count_threshold <= tx_count < mid               -> low_activity_reward
-//	tx_count == 1                                          -> single_activity_reward
-//	tx_count == 0                                          -> zero_activity_reward
+//	tx_count >= max_tx_count_threshold    -> max_activity_reward
+//	high_tx_count_threshold <= tx < max   -> high_activity_reward
+//	mid_tx_count_threshold  <= tx < high  -> mid_activity_reward
+//	low_tx_count_threshold  <= tx < mid   -> low_activity_reward
+//	tx_count == low - 1                   -> quint_activity_reward
+//	tx_count == low - 2                   -> quart_activity_reward
+//	tx_count == low - 3                   -> trio_activity_reward
+//	tx_count == low - 4                   -> duo_activity_reward
+//	tx_count == low - 5 (and below)       -> single_activity_reward
+//	tx_count == 0                         -> zero_activity_reward
+//
+// The five exact-count bands are DERIVED from low_tx_count_threshold rather
+// than stored as their own thresholds, so the ladder cannot develop gaps or
+// overlaps as the dPona difficulty offset shifts it. See Tier.BandForTxCount in
+// x/pona/types/pona.go.
 //
 // zero_activity_reward is also the FLOOR: no block is ever paid less than it.
-// If max_tx_count_threshold is 0, PoNA is disabled for the tier and
-// max_activity_reward is always paid.
 //
-// FIELD ORDER IS DELIBERATE: the fields are numbered and declared in the order
-// the ladder is evaluated, each band's rate immediately followed by its lower
-// bound, descending from max to zero. protoc emits the generated Go struct -- and
-// therefore the JSON written for genesis -- in declaration order, so the genesis
-// file reads as a top-to-bottom ladder:
+// FIELD ORDER IS DELIBERATE: fields are numbered and declared from ZERO upward
+// to max, so the genesis file reads as a ladder bottom-to-top. Each band's rate
+// is immediately followed by its lower bound. protoc emits the generated Go
+// struct in declaration order, so this ordering is what the genesis JSON shows:
 //
-//	max_activity_reward, max_tx_count_threshold,
-//	mid_activity_reward, mid_tx_count_threshold,
-//	low_activity_reward, low_tx_count_threshold,
-//	single_activity_reward, zero_activity_reward
+//	zero_activity_reward,
+//	single_activity_reward,
+//	duo_activity_reward,
+//	trio_activity_reward,
+//	quart_activity_reward,
+//	quint_activity_reward,
+//	low_activity_reward,  low_tx_count_threshold,
+//	mid_activity_reward,  mid_tx_count_threshold,
+//	high_activity_reward, high_tx_count_threshold,
+//	max_activity_reward,  max_tx_count_threshold
 //
-// Keep this order when adding fields; do not renumber once a chain exists.
+// NOTE: this numbering deliberately does NOT preserve wire compatibility with
+// the previous five-band layout. There is no live chain yet (devnet only), so
+// the ladder was renumbered for readability instead of append-only.
 type Tier struct {
+	// ---- position ---------------------------------------------------------
 	// start_height is the first block height (inclusive) at which this tier applies.
 	StartHeight uint64 `protobuf:"varint,1,opt,name=start_height,json=startHeight,proto3" json:"start_height,omitempty"`
 	// end_height is the first block height (exclusive) at which this tier stops
@@ -66,36 +82,39 @@ type Tier struct {
 	// covered, and every subsequent tier starts at the height the previous one
 	// stopped at.
 	EndHeight uint64 `protobuf:"varint,2,opt,name=end_height,json=endHeight,proto3" json:"end_height,omitempty"`
-	// max_activity_reward is the reward for a maximally active block
-	// (tx_count >= max_tx_count_threshold), in arune (1 RUNE = 10^18 arune).
-	MaxActivityReward cosmossdk_io_math.Int `protobuf:"bytes,3,opt,name=max_activity_reward,json=maxActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"max_activity_reward" yaml:"max_activity_reward"`
-	// max_tx_count_threshold is the minimum number of transactions a block must
-	// contain for max_activity_reward to be paid. Zero disables PoNA for the tier.
-	MaxTxCountThreshold uint64 `protobuf:"varint,4,opt,name=max_tx_count_threshold,json=maxTxCountThreshold,proto3" json:"max_tx_count_threshold,omitempty"`
-	// mid_activity_reward is paid when mid_tx_count_threshold <= tx_count < max, in arune.
-	MidActivityReward cosmossdk_io_math.Int `protobuf:"bytes,5,opt,name=mid_activity_reward,json=midActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"mid_activity_reward" yaml:"mid_activity_reward"`
-	// mid_tx_count_threshold is the minimum number of transactions for the MID
-	// band. Must be greater than low_tx_count_threshold and less than
-	// max_tx_count_threshold. Zero means "use the default" (5).
-	MidTxCountThreshold uint64 `protobuf:"varint,6,opt,name=mid_tx_count_threshold,json=midTxCountThreshold,proto3" json:"mid_tx_count_threshold,omitempty"`
-	// low_activity_reward is paid when low_tx_count_threshold <= tx_count < mid, in arune.
-	LowActivityReward cosmossdk_io_math.Int `protobuf:"bytes,7,opt,name=low_activity_reward,json=lowActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"low_activity_reward" yaml:"low_activity_reward"`
-	// low_tx_count_threshold is the minimum number of transactions for the LOW
-	// band. Must be at least 2 (a band requiring 0 or 1 transactions could never be
-	// selected) and less than mid_tx_count_threshold. Zero means "use the default"
-	// (2).
-	LowTxCountThreshold uint64 `protobuf:"varint,8,opt,name=low_tx_count_threshold,json=lowTxCountThreshold,proto3" json:"low_tx_count_threshold,omitempty"`
-	// single_activity_reward is paid when the block contains exactly ONE
-	// transaction, in arune. It is its own band because a single transaction is
-	// meaningfully more activity than none, but far less than an actively used
-	// chain.
-	//
-	// Leave it zero to fold single-transaction blocks into the low band: with the
-	// field unset, tx_count == 1 pays low_activity_reward.
-	SingleActivityReward cosmossdk_io_math.Int `protobuf:"bytes,9,opt,name=single_activity_reward,json=singleActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"single_activity_reward" yaml:"single_activity_reward"`
-	// zero_activity_reward is paid when tx_count == 0, in arune. It is also the
-	// FLOOR of the paid reward: no block is ever worth less than it.
-	ZeroActivityReward cosmossdk_io_math.Int `protobuf:"bytes,10,opt,name=zero_activity_reward,json=zeroActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"zero_activity_reward" yaml:"zero_activity_reward"`
+	// ---- band: zero (tx_count == 0) ---------------------------------------
+	// Paid when tx_count == 0. Also the FLOOR of the paid reward.
+	ZeroActivityReward cosmossdk_io_math.Int `protobuf:"bytes,3,opt,name=zero_activity_reward,json=zeroActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"zero_activity_reward" yaml:"zero_activity_reward"`
+	// ---- band: single (tx_count == low - 5 and below) ---------------------
+	// Paid for exactly ONE transaction, or -- once the dPona offset is active --
+	// any count below the duo band. Required, like every other rate.
+	SingleActivityReward cosmossdk_io_math.Int `protobuf:"bytes,4,opt,name=single_activity_reward,json=singleActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"single_activity_reward" yaml:"single_activity_reward"`
+	// ---- band: duo (tx_count == low - 4) ---------------------------------
+	DuoActivityReward cosmossdk_io_math.Int `protobuf:"bytes,5,opt,name=duo_activity_reward,json=duoActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"duo_activity_reward" yaml:"duo_activity_reward"`
+	// ---- band: trio (tx_count == low - 3) --------------------------------
+	TrioActivityReward cosmossdk_io_math.Int `protobuf:"bytes,6,opt,name=trio_activity_reward,json=trioActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"trio_activity_reward" yaml:"trio_activity_reward"`
+	// ---- band: quart (tx_count == low - 2) -------------------------------
+	QuartActivityReward cosmossdk_io_math.Int `protobuf:"bytes,7,opt,name=quart_activity_reward,json=quartActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"quart_activity_reward" yaml:"quart_activity_reward"`
+	// ---- band: quint (tx_count == low - 1) -------------------------------
+	QuintActivityReward cosmossdk_io_math.Int `protobuf:"bytes,8,opt,name=quint_activity_reward,json=quintActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"quint_activity_reward" yaml:"quint_activity_reward"`
+	// ---- band: low (low_tx_count_threshold <= tx < mid) ------------------
+	LowActivityReward cosmossdk_io_math.Int `protobuf:"bytes,9,opt,name=low_activity_reward,json=lowActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"low_activity_reward" yaml:"low_activity_reward"`
+	// low_tx_count_threshold anchors the ladder: the five exact bands
+	// (quint..single) are derived from it as low-1 .. low-5. Must be at least 6,
+	// so every exact band lands on a count >= 1 and never collides with zero.
+	LowTxCountThreshold uint64 `protobuf:"varint,10,opt,name=low_tx_count_threshold,json=lowTxCountThreshold,proto3" json:"low_tx_count_threshold,omitempty"`
+	// ---- band: mid (mid_tx_count_threshold <= tx < high) ----------------
+	MidActivityReward cosmossdk_io_math.Int `protobuf:"bytes,11,opt,name=mid_activity_reward,json=midActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"mid_activity_reward" yaml:"mid_activity_reward"`
+	// Minimum count for the MID band. Required to satisfy low < mid < high.
+	MidTxCountThreshold uint64 `protobuf:"varint,12,opt,name=mid_tx_count_threshold,json=midTxCountThreshold,proto3" json:"mid_tx_count_threshold,omitempty"`
+	// ---- band: high (high_tx_count_threshold <= tx < max) ---------------
+	HighActivityReward cosmossdk_io_math.Int `protobuf:"bytes,13,opt,name=high_activity_reward,json=highActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"high_activity_reward" yaml:"high_activity_reward"`
+	// Minimum count for the HIGH band. Required to satisfy mid < high < max.
+	HighTxCountThreshold uint64 `protobuf:"varint,14,opt,name=high_tx_count_threshold,json=highTxCountThreshold,proto3" json:"high_tx_count_threshold,omitempty"`
+	// ---- band: max (tx_count >= max_tx_count_threshold) -----------------
+	MaxActivityReward cosmossdk_io_math.Int `protobuf:"bytes,15,opt,name=max_activity_reward,json=maxActivityReward,proto3,customtype=cosmossdk.io/math.Int" json:"max_activity_reward" yaml:"max_activity_reward"`
+	// Minimum count for the MAX band. Must be greater than high.
+	MaxTxCountThreshold uint64 `protobuf:"varint,16,opt,name=max_tx_count_threshold,json=maxTxCountThreshold,proto3" json:"max_tx_count_threshold,omitempty"`
 }
 
 func (m *Tier) Reset()         { *m = Tier{} }
@@ -145,9 +164,9 @@ func (m *Tier) GetEndHeight() uint64 {
 	return 0
 }
 
-func (m *Tier) GetMaxTxCountThreshold() uint64 {
+func (m *Tier) GetLowTxCountThreshold() uint64 {
 	if m != nil {
-		return m.MaxTxCountThreshold
+		return m.LowTxCountThreshold
 	}
 	return 0
 }
@@ -159,21 +178,45 @@ func (m *Tier) GetMidTxCountThreshold() uint64 {
 	return 0
 }
 
-func (m *Tier) GetLowTxCountThreshold() uint64 {
+func (m *Tier) GetHighTxCountThreshold() uint64 {
 	if m != nil {
-		return m.LowTxCountThreshold
+		return m.HighTxCountThreshold
+	}
+	return 0
+}
+
+func (m *Tier) GetMaxTxCountThreshold() uint64 {
+	if m != nil {
+		return m.MaxTxCountThreshold
 	}
 	return 0
 }
 
 // Params holds the runerewards module parameters.
 type Params struct {
-	// tiers is the ordered emission schedule (contiguous, non-overlapping,
-	// starting at height 0, last tier open-ended). Each tier carries both the
-	// full reward and its PoNA (activity-scaled) rates.
+	// tiers is the ordered RESERVE-FUNDED emission schedule (contiguous,
+	// non-overlapping, starting at height 0, last tier open-ended). Each tier
+	// carries the ten-band PoNA ladder.
 	Tiers []Tier `protobuf:"bytes,1,rep,name=tiers,proto3" json:"tiers"`
 	// denom is the reward denomination (arune).
 	Denom string `protobuf:"bytes,2,opt,name=denom,proto3" json:"denom,omitempty"`
+	// fee_only_tier is the FEE-FUNDED ladder paid once the reserve can no longer
+	// cover the scheduled reward ("Tier 4"). It is not a height tier: it has no
+	// position in `tiers` and no start/end height. Those two fields are unused and
+	// must be zero.
+	//
+	// Its reward is CLAMPED to what the block's fees can actually pay:
+	//
+	//	paid = min(scheduled_reward, fee_skim_percent% * block_fees)
+	//
+	// A block with no transactions has no fees, so fee_only_tier's zero band must
+	// be zero -- that is what makes this ladder self-describing.
+	FeeOnlyTier Tier `protobuf:"bytes,3,opt,name=fee_only_tier,json=feeOnlyTier,proto3" json:"fee_only_tier"`
+	// fee_skim_percent is the percentage (0-100) of the block's collected fees
+	// that the fee-only ladder may pay out. The remainder continues to
+	// x/distribution, which splits it across the active validator set by voting
+	// power. Both paths pay validators; this only decides the split.
+	FeeSkimPercent uint64 `protobuf:"varint,4,opt,name=fee_skim_percent,json=feeSkimPercent,proto3" json:"fee_skim_percent,omitempty"`
 }
 
 func (m *Params) Reset()         { *m = Params{} }
@@ -223,17 +266,110 @@ func (m *Params) GetDenom() string {
 	return ""
 }
 
+func (m *Params) GetFeeOnlyTier() Tier {
+	if m != nil {
+		return m.FeeOnlyTier
+	}
+	return Tier{}
+}
+
+func (m *Params) GetFeeSkimPercent() uint64 {
+	if m != nil {
+		return m.FeeSkimPercent
+	}
+	return 0
+}
+
+// DPonaState is the persistent state of the dynamic-PoNA difficulty controller.
+//
+// It is global (not per-tier): the controller reacts to chain-wide max-band
+// activity and shifts EVERY band's transaction threshold by
+// `diff * 10` transactions.
+//
+// diff == 0 means dPona is OFF. There is deliberately no separate boolean, so
+// the enabled flag and the offset can never disagree.
+type DPonaState struct {
+	// consecutive_max is the number of consecutive blocks classified into the max
+	// band, saturating at the increment threshold (5).
+	ConsecutiveMax uint64 `protobuf:"varint,1,opt,name=consecutive_max,json=consecutiveMax,proto3" json:"consecutive_max,omitempty"`
+	// blocks_since_max is the number of blocks since the last max-band block,
+	// saturating at the decrement threshold (100).
+	BlocksSinceMax uint64 `protobuf:"varint,2,opt,name=blocks_since_max,json=blocksSinceMax,proto3" json:"blocks_since_max,omitempty"`
+	// diff is the difficulty in +10-transaction steps. 0 = dPona off.
+	//
+	// Thresholds are shifted by diff*10 in every tier, and the exact-count bands
+	// (quint..single) are re-derived from the shifted low threshold.
+	Diff uint64 `protobuf:"varint,3,opt,name=diff,proto3" json:"diff,omitempty"`
+}
+
+func (m *DPonaState) Reset()         { *m = DPonaState{} }
+func (m *DPonaState) String() string { return proto.CompactTextString(m) }
+func (*DPonaState) ProtoMessage()    {}
+func (*DPonaState) Descriptor() ([]byte, []int) {
+	return fileDescriptor_3c3f25f57fa15af7, []int{2}
+}
+func (m *DPonaState) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DPonaState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DPonaState.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DPonaState) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DPonaState.Merge(m, src)
+}
+func (m *DPonaState) XXX_Size() int {
+	return m.Size()
+}
+func (m *DPonaState) XXX_DiscardUnknown() {
+	xxx_messageInfo_DPonaState.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DPonaState proto.InternalMessageInfo
+
+func (m *DPonaState) GetConsecutiveMax() uint64 {
+	if m != nil {
+		return m.ConsecutiveMax
+	}
+	return 0
+}
+
+func (m *DPonaState) GetBlocksSinceMax() uint64 {
+	if m != nil {
+		return m.BlocksSinceMax
+	}
+	return 0
+}
+
+func (m *DPonaState) GetDiff() uint64 {
+	if m != nil {
+		return m.Diff
+	}
+	return 0
+}
+
 // GenesisState is the runerewards module genesis state.
 type GenesisState struct {
 	// params are the module's initial parameters (includes the emission schedule).
 	Params Params `protobuf:"bytes,1,opt,name=params,proto3" json:"params"`
+	// dpona is the initial difficulty-controller state. A zero value is valid and
+	// means "dPona off", which is the intended starting condition.
+	Dpona DPonaState `protobuf:"bytes,2,opt,name=dpona,proto3" json:"dpona"`
 }
 
 func (m *GenesisState) Reset()         { *m = GenesisState{} }
 func (m *GenesisState) String() string { return proto.CompactTextString(m) }
 func (*GenesisState) ProtoMessage()    {}
 func (*GenesisState) Descriptor() ([]byte, []int) {
-	return fileDescriptor_3c3f25f57fa15af7, []int{2}
+	return fileDescriptor_3c3f25f57fa15af7, []int{3}
 }
 func (m *GenesisState) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -269,48 +405,71 @@ func (m *GenesisState) GetParams() Params {
 	return Params{}
 }
 
+func (m *GenesisState) GetDpona() DPonaState {
+	if m != nil {
+		return m.Dpona
+	}
+	return DPonaState{}
+}
+
 func init() {
 	proto.RegisterType((*Tier)(nil), "rune.pona.v1.Tier")
 	proto.RegisterType((*Params)(nil), "rune.pona.v1.Params")
+	proto.RegisterType((*DPonaState)(nil), "rune.pona.v1.DPonaState")
 	proto.RegisterType((*GenesisState)(nil), "rune.pona.v1.GenesisState")
 }
 
 func init() { proto.RegisterFile("rune/pona/v1/genesis.proto", fileDescriptor_3c3f25f57fa15af7) }
 
 var fileDescriptor_3c3f25f57fa15af7 = []byte{
-	// 498 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x94, 0x41, 0x8b, 0xd3, 0x40,
-	0x1c, 0xc5, 0x1b, 0xb7, 0xad, 0x76, 0xda, 0xcb, 0xc6, 0xba, 0x94, 0xca, 0xa6, 0x35, 0xa7, 0x22,
-	0x98, 0xb0, 0xdd, 0x9b, 0x8a, 0x60, 0x15, 0xd4, 0x8b, 0x48, 0xec, 0xc9, 0x4b, 0x99, 0xed, 0x0c,
-	0xc9, 0xb0, 0xc9, 0xfc, 0xcb, 0xcc, 0xb4, 0x4d, 0xfd, 0x14, 0x1e, 0xfc, 0x50, 0x7b, 0xdc, 0xa3,
-	0x78, 0x28, 0xd2, 0x7e, 0x03, 0x3f, 0x81, 0xcc, 0x4c, 0x0a, 0xee, 0x26, 0xb0, 0xec, 0x6d, 0xf2,
-	0x7f, 0x8f, 0xf7, 0x7e, 0x97, 0x17, 0xd4, 0x17, 0x4b, 0x4e, 0xc3, 0x05, 0x70, 0x1c, 0xae, 0xce,
-	0xc2, 0x98, 0x72, 0x2a, 0x99, 0x0c, 0x16, 0x02, 0x14, 0xb8, 0x1d, 0xad, 0x05, 0x5a, 0x0b, 0x56,
-	0x67, 0xfd, 0x6e, 0x0c, 0x31, 0x18, 0x21, 0xd4, 0x2f, 0xeb, 0xf1, 0x7f, 0x36, 0x51, 0x7d, 0xca,
-	0xa8, 0x70, 0x9f, 0xa1, 0x8e, 0x54, 0x58, 0xa8, 0x59, 0x42, 0x59, 0x9c, 0xa8, 0x9e, 0x33, 0x74,
-	0x46, 0xf5, 0xa8, 0x6d, 0x6e, 0x1f, 0xcd, 0xc9, 0x3d, 0x45, 0x88, 0x72, 0x72, 0x30, 0x3c, 0x30,
-	0x86, 0x16, 0xe5, 0xa4, 0x90, 0x2f, 0xd1, 0xe3, 0x0c, 0xe7, 0x33, 0x3c, 0x57, 0x6c, 0xc5, 0xd4,
-	0x66, 0x26, 0xe8, 0x1a, 0x0b, 0xd2, 0x3b, 0x1a, 0x3a, 0xa3, 0xd6, 0xe4, 0xd5, 0xd5, 0x76, 0x50,
-	0xfb, 0xbd, 0x1d, 0x3c, 0x99, 0x83, 0xcc, 0x40, 0x4a, 0x72, 0x19, 0x30, 0x08, 0x33, 0xac, 0x92,
-	0xe0, 0x13, 0x57, 0x7f, 0xb7, 0x83, 0xfe, 0x06, 0x67, 0xe9, 0x4b, 0xbf, 0x22, 0xc1, 0x8f, 0x8e,
-	0x33, 0x9c, 0xbf, 0x2d, 0x8e, 0x91, 0xb9, 0xb9, 0xe7, 0xe8, 0x44, 0x5b, 0x55, 0x3e, 0x9b, 0xc3,
-	0x92, 0xab, 0x99, 0x4a, 0x04, 0x95, 0x09, 0xa4, 0xa4, 0x57, 0x37, 0x5c, 0x1a, 0x65, 0x9a, 0xbf,
-	0xd3, 0xda, 0xf4, 0x20, 0x19, 0x42, 0x46, 0x4a, 0x84, 0x8d, 0xfb, 0x11, 0x96, 0x13, 0x34, 0x21,
-	0x23, 0x15, 0x84, 0x8c, 0x54, 0x11, 0x36, 0x0b, 0x42, 0x46, 0xaa, 0x08, 0x53, 0x58, 0x97, 0x08,
-	0x1f, 0xde, 0x8b, 0xb0, 0x22, 0xc1, 0x8f, 0x8e, 0x53, 0x58, 0x97, 0x09, 0xb5, 0xb5, 0x82, 0xf0,
-	0x91, 0x25, 0x4c, 0x61, 0x5d, 0x22, 0x54, 0xe8, 0x44, 0x32, 0x1e, 0xa7, 0xb4, 0x04, 0xd9, 0x32,
-	0x90, 0x6f, 0xee, 0x82, 0x3c, 0xb5, 0x90, 0xd5, 0x21, 0x7e, 0xd4, 0xb5, 0xc2, 0x2d, 0x54, 0x8e,
-	0xba, 0xdf, 0xa9, 0x80, 0x52, 0x27, 0x32, 0x9d, 0xaf, 0xef, 0xea, 0x7c, 0x6a, 0x3b, 0xab, 0x22,
-	0xfc, 0xc8, 0xd5, 0xe7, 0x9b, 0x7d, 0xfe, 0x67, 0xd4, 0xfc, 0x82, 0x05, 0xce, 0xa4, 0x1b, 0xa0,
-	0x86, 0x62, 0x54, 0xc8, 0x9e, 0x33, 0x3c, 0x1a, 0xb5, 0xc7, 0x6e, 0xf0, 0xff, 0xa8, 0x02, 0x3d,
-	0x9d, 0x49, 0x5d, 0xd7, 0x47, 0xd6, 0xe6, 0x76, 0x51, 0x83, 0x50, 0x0e, 0x99, 0xd9, 0x47, 0x2b,
-	0xb2, 0x1f, 0xfe, 0x04, 0x75, 0x3e, 0xd8, 0x6d, 0x7e, 0x55, 0x58, 0x51, 0x77, 0x8c, 0x9a, 0x0b,
-	0x93, 0x6f, 0x76, 0xd6, 0x1e, 0x77, 0x6f, 0xc6, 0xda, 0xee, 0x22, 0xb8, 0x70, 0x4e, 0xde, 0x5f,
-	0xed, 0x3c, 0xe7, 0x7a, 0xe7, 0x39, 0x7f, 0x76, 0x9e, 0xf3, 0x63, 0xef, 0xd5, 0xae, 0xf7, 0x5e,
-	0xed, 0xd7, 0xde, 0xab, 0x7d, 0x7b, 0x1e, 0x33, 0x95, 0x2c, 0x2f, 0x82, 0x39, 0x64, 0x61, 0x02,
-	0x40, 0xd8, 0x32, 0x7b, 0xc1, 0xe0, 0xf0, 0x0c, 0x73, 0xfb, 0x7f, 0x50, 0x9b, 0x05, 0x95, 0x17,
-	0x4d, 0xb3, 0xfb, 0xf3, 0x7f, 0x01, 0x00, 0x00, 0xff, 0xff, 0xfe, 0xda, 0xcb, 0x41, 0x39, 0x04,
-	0x00, 0x00,
+	// 747 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x95, 0x41, 0x6f, 0xd3, 0x3e,
+	0x18, 0xc6, 0x9b, 0xff, 0xda, 0xfe, 0xa9, 0xdb, 0x75, 0x5b, 0xd6, 0x8d, 0x6a, 0xb0, 0x6e, 0xe4,
+	0x42, 0x85, 0x44, 0xaa, 0x75, 0x70, 0x81, 0x81, 0xc4, 0x98, 0x04, 0x1c, 0x10, 0x53, 0xb6, 0x13,
+	0x97, 0xc8, 0x8b, 0xdd, 0xc6, 0x6a, 0x62, 0x77, 0xb1, 0xd3, 0xa5, 0x7c, 0x0a, 0x3e, 0x0d, 0x9f,
+	0x61, 0xc7, 0x1d, 0x11, 0x87, 0x09, 0x6d, 0xdf, 0x80, 0x0f, 0x80, 0x90, 0xed, 0x56, 0x6c, 0x8d,
+	0xc5, 0xd4, 0x9b, 0xfb, 0xbc, 0x4f, 0xde, 0xdf, 0xe3, 0x37, 0xa9, 0x0d, 0x36, 0x92, 0x94, 0xe2,
+	0xce, 0x90, 0x51, 0xd8, 0x19, 0xed, 0x74, 0xfa, 0x98, 0x62, 0x4e, 0xb8, 0x3b, 0x4c, 0x98, 0x60,
+	0x76, 0x4d, 0xd6, 0x5c, 0x59, 0x73, 0x47, 0x3b, 0x1b, 0x8d, 0x3e, 0xeb, 0x33, 0x55, 0xe8, 0xc8,
+	0x95, 0xf6, 0x38, 0xbf, 0x01, 0x28, 0x1e, 0x13, 0x9c, 0xd8, 0x8f, 0x40, 0x8d, 0x0b, 0x98, 0x08,
+	0x3f, 0xc4, 0xa4, 0x1f, 0x8a, 0xa6, 0xb5, 0x6d, 0xb5, 0x8b, 0x5e, 0x55, 0x69, 0xef, 0x95, 0x64,
+	0x6f, 0x02, 0x80, 0x29, 0x9a, 0x1a, 0xfe, 0x53, 0x86, 0x0a, 0xa6, 0x68, 0x52, 0xa6, 0xa0, 0xf1,
+	0x05, 0x27, 0xcc, 0x87, 0x81, 0x20, 0x23, 0x22, 0xc6, 0x7e, 0x82, 0xcf, 0x60, 0x82, 0x9a, 0x0b,
+	0xdb, 0x56, 0xbb, 0xb2, 0xbf, 0x77, 0x7e, 0xb9, 0x55, 0xf8, 0x71, 0xb9, 0xb5, 0x16, 0x30, 0x1e,
+	0x33, 0xce, 0xd1, 0xc0, 0x25, 0xac, 0x13, 0x43, 0x11, 0xba, 0x1f, 0xa8, 0xf8, 0x75, 0xb9, 0xf5,
+	0x60, 0x0c, 0xe3, 0xe8, 0x85, 0x63, 0x6a, 0xe1, 0x78, 0xb6, 0x94, 0xdf, 0x4c, 0x54, 0x4f, 0x89,
+	0xb6, 0x00, 0xeb, 0x9c, 0xd0, 0x7e, 0x84, 0x73, 0xc4, 0xa2, 0x22, 0xbe, 0xbe, 0x8b, 0xb8, 0xa9,
+	0x89, 0xe6, 0x26, 0x8e, 0xd7, 0xd0, 0x85, 0x19, 0xea, 0x00, 0xac, 0xa2, 0x34, 0xbf, 0xc9, 0x92,
+	0x42, 0xbe, 0xbc, 0x0b, 0xb9, 0xa1, 0x91, 0x86, 0x0e, 0x8e, 0xb7, 0x82, 0xd2, 0xd9, 0x2d, 0x52,
+	0xd0, 0x10, 0x09, 0xc9, 0xd3, 0xca, 0x73, 0x8d, 0xd4, 0xd4, 0xc2, 0xf1, 0x6c, 0x29, 0xcf, 0xf0,
+	0x4e, 0xc1, 0xda, 0x69, 0x2a, 0x3f, 0x82, 0x59, 0xe0, 0xff, 0x0a, 0xf8, 0xea, 0x2e, 0xe0, 0x43,
+	0x0d, 0x34, 0xf6, 0x70, 0xbc, 0x55, 0xa5, 0x9b, 0x90, 0x84, 0xe6, 0x91, 0xf7, 0xe6, 0x44, 0x1a,
+	0x7a, 0x28, 0x24, 0xa1, 0x22, 0xff, 0x0a, 0x23, 0x76, 0x96, 0x03, 0x56, 0xe6, 0x7a, 0x85, 0x86,
+	0x0e, 0x8e, 0xb7, 0x12, 0xb1, 0xb3, 0x19, 0xd8, 0x2e, 0x58, 0x97, 0x56, 0x91, 0xf9, 0x01, 0x4b,
+	0xa9, 0xf0, 0x45, 0x98, 0x60, 0x1e, 0xb2, 0x08, 0x35, 0x81, 0xfa, 0x03, 0xc9, 0x28, 0xc7, 0xd9,
+	0x5b, 0x59, 0x3b, 0x9e, 0x96, 0x64, 0xc2, 0x98, 0xa0, 0x5c, 0xc2, 0xea, 0x5c, 0x09, 0x0d, 0x1d,
+	0x1c, 0x6f, 0x25, 0x26, 0x28, 0x9f, 0x50, 0x5a, 0x0d, 0x09, 0x6b, 0x3a, 0x61, 0x4c, 0x50, 0x2e,
+	0x21, 0x05, 0x8d, 0x90, 0xf4, 0xc3, 0x5c, 0xc4, 0xc5, 0xb9, 0xbe, 0x4c, 0x53, 0x0b, 0xc7, 0xb3,
+	0xa5, 0x3c, 0x13, 0xf2, 0x39, 0xb8, 0xaf, 0xcc, 0x86, 0x94, 0x75, 0x95, 0x52, 0xc5, 0x31, 0x0e,
+	0x12, 0x66, 0xb9, 0x94, 0x4b, 0xf3, 0x0d, 0x32, 0xdf, 0x41, 0x0e, 0x12, 0x66, 0x86, 0x41, 0xc2,
+	0xcc, 0x14, 0x71, 0x79, 0x32, 0x48, 0x98, 0xcd, 0x26, 0x74, 0xbe, 0x59, 0xa0, 0x7c, 0x08, 0x13,
+	0x18, 0x73, 0xdb, 0x05, 0x25, 0x41, 0x70, 0xc2, 0x9b, 0xd6, 0xf6, 0x42, 0xbb, 0xda, 0xb5, 0xdd,
+	0x9b, 0xe7, 0xb7, 0x2b, 0x4f, 0xe9, 0xfd, 0xa2, 0x8c, 0xec, 0x69, 0x9b, 0xdd, 0x00, 0x25, 0x84,
+	0x29, 0x8b, 0xd5, 0x51, 0x5c, 0xf1, 0xf4, 0x0f, 0x7b, 0x0f, 0x2c, 0xf6, 0x30, 0xf6, 0x19, 0x8d,
+	0xc6, 0xbe, 0xf4, 0xa9, 0xf3, 0xf7, 0x5f, 0xdd, 0xaa, 0x3d, 0x8c, 0x3f, 0xd1, 0x68, 0xac, 0xae,
+	0x81, 0x36, 0x58, 0x96, 0x4f, 0xf3, 0x01, 0x89, 0xfd, 0x21, 0x4e, 0x02, 0x4c, 0x85, 0x3a, 0x4e,
+	0x8b, 0x5e, 0xbd, 0x87, 0xf1, 0xd1, 0x80, 0xc4, 0x87, 0x5a, 0x75, 0x38, 0x00, 0x07, 0x87, 0x8c,
+	0xc2, 0x23, 0x01, 0x05, 0xb6, 0x1f, 0x83, 0xa5, 0x80, 0x51, 0x8e, 0x83, 0x54, 0x90, 0x11, 0xf6,
+	0x63, 0x98, 0x4d, 0x6e, 0x90, 0xfa, 0x0d, 0xf9, 0x23, 0xcc, 0x24, 0xe0, 0x24, 0x62, 0xc1, 0x80,
+	0xfb, 0x9c, 0xd0, 0x40, 0x3b, 0xf5, 0x55, 0x52, 0xd7, 0xfa, 0x91, 0x94, 0xa5, 0xd3, 0x06, 0x45,
+	0x44, 0x7a, 0x3d, 0x95, 0xbf, 0xe8, 0xa9, 0xb5, 0x93, 0x81, 0xda, 0x3b, 0x7d, 0xc7, 0x69, 0x6c,
+	0x17, 0x94, 0x87, 0x6a, 0x78, 0x8a, 0x56, 0xed, 0x36, 0x6e, 0xef, 0x52, 0x0f, 0x76, 0xb2, 0xcf,
+	0x89, 0xd3, 0x7e, 0x06, 0x4a, 0x48, 0x1a, 0x14, 0xb6, 0xda, 0x6d, 0xde, 0x7e, 0xe4, 0xef, 0x9e,
+	0xa6, 0xc3, 0x56, 0xe6, 0xfd, 0x83, 0xf3, 0xab, 0x96, 0x75, 0x71, 0xd5, 0xb2, 0x7e, 0x5e, 0xb5,
+	0xac, 0xaf, 0xd7, 0xad, 0xc2, 0xc5, 0x75, 0xab, 0xf0, 0xfd, 0xba, 0x55, 0xf8, 0xfc, 0xa4, 0x4f,
+	0x44, 0x98, 0x9e, 0xb8, 0x01, 0x8b, 0x3b, 0x21, 0x63, 0x88, 0xa4, 0xf1, 0x53, 0xc2, 0xa6, 0xcb,
+	0x4e, 0xa6, 0x6f, 0x67, 0x31, 0x1e, 0x62, 0x7e, 0x52, 0x56, 0xb7, 0xee, 0xee, 0x9f, 0x00, 0x00,
+	0x00, 0xff, 0xff, 0x6b, 0x53, 0xf0, 0x1d, 0xb7, 0x07, 0x00, 0x00,
 }
 
 func (m *Tier) Marshal() (dAtA []byte, err error) {
@@ -333,45 +492,42 @@ func (m *Tier) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	{
-		size := m.ZeroActivityReward.Size()
-		i -= size
-		if _, err := m.ZeroActivityReward.MarshalTo(dAtA[i:]); err != nil {
-			return 0, err
-		}
-		i = encodeVarintGenesis(dAtA, i, uint64(size))
-	}
-	i--
-	dAtA[i] = 0x52
-	{
-		size := m.SingleActivityReward.Size()
-		i -= size
-		if _, err := m.SingleActivityReward.MarshalTo(dAtA[i:]); err != nil {
-			return 0, err
-		}
-		i = encodeVarintGenesis(dAtA, i, uint64(size))
-	}
-	i--
-	dAtA[i] = 0x4a
-	if m.LowTxCountThreshold != 0 {
-		i = encodeVarintGenesis(dAtA, i, uint64(m.LowTxCountThreshold))
+	if m.MaxTxCountThreshold != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.MaxTxCountThreshold))
 		i--
-		dAtA[i] = 0x40
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x80
 	}
 	{
-		size := m.LowActivityReward.Size()
+		size := m.MaxActivityReward.Size()
 		i -= size
-		if _, err := m.LowActivityReward.MarshalTo(dAtA[i:]); err != nil {
+		if _, err := m.MaxActivityReward.MarshalTo(dAtA[i:]); err != nil {
 			return 0, err
 		}
 		i = encodeVarintGenesis(dAtA, i, uint64(size))
 	}
 	i--
-	dAtA[i] = 0x3a
+	dAtA[i] = 0x7a
+	if m.HighTxCountThreshold != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.HighTxCountThreshold))
+		i--
+		dAtA[i] = 0x70
+	}
+	{
+		size := m.HighActivityReward.Size()
+		i -= size
+		if _, err := m.HighActivityReward.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x6a
 	if m.MidTxCountThreshold != 0 {
 		i = encodeVarintGenesis(dAtA, i, uint64(m.MidTxCountThreshold))
 		i--
-		dAtA[i] = 0x30
+		dAtA[i] = 0x60
 	}
 	{
 		size := m.MidActivityReward.Size()
@@ -382,16 +538,76 @@ func (m *Tier) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i = encodeVarintGenesis(dAtA, i, uint64(size))
 	}
 	i--
-	dAtA[i] = 0x2a
-	if m.MaxTxCountThreshold != 0 {
-		i = encodeVarintGenesis(dAtA, i, uint64(m.MaxTxCountThreshold))
+	dAtA[i] = 0x5a
+	if m.LowTxCountThreshold != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.LowTxCountThreshold))
 		i--
-		dAtA[i] = 0x20
+		dAtA[i] = 0x50
 	}
 	{
-		size := m.MaxActivityReward.Size()
+		size := m.LowActivityReward.Size()
 		i -= size
-		if _, err := m.MaxActivityReward.MarshalTo(dAtA[i:]); err != nil {
+		if _, err := m.LowActivityReward.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x4a
+	{
+		size := m.QuintActivityReward.Size()
+		i -= size
+		if _, err := m.QuintActivityReward.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x42
+	{
+		size := m.QuartActivityReward.Size()
+		i -= size
+		if _, err := m.QuartActivityReward.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x3a
+	{
+		size := m.TrioActivityReward.Size()
+		i -= size
+		if _, err := m.TrioActivityReward.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x32
+	{
+		size := m.DuoActivityReward.Size()
+		i -= size
+		if _, err := m.DuoActivityReward.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x2a
+	{
+		size := m.SingleActivityReward.Size()
+		i -= size
+		if _, err := m.SingleActivityReward.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x22
+	{
+		size := m.ZeroActivityReward.Size()
+		i -= size
+		if _, err := m.ZeroActivityReward.MarshalTo(dAtA[i:]); err != nil {
 			return 0, err
 		}
 		i = encodeVarintGenesis(dAtA, i, uint64(size))
@@ -431,6 +647,21 @@ func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.FeeSkimPercent != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.FeeSkimPercent))
+		i--
+		dAtA[i] = 0x20
+	}
+	{
+		size, err := m.FeeOnlyTier.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x1a
 	if len(m.Denom) > 0 {
 		i -= len(m.Denom)
 		copy(dAtA[i:], m.Denom)
@@ -455,6 +686,44 @@ func (m *Params) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *DPonaState) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DPonaState) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DPonaState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Diff != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.Diff))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.BlocksSinceMax != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.BlocksSinceMax))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.ConsecutiveMax != 0 {
+		i = encodeVarintGenesis(dAtA, i, uint64(m.ConsecutiveMax))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *GenesisState) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -475,6 +744,16 @@ func (m *GenesisState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	{
+		size, err := m.Dpona.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintGenesis(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
 	{
 		size, err := m.Params.MarshalToSizedBuffer(dAtA[:i])
 		if err != nil {
@@ -511,25 +790,38 @@ func (m *Tier) Size() (n int) {
 	if m.EndHeight != 0 {
 		n += 1 + sovGenesis(uint64(m.EndHeight))
 	}
-	l = m.MaxActivityReward.Size()
+	l = m.ZeroActivityReward.Size()
 	n += 1 + l + sovGenesis(uint64(l))
-	if m.MaxTxCountThreshold != 0 {
-		n += 1 + sovGenesis(uint64(m.MaxTxCountThreshold))
+	l = m.SingleActivityReward.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	l = m.DuoActivityReward.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	l = m.TrioActivityReward.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	l = m.QuartActivityReward.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	l = m.QuintActivityReward.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	l = m.LowActivityReward.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	if m.LowTxCountThreshold != 0 {
+		n += 1 + sovGenesis(uint64(m.LowTxCountThreshold))
 	}
 	l = m.MidActivityReward.Size()
 	n += 1 + l + sovGenesis(uint64(l))
 	if m.MidTxCountThreshold != 0 {
 		n += 1 + sovGenesis(uint64(m.MidTxCountThreshold))
 	}
-	l = m.LowActivityReward.Size()
+	l = m.HighActivityReward.Size()
 	n += 1 + l + sovGenesis(uint64(l))
-	if m.LowTxCountThreshold != 0 {
-		n += 1 + sovGenesis(uint64(m.LowTxCountThreshold))
+	if m.HighTxCountThreshold != 0 {
+		n += 1 + sovGenesis(uint64(m.HighTxCountThreshold))
 	}
-	l = m.SingleActivityReward.Size()
+	l = m.MaxActivityReward.Size()
 	n += 1 + l + sovGenesis(uint64(l))
-	l = m.ZeroActivityReward.Size()
-	n += 1 + l + sovGenesis(uint64(l))
+	if m.MaxTxCountThreshold != 0 {
+		n += 2 + sovGenesis(uint64(m.MaxTxCountThreshold))
+	}
 	return n
 }
 
@@ -549,6 +841,29 @@ func (m *Params) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovGenesis(uint64(l))
 	}
+	l = m.FeeOnlyTier.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	if m.FeeSkimPercent != 0 {
+		n += 1 + sovGenesis(uint64(m.FeeSkimPercent))
+	}
+	return n
+}
+
+func (m *DPonaState) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ConsecutiveMax != 0 {
+		n += 1 + sovGenesis(uint64(m.ConsecutiveMax))
+	}
+	if m.BlocksSinceMax != 0 {
+		n += 1 + sovGenesis(uint64(m.BlocksSinceMax))
+	}
+	if m.Diff != 0 {
+		n += 1 + sovGenesis(uint64(m.Diff))
+	}
 	return n
 }
 
@@ -559,6 +874,8 @@ func (m *GenesisState) Size() (n int) {
 	var l int
 	_ = l
 	l = m.Params.Size()
+	n += 1 + l + sovGenesis(uint64(l))
+	l = m.Dpona.Size()
 	n += 1 + l + sovGenesis(uint64(l))
 	return n
 }
@@ -638,7 +955,7 @@ func (m *Tier) Unmarshal(dAtA []byte) error {
 			}
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field MaxActivityReward", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ZeroActivityReward", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -666,136 +983,11 @@ func (m *Tier) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := m.MaxActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.ZeroActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field MaxTxCountThreshold", wireType)
-			}
-			m.MaxTxCountThreshold = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenesis
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.MaxTxCountThreshold |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field MidActivityReward", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenesis
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthGenesis
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthGenesis
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if err := m.MidActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 6:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field MidTxCountThreshold", wireType)
-			}
-			m.MidTxCountThreshold = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenesis
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.MidTxCountThreshold |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 7:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LowActivityReward", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenesis
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthGenesis
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthGenesis
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if err := m.LowActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 8:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field LowTxCountThreshold", wireType)
-			}
-			m.LowTxCountThreshold = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowGenesis
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.LowTxCountThreshold |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 9:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field SingleActivityReward", wireType)
 			}
@@ -829,9 +1021,9 @@ func (m *Tier) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 10:
+		case 5:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ZeroActivityReward", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field DuoActivityReward", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -859,10 +1051,324 @@ func (m *Tier) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := m.ZeroActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.DuoActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TrioActivityReward", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.TrioActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QuartActivityReward", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.QuartActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QuintActivityReward", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.QuintActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 9:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LowActivityReward", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.LowActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 10:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LowTxCountThreshold", wireType)
+			}
+			m.LowTxCountThreshold = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.LowTxCountThreshold |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MidActivityReward", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.MidActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 12:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MidTxCountThreshold", wireType)
+			}
+			m.MidTxCountThreshold = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MidTxCountThreshold |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 13:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HighActivityReward", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.HighActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 14:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HighTxCountThreshold", wireType)
+			}
+			m.HighTxCountThreshold = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.HighTxCountThreshold |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 15:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxActivityReward", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.MaxActivityReward.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 16:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxTxCountThreshold", wireType)
+			}
+			m.MaxTxCountThreshold = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MaxTxCountThreshold |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenesis(dAtA[iNdEx:])
@@ -979,6 +1485,165 @@ func (m *Params) Unmarshal(dAtA []byte) error {
 			}
 			m.Denom = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FeeOnlyTier", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.FeeOnlyTier.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FeeSkimPercent", wireType)
+			}
+			m.FeeSkimPercent = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.FeeSkimPercent |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenesis(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DPonaState) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenesis
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DPonaState: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DPonaState: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ConsecutiveMax", wireType)
+			}
+			m.ConsecutiveMax = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ConsecutiveMax |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field BlocksSinceMax", wireType)
+			}
+			m.BlocksSinceMax = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.BlocksSinceMax |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Diff", wireType)
+			}
+			m.Diff = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Diff |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenesis(dAtA[iNdEx:])
@@ -1059,6 +1724,39 @@ func (m *GenesisState) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if err := m.Params.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Dpona", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenesis
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthGenesis
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Dpona.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

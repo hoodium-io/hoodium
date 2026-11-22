@@ -1,10 +1,9 @@
 # dPona — Dynamic Proof of Network Activity
 
-> **Status: IMPLEMENTED IN CODE, AWAITING PROTO REGENERATION.** The ten-band
-> ladder, the dPona controller, the fee-only fallback and the genesis layout are
-> written; `make proto-gen` must be re-run to regenerate `x/pona/types/genesis.pb.go`
-> before the module compiles. [`pona.md`](./pona.md) still describes the previous
-> five-band chain and is rewritten once this lands.
+> **Status: IMPLEMENTED AND TESTED.** The ten-band ladder, the dPona controller,
+> the fee-only fallback and the genesis layout are in `x/pona`; the proto has been
+> regenerated and `x/pona/types` passes all 30 tests. [`pona.md`](./pona.md) still
+> describes the previous five-band chain and is rewritten next.
 
 dPona is the second PoNA generation. It replaces the five-band ladder with a
 **ten-band** ladder and adds a **difficulty controller** that shifts every band's
@@ -384,31 +383,30 @@ PoNA band instead of by voting power alone. Supply never grows.
 | `Tier` proto: 10 bands, zero-to-max field order | ✅ written |
 | `DPonaState` message + genesis block | ✅ written |
 | `Params.fee_only_tier` + `fee_skim_percent` | ✅ written |
-| 10-band `BandForTxCount` with derived exact bands | ✅ written |
+| 10-band `BandForTxCount` with derived exact bands | ✅ **tested (30 passing)** |
 | `Tier.Ladder()` (zero→max range/rate triples) | ✅ written |
-| `DPonaState.ObserveBlock` transitions (no cap) | ✅ written |
+| `DPonaState.ObserveBlock` transitions (no cap) | ✅ **tested (9 funcs)** |
 | `Tier.WithDPonaOffset` threshold shifting | ✅ written |
 | `ComputeBlockRewardWithDiff` + `FundingSource` | ✅ written |
 | Fee-only tier: `min(scheduled, skim% × fees)` | ✅ written |
 | `EndBlock` wiring + `advanceDPona` | ✅ written |
 | CLI / event / log: `dpona`, `pona_diff`, `funding_source` | ✅ written |
 | Devnet `genesis.json` (all 10 bands, zero→max) | ✅ written |
-| **`make proto-gen`** | ⛔ **REQUIRED — blocks compilation** |
+| `make proto-gen` | ✅ done (regenerated `genesis.pb.go`) |
 | `pona.md` rewrite (5 bands → 10) | ⏳ pending |
 | Blockdium panel | ⏳ pending |
 
-### Known gap until `proto-gen` runs
+### Verification
 
-`x/pona/types/genesis.pb.go` is generated. Every compile error in the module is
-currently one of:
+| Check | Result |
+|---|---|
+| `go build -o /dev/null ./app/... ./x/... ./core/...` | **exit 0** |
+| `go vet ./x/pona/...` | **exit 0** |
+| `go test ./x/pona/types/` | **ok — 30 tests, 0 failures** |
+| `go test ./app/` | **ok** |
+| `gofmt -l x/pona/` | clean |
 
-* `unknown field HighActivityReward / HighTxCountThreshold / Quint…Duo` in
-  `Tier`
-* `undefined: DPonaState`
-* `unknown field FeeOnlyTier / FeeSkimPercent` in `Params`
-* `unknown field DPona` in `GenesisState`
-
-Running `make proto-gen` resolves all of them. Nothing else is outstanding.
+`make test-unit` has **not** been run by the agent (RULE 1) — user to run.
 
 > This document is the design of record. Once `pona.md` is rewritten it will
 > describe the shipped ten-band ladder and link back here for the dPona

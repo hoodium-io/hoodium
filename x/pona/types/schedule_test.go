@@ -37,10 +37,10 @@ func TestRewardForHeight(t *testing.T) {
 	}{
 		{"genesis", 0, rune(50)},
 		{"last block of tier 1", twoYears - 1, rune(50)},
-		{"first block of tier 2", twoYears, rune(25)},
-		{"last block of tier 2", 4*oneYear - 1, rune(25)},
-		{"first block of tier 3", 4 * oneYear, rune(15)},
-		{"far in tier 3 (open-ended)", 100 * oneYear, rune(15)},
+		{"first block of tier 2", twoYears, rune(40)},
+		{"last block of tier 2", 4*oneYear - 1, rune(40)},
+		{"first block of tier 3", 4 * oneYear, rune(30)},
+		{"far in tier 3 (open-ended)", 100 * oneYear, rune(30)},
 	}
 
 	for _, tc := range testCases {

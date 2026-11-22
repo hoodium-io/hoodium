@@ -9,6 +9,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
 	"github.com/hoodium-io/hoodium/x/pona/types"
@@ -280,7 +281,7 @@ func (k Keeper) logRewardPaid(
 	ctx sdk.Context,
 	height, txCount uint64,
 	feePool sdkmath.Int,
-	breakdown types.BlockRewardBreakdown,
+	breakdown BlockRewardBreakdown,
 	reward sdkmath.Int,
 	state types.DPonaState,
 ) {

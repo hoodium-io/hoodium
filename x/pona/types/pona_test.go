@@ -16,27 +16,29 @@ func TestDefaultTiersPoNA(t *testing.T) {
 	require.Len(t, tiers, 3)
 
 	testCases := []struct {
-		name          string
-		idx           int
-		max, mid, low sdkmath.Int
-		single, zero  sdkmath.Int
-		maxTx, midTx  uint64
-		lowTx         uint64
+		name              string
+		idx               int
+		max, high, mid    sdkmath.Int
+		low, single, zero sdkmath.Int
+		maxTx, highTx     uint64
+		midTx, lowTx      uint64
 	}{
-		{"tier 1 (Y0-2)", 0, rune(50), rune(25), rune(15), rune(1), halfRune(), 10, 5, 2},
-		{"tier 2 (Y2-4)", 1, rune(25), rune(15), rune(10), rune(1), halfRune(), 10, 5, 2},
-		{"tier 3 (Y4+)", 2, rune(15), rune(10), rune(5), rune(1), halfRune(), 10, 5, 2},
+		{"tier 1 (Y0-2)", 0, rune(50), rune(40), rune(30), rune(20), rune(1), halfRune(), 20, 15, 10, 6},
+		{"tier 2 (Y2-4)", 1, rune(40), rune(30), rune(20), rune(15), rune(1), halfRune(), 20, 15, 10, 6},
+		{"tier 3 (Y4+)", 2, rune(30), rune(20), rune(15), rune(10), rune(1), halfRune(), 20, 15, 10, 6},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tier := tiers[tc.idx]
 			require.Equal(t, tc.max.String(), tier.MaxActivityReward.String(), "max reward")
+			require.Equal(t, tc.high.String(), tier.HighActivityReward.String(), "high reward")
 			require.Equal(t, tc.mid.String(), tier.MidActivityReward.String(), "mid reward")
 			require.Equal(t, tc.low.String(), tier.LowActivityReward.String(), "low reward")
 			require.Equal(t, tc.single.String(), tier.SingleActivityReward.String(), "single reward")
 			require.Equal(t, tc.zero.String(), tier.ZeroActivityReward.String(), "zero reward")
 			require.Equal(t, tc.maxTx, tier.MaxTxCountThreshold, "max threshold")
+			require.Equal(t, tc.highTx, tier.HighTxCountThreshold, "high threshold")
 			require.Equal(t, tc.midTx, tier.MidTxCountThreshold, "mid threshold")
 			require.Equal(t, tc.lowTx, tier.LowTxCountThreshold, "low threshold")
 		})
@@ -58,6 +60,18 @@ func TestTierHeightBoundaries(t *testing.T) {
 
 	// Both tiers are 2 schedule-years long, so the block counts are identical.
 	require.Equal(t, tiers[0].EndHeight-tiers[0].StartHeight, tiers[1].EndHeight-tiers[1].StartHeight)
+}
+
+// paramsWith builds a Params carrying a valid fee-only ladder, so tests that
+// only care about the height tiers are not forced to spell it out. Validate now
+// requires fee_only_tier to be fully specified.
+func paramsWith(tiers ...types.Tier) types.Params {
+	return types.Params{
+		Denom:          "arune",
+		Tiers:          tiers,
+		FeeOnlyTier:    types.DefaultFeeOnlyTier(),
+		FeeSkimPercent: types.DefaultFeeSkimPercent,
+	}
 }
 
 // halfRune returns 0.5 RUNE expressed in arune.
@@ -85,28 +99,39 @@ func TestRewardForHeightAndTxCount(t *testing.T) {
 		want     sdkmath.Int
 		wantBand types.ActivityBand
 	}{
-		// Tier 1: max 50 | mid 25 (5-9) | low 15 (2-4) | single 1 | zero 0.5
+		// Tier 1: max 50 (>=20) | high 40 (15-19) | mid 30 (10-14) | low 20 (6-9)
+		//         | quint 5 | quart 4 | trio 3 | duo 2 | single 1 | zero 0.5
 		{"tier1 max (tx == threshold)", inTier1, threshold, rune(50), types.BandMax},
 		{"tier1 max (tx > threshold)", inTier1, 1000, rune(50), types.BandMax},
-		{"tier1 mid (tx == mid threshold)", inTier1, 5, rune(25), types.BandMid},
-		{"tier1 mid (threshold-1)", inTier1, threshold - 1, rune(25), types.BandMid},
-		{"tier1 low (tx == low threshold)", inTier1, 2, rune(15), types.BandLow},
-		{"tier1 low (mid-1)", inTier1, 4, rune(15), types.BandLow},
+		{"tier1 high (tx == high threshold)", inTier1, 15, rune(40), types.BandHigh},
+		{"tier1 high (max-1)", inTier1, threshold - 1, rune(40), types.BandHigh},
+		{"tier1 mid (tx == mid threshold)", inTier1, 10, rune(30), types.BandMid},
+		{"tier1 mid (high-1)", inTier1, 14, rune(30), types.BandMid},
+		{"tier1 low (tx == low threshold)", inTier1, 6, rune(20), types.BandLow},
+		{"tier1 low (mid-1)", inTier1, 9, rune(20), types.BandLow},
+		{"tier1 quint", inTier1, 5, rune(5), types.BandQuint},
+		{"tier1 quart", inTier1, 4, rune(4), types.BandQuart},
+		{"tier1 trio", inTier1, 3, rune(3), types.BandTrio},
+		{"tier1 duo", inTier1, 2, rune(2), types.BandDuo},
 		{"tier1 single (exactly 1 tx)", inTier1, 1, rune(1), types.BandSingle},
 		{"tier1 zero (no txs)", inTier1, 0, halfRune(), types.BandZero},
 
-		// Tier 2: max 25 | mid 15 (5-9) | low 10 (2-4) | single 1 | zero 0.5
-		{"tier2 max", inTier2, threshold, rune(25), types.BandMax},
-		{"tier2 mid", inTier2, 7, rune(15), types.BandMid},
-		{"tier2 low", inTier2, 3, rune(10), types.BandLow},
+		// Tier 2: max 40 | high 30 | mid 20 | low 15
+		{"tier2 max", inTier2, threshold, rune(40), types.BandMax},
+		{"tier2 high", inTier2, 17, rune(30), types.BandHigh},
+		{"tier2 mid", inTier2, 12, rune(20), types.BandMid},
+		{"tier2 low", inTier2, 7, rune(15), types.BandLow},
+		{"tier2 quint", inTier2, 5, rune(5), types.BandQuint},
 		{"tier2 single", inTier2, 1, rune(1), types.BandSingle},
 		{"tier2 zero", inTier2, 0, halfRune(), types.BandZero},
 
-		// Tier 3: max 15 | mid 10 (5-9) | low 5 (2-4) | single 1 | zero 0.5
-		{"tier3 max", inTier3, threshold, rune(15), types.BandMax},
-		{"tier3 max (far future)", 100 * oneYear, 42, rune(15), types.BandMax},
-		{"tier3 mid", inTier3, 6, rune(10), types.BandMid},
-		{"tier3 low", inTier3, 2, rune(5), types.BandLow},
+		// Tier 3: max 30 | high 20 | mid 15 | low 10
+		{"tier3 max", inTier3, threshold, rune(30), types.BandMax},
+		{"tier3 max (far future)", 100 * oneYear, 42, rune(30), types.BandMax},
+		{"tier3 high", inTier3, 16, rune(20), types.BandHigh},
+		{"tier3 mid", inTier3, 11, rune(15), types.BandMid},
+		{"tier3 low", inTier3, 6, rune(10), types.BandLow},
+		{"tier3 trio", inTier3, 3, rune(3), types.BandTrio},
 		{"tier3 single", inTier3, 1, rune(1), types.BandSingle},
 		{"tier3 zero", inTier3, 0, halfRune(), types.BandZero},
 	}
@@ -191,11 +216,17 @@ func TestBandForTxCount(t *testing.T) {
 	}{
 		{"no transactions is the zero band", 0, types.BandZero},
 		{"exactly one transaction is the single band", 1, types.BandSingle},
-		{"two transactions is the low band", 2, types.BandLow},
-		{"mid-1 is still the low band", 4, types.BandLow},
-		{"mid threshold is the mid band", 5, types.BandMid},
-		{"max-1 is still the mid band", 9, types.BandMid},
-		{"exactly the max threshold is the max band", 10, types.BandMax},
+		{"two transactions is the duo band", 2, types.BandDuo},
+		{"three transactions is the trio band", 3, types.BandTrio},
+		{"four transactions is the quart band", 4, types.BandQuart},
+		{"five transactions is the quint band", 5, types.BandQuint},
+		{"low threshold is the low band", 6, types.BandLow},
+		{"mid-1 is still the low band", 9, types.BandLow},
+		{"mid threshold is the mid band", 10, types.BandMid},
+		{"high-1 is still the mid band", 14, types.BandMid},
+		{"high threshold is the high band", 15, types.BandHigh},
+		{"max-1 is still the high band", 19, types.BandHigh},
+		{"exactly the max threshold is the max band", 20, types.BandMax},
 		{"above the max threshold is the max band", 1000, types.BandMax},
 	}
 
@@ -228,17 +259,16 @@ func TestBandForHeightAndTxCount(t *testing.T) {
 	require.Equal(t, types.BandMax, params.BandForHeightAndTxCount(inTier1, threshold))
 	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier2, 0))
 	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier2, 1))
-	require.Equal(t, types.BandMid, params.BandForHeightAndTxCount(inTier3, 5))
+	require.Equal(t, types.BandQuint, params.BandForHeightAndTxCount(inTier3, 5))
 	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier3, 1))
 	require.Equal(t, types.BandMax, params.BandForHeightAndTxCount(inTier3, threshold))
 
 	// A schedule with an explicit end height leaves later heights uncovered.
-	gapped := types.Params{
-		Denom: "arune",
-		Tiers: []types.Tier{{StartHeight: 0, EndHeight: 100, MaxActivityReward: rune(50)}},
-	}
+	gt := fullTier(rune(50), rune(40), rune(30), rune(20), halfRune())
+	gt.StartHeight, gt.EndHeight = 0, 100
+	gapped := types.Params{Denom: "arune", Tiers: []types.Tier{gt}}
 	require.Equal(t, types.BandNone, gapped.BandForHeightAndTxCount(100, 5))
-	require.Equal(t, types.BandMax, gapped.BandForHeightAndTxCount(99, 50))
+	require.Equal(t, types.BandMax, gapped.BandForHeightAndTxCount(99, 20))
 }
 
 // TestTierForHeight returns the index and the tier together, so callers can
@@ -279,24 +309,26 @@ func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 	// Every rate below the 1 RUNE zero rate, so the floor must clamp them all.
 	// All fields are set (via fullTier) — a partial Tier would panic.
 	belowFloor := fullTier(
-		sdkmath.NewInt(3), // max: 3 arune
-		sdkmath.NewInt(2), // mid: 2 arune
-		sdkmath.NewInt(1), // low: 1 arune
-		sdkmath.NewInt(1), // single: 1 arune
+		sdkmath.NewInt(3), // max:  3 arune
+		sdkmath.NewInt(3), // high: 3 arune
+		sdkmath.NewInt(2), // mid:  2 arune
+		sdkmath.NewInt(1), // low:  1 arune
 		rune(1),           // zero: 1 RUNE — the floor
 	)
 
 	// Every band that pays below the floor is clamped up to it.
-	for _, txCount := range []uint64{0, 1, 2, 5, 9} {
+	for _, txCount := range []uint64{0, 1, 6, 9, 10, 15, 20, 25} {
 		require.Equal(t, rune(1).String(), belowFloor.RewardForTxCount(txCount).String(),
 			"txCount %d must be clamped to the floor", txCount)
 	}
 
 	// A rate ABOVE the floor is paid unchanged.
-	aboveFloor := fullTier(rune(50), rune(25), rune(15), rune(1), halfRune())
-	require.Equal(t, rune(50).String(), aboveFloor.RewardForTxCount(10).String(), "max band")
-	require.Equal(t, rune(25).String(), aboveFloor.RewardForTxCount(5).String(), "mid band")
-	require.Equal(t, rune(15).String(), aboveFloor.RewardForTxCount(2).String(), "low band")
+	aboveFloor := fullTier(rune(50), rune(40), rune(30), rune(20), halfRune())
+	require.Equal(t, rune(50).String(), aboveFloor.RewardForTxCount(20).String(), "max band")
+	require.Equal(t, rune(40).String(), aboveFloor.RewardForTxCount(15).String(), "high band")
+	require.Equal(t, rune(30).String(), aboveFloor.RewardForTxCount(10).String(), "mid band")
+	require.Equal(t, rune(20).String(), aboveFloor.RewardForTxCount(6).String(), "low band")
+	require.Equal(t, rune(5).String(), aboveFloor.RewardForTxCount(5).String(), "quint band")
 	require.Equal(t, rune(1).String(), aboveFloor.RewardForTxCount(1).String(), "single band")
 	require.Equal(t, halfRune().String(), aboveFloor.RewardForTxCount(0).String(), "zero band")
 
@@ -308,7 +340,8 @@ func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 	// above the 0.5 RUNE zero rate, so every band pays exactly its own amount.
 	for i, tier := range types.DefaultTiers() {
 		for _, band := range []types.ActivityBand{
-			types.BandMax, types.BandMid, types.BandLow, types.BandSingle,
+			types.BandMax, types.BandHigh, types.BandMid, types.BandLow,
+			types.BandQuint, types.BandQuart, types.BandTrio, types.BandDuo, types.BandSingle,
 		} {
 			require.False(t, tier.RewardForBand(band).LT(tier.ZeroActivityReward),
 				"default tier %d band %s must not need the floor", i, band)
@@ -326,18 +359,9 @@ func TestZeroActivityRewardIsTheFloor(t *testing.T) {
 // paying a different amount at runtime.
 func TestValidateRejectsInvertedRates(t *testing.T) {
 	mkTier := func(mx, mid, low, single, zero sdkmath.Int) types.Tier {
-		return types.Tier{
-			StartHeight:          0,
-			EndHeight:            0,
-			MaxActivityReward:    mx,
-			MaxTxCountThreshold:  10,
-			MidActivityReward:    mid,
-			MidTxCountThreshold:  5,
-			LowActivityReward:    low,
-			LowTxCountThreshold:  2,
-			SingleActivityReward: single,
-			ZeroActivityReward:   zero,
-		}
+		t := fullTier(mx, rune(45), mid, low, zero)
+		t.SingleActivityReward = single
+		return t
 	}
 	missing := sdkmath.Int{} // nil Int
 
@@ -353,9 +377,9 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 			wantErr: "single activity reward",
 		},
 		{
-			name:    "low below the single rate",
+			name:    "single above the duo rate",
 			tier:    mkTier(rune(50), rune(25), rune(3), rune(10), rune(1)),
-			wantErr: "low activity reward",
+			wantErr: "duo activity reward",
 		},
 		{
 			name:    "mid below the low rate",
@@ -388,13 +412,13 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 		// The shipped ladder is accepted.
 		{
 			name: "tier 1 of the shipped schedule is accepted",
-			tier: mkTier(rune(50), rune(25), rune(15), rune(1), halfRune()),
+			tier: mkTier(rune(50), rune(30), rune(20), rune(1), halfRune()),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := types.Params{Denom: "arune", Tiers: []types.Tier{tc.tier}}.Validate()
+			err := paramsWith(tc.tier).Validate()
 			if tc.wantErr == "" {
 				require.NoError(t, err)
 
@@ -407,19 +431,13 @@ func TestValidateRejectsInvertedRates(t *testing.T) {
 
 // TestValidateRejectsBadThresholds pins the threshold ordering: 2 <= low < mid < max.
 func TestValidateRejectsBadThresholds(t *testing.T) {
-	mkTier := func(low, mid, max uint64) types.Tier {
-		return types.Tier{
-			StartHeight:          0,
-			EndHeight:            0,
-			MaxActivityReward:    rune(50),
-			MaxTxCountThreshold:  max,
-			MidActivityReward:    rune(25),
-			MidTxCountThreshold:  mid,
-			LowActivityReward:    rune(15),
-			LowTxCountThreshold:  low,
-			SingleActivityReward: rune(1),
-			ZeroActivityReward:   halfRune(),
-		}
+	mkTier := func(low, mid, high, max uint64) types.Tier {
+		t := fullTier(rune(50), rune(40), rune(30), rune(20), halfRune())
+		t.MaxTxCountThreshold = max
+		t.HighTxCountThreshold = high
+		t.MidTxCountThreshold = mid
+		t.LowTxCountThreshold = low
+		return t
 	}
 
 	testCases := []struct {
@@ -427,16 +445,16 @@ func TestValidateRejectsBadThresholds(t *testing.T) {
 		tier    types.Tier
 		wantErr string
 	}{
-		{"low below 2", mkTier(1, 5, 10), "must be at least 2"},
-		{"mid not above low", mkTier(5, 5, 10), "greater than the low threshold"},
-		{"max not above mid", mkTier(2, 10, 10), "greater than the mid threshold"},
-		{"valid 2/5/10", mkTier(2, 5, 10), ""},
-		{"valid 3/6/20", mkTier(3, 6, 20), ""},
+		{"low below the derived minimum", mkTier(5, 10, 15, 20), "must be at least 6"},
+		{"mid not above low", mkTier(6, 6, 15, 20), "greater than the low threshold"},
+		{"high not above mid", mkTier(6, 12, 12, 20), "greater than the mid threshold"},
+		{"max not above high", mkTier(6, 10, 20, 20), "greater than the high threshold"},
+		{"valid 6/10/15/20", mkTier(6, 10, 15, 20), ""},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := types.Params{Denom: "arune", Tiers: []types.Tier{tc.tier}}.Validate()
+			err := paramsWith(tc.tier).Validate()
 			if tc.wantErr == "" {
 				require.NoError(t, err)
 
@@ -473,7 +491,7 @@ func TestShippedDefaultScheduleIsValid(t *testing.T) {
 	for i := 1; i < len(tiers); i++ {
 		require.NotZero(t, tiers[i].StartHeight, "tier %d should not start at 0", i)
 
-		single := types.Params{Denom: "arune", Tiers: []types.Tier{tiers[i]}}
+		single := paramsWith(tiers[i])
 		require.ErrorContains(t, single.Validate(), "first tier must start at height 0",
 			"tier %d starts above 0, so it fails the height rule before the open-ended rule", i)
 	}
@@ -483,7 +501,7 @@ func TestShippedDefaultScheduleIsValid(t *testing.T) {
 	require.Zero(t, tiers[0].StartHeight)
 	require.NotZero(t, tiers[0].EndHeight, "tier 0 must be closed for this to be the failure")
 
-	single := types.Params{Denom: "arune", Tiers: []types.Tier{tiers[0]}}
+	single := paramsWith(tiers[0])
 	require.ErrorContains(t, single.Validate(), "last tier must be open-ended",
 		"tier 0 starts at 0, so it reaches the open-ended rule and fails there")
 
@@ -491,7 +509,7 @@ func TestShippedDefaultScheduleIsValid(t *testing.T) {
 	// the whole slice. Asserting it directly keeps the invariant obvious.
 	for i, tier := range tiers {
 		require.Error(t,
-			types.Params{Denom: "arune", Tiers: []types.Tier{tier}}.Validate(),
+			paramsWith(tier).Validate(),
 			"tier %d must not validate in isolation", i)
 	}
 }
@@ -500,33 +518,23 @@ func TestShippedDefaultScheduleIsValid(t *testing.T) {
 // rejected. Every rate is required — there is no partially-configured tier.
 func TestParamsValidateRejectsBadPoNA(t *testing.T) {
 	mkTier := func(mid, low, zero sdkmath.Int) types.Tier {
-		return types.Tier{
-			StartHeight:          0,
-			EndHeight:            0,
-			MaxActivityReward:    rune(50),
-			MaxTxCountThreshold:  10,
-			MidActivityReward:    mid,
-			MidTxCountThreshold:  5,
-			LowActivityReward:    low,
-			LowTxCountThreshold:  2,
-			SingleActivityReward: rune(1),
-			ZeroActivityReward:   zero,
-		}
+		t := fullTier(rune(50), rune(40), mid, low, zero)
+		return t
 	}
 
 	// Negative low activity reward.
-	bad := types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(25), rune(-20), rune(1))}}
+	bad := paramsWith(mkTier(rune(25), rune(-20), rune(1)))
 	require.Error(t, bad.Validate())
 
 	// Nil zero activity reward.
-	bad = types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(25), rune(15), sdkmath.Int{})}}
+	bad = paramsWith(mkTier(rune(25), rune(15), sdkmath.Int{}))
 	require.Error(t, bad.Validate())
 
 	// Nil mid activity reward: required, so rejected.
-	bad = types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(sdkmath.Int{}, rune(15), rune(1))}}
+	bad = paramsWith(mkTier(sdkmath.Int{}, rune(15), rune(1)))
 	require.Error(t, bad.Validate())
 
 	// Fully specified tier is accepted.
-	good := types.Params{Denom: "arune", Tiers: []types.Tier{mkTier(rune(25), rune(15), halfRune())}}
+	good := paramsWith(mkTier(rune(25), rune(15), halfRune()))
 	require.NoError(t, good.Validate())
 }

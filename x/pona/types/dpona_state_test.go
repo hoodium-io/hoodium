@@ -86,7 +86,7 @@ func TestDPonaRepeatedIncrements(t *testing.T) {
 			s = s.ObserveBlock(true)
 		}
 		require.Equalf(t, uint64(round), s.Diff, "round %d", round)
-		require.Equalf(t, round*types.DPonaTxCountStep, s.TxCountOffset(), "round %d offset", round)
+		require.Equalf(t, uint64(round)*types.DPonaTxCountStep, s.TxCountOffset(), "round %d offset", round)
 	}
 }
 

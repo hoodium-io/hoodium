@@ -9,11 +9,6 @@ import (
 	"github.com/hoodium-io/hoodium/x/pona/types"
 )
 
-// halfRune is 0.5 RUNE in arune, used for the zero band.
-func halfRune() sdkmath.Int {
-	return sdkmath.NewIntWithDecimal(5, types.RuneDecimals-1)
-}
-
 // tenBandTier builds a tier with the shipped base thresholds and distinguishable
 // reward amounts, so a mis-selected band shows up as the wrong number rather than
 // coincidentally matching a neighbour.
@@ -34,7 +29,11 @@ func tenBandTier() types.Tier {
 		TrioActivityReward:   sdkmath.NewInt(3),
 		DuoActivityReward:    sdkmath.NewInt(2),
 		SingleActivityReward: sdkmath.NewInt(1),
-		ZeroActivityReward:   halfRune(),
+		// NOTE: 0.5 RUNE is 5e17 arune, which is far above the 1-arune single rate
+		// used by the *contract* tier above. This helper works in arune and the
+		// ApplyFloor would clamp single up to zero, so the floor is set BELOW every
+		// band to keep the raw rates observable.
+		ZeroActivityReward: sdkmath.NewInt(0),
 	}
 }
 
@@ -73,7 +72,8 @@ func TestBandLadderBaseTableAtDiffZero(t *testing.T) {
 			"txCount=%d reward", tc.count)
 	}
 
-	require.Equal(t, halfRune(), tier.RewardForTxCount(0), "zero band pays 0.5 RUNE")
+	require.Equal(t, sdkmath.ZeroInt(), tier.RewardForTxCount(0),
+		"this helper sets the floor to 0 so raw band rates stay observable")
 }
 
 // TestBandLadderExhaustive walks every transaction count from 0 to 60 at four
@@ -158,8 +158,10 @@ func TestBandLadderOffsetShiftsThresholds(t *testing.T) {
 	base := tenBandTier()
 	shifted := base.WithDPonaOffset(10)
 
-	// max band needs 30 transactions at offset +10, not 20.
-	require.Equal(t, types.BandHigh, shifted.BandForTxCount(20))
+	// With offset +10 the thresholds become low=16, mid=20, high=25, max=30.
+	// So 20 is exactly the MID threshold and 30 is exactly MAX.
+	require.Equal(t, types.BandMid, shifted.BandForTxCount(20))
+	require.Equal(t, types.BandHigh, shifted.BandForTxCount(25))
 	require.Equal(t, types.BandHigh, shifted.BandForTxCount(29))
 	require.Equal(t, types.BandMax, shifted.BandForTxCount(30))
 
@@ -167,7 +169,7 @@ func TestBandLadderOffsetShiftsThresholds(t *testing.T) {
 	require.Equal(t, types.BandQuint, shifted.BandForTxCount(15))
 	require.Equal(t, types.BandQuart, shifted.BandForTxCount(14))
 
-	// Counts below the shifted duo still clamp into single: no unbanded gap.
+	// Counts below the shifted duo (16-4=12) still clamp into single: no gap.
 	for _, c := range []uint64{1, 5, 9, 10, 11} {
 		require.Equalf(t, types.BandSingle, shifted.BandForTxCount(c),
 			"txCount=%d must clamp into single at offset +10", c)

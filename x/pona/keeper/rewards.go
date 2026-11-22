@@ -68,10 +68,10 @@ func (b BlockRewardBreakdown) HasTier() bool {
 // DistributeRuneBlockReward, which switches to FundingSourceFees when it cannot.
 func ComputeBlockRewardWithDiff(
 	params types.Params, height, txCount, diff uint64,
-) types.BlockRewardBreakdown {
+) BlockRewardBreakdown {
 	idx, tier, ok := params.TierForHeightWithDiff(height, diff)
 
-	breakdown := types.BlockRewardBreakdown{
+	breakdown := BlockRewardBreakdown{
 		Height:        height,
 		TxCount:       txCount,
 		TierIndex:     -1,
@@ -98,7 +98,7 @@ func ComputeBlockRewardWithDiff(
 // controller state. The consensus path must use ComputeBlockRewardWithDiff.
 func ComputeBlockReward(
 	params types.Params, height, txCount uint64,
-) types.BlockRewardBreakdown {
+) BlockRewardBreakdown {
 	return ComputeBlockRewardWithDiff(params, height, txCount, 0)
 }
 
@@ -150,7 +150,7 @@ func (k Keeper) DistributeRuneBlockReward(
 
 	// Reserve-funded tiers stop paying when the reserve can no longer cover the
 	// scheduled reward. From that block on, the fee-only ladder takes over.
-	if source == types.FundingSourceReserve {
+	if source == FundingSourceReserve {
 		pool := k.RewardPoolBalance(ctx)
 		if pool.Amount.LT(reward) {
 			k.Logger(ctx).Info(
@@ -159,12 +159,12 @@ func (k Keeper) DistributeRuneBlockReward(
 				"pool_balance", pool.Amount.String(),
 				"requested_reward", reward.String(),
 			)
-			source = types.FundingSourceFees
+			source = FundingSourceFees
 			breakdown.FundingSource = source
 		}
 	}
 
-	if source == types.FundingSourceFees {
+	if source == FundingSourceFees {
 		// The scheduled amount is a ceiling: clamp it to what this block's fees
 		// can actually pay.
 		reward = k.FeeOnlyReward(ctx, txCount, feePool)
@@ -201,7 +201,7 @@ func (k Keeper) DistributeRuneBlockReward(
 	// else. Moving fee_collector -> fee_collector would be a no-op, and moving it
 	// anywhere else would remove it from the distribution pool, contradicting
 	// "fees continue to pay validators".
-	if source == types.FundingSourceReserve {
+	if source == FundingSourceReserve {
 		coins := sdk.NewCoins(sdk.NewCoin(params.Denom, reward))
 		if err := k.bankKeeper.SendCoinsFromModuleToModule(
 			ctx, types.ValidatorRewardPoolName, authtypes.FeeCollectorName, coins,
