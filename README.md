@@ -67,7 +67,7 @@ Custom features built for Hoodium (i.e. beyond stock Cosmos SDK / EVM behaviour)
 | **RUNE native token** | The single token for gas, governance and validator/delegator rewards on the Mainchain. Denom `arune` (1 RUNE = 10^18 arune); total supply capped at **10B RUNE**. |
 | **Fixed-supply emission** | Block rewards come from a **pre-funded 1B RUNE reserve**, not Cosmos-style inflation. When the reserve empties, the chain runs **fee-only** permanently. |
 | **Tiered emission schedule** | Static reward steps down over time: **50 RUNE/block** (Y0–2) → **25** (Y2–4) → **15** (Y4+). |
-| **PoNA — Proof of Network Activity** | The block reward scales with how many regular transactions the block contains, on a five-step ladder per tier: **max** at `tx >= 10`, **mid** at `5-9`, **low** at `2-4`, **single** at exactly `1`, and a nominal **0.5 RUNE** for an empty block. Idle chains drain the reserve far more slowly. See [`docs/technologies/pona.md`](./docs/technologies/pona.md). |
+| **PoNA — Proof of Network Activity** | The block reward scales with how many regular transactions the block contains, on a five-step ladder per tier: **max** at `tx >= 10`, **mid** at `5-9`, **low** at `2-4`, **single** at exactly `1`, and a nominal **0.5 RUNE** for an empty block. Idle chains drain the reserve far more slowly. See [`docs/technologies/pona/pona.md`](./docs/technologies/pona/pona.md). |
 | **Two-gas-price model** | Separate minimum gas prices for **regular** vs **deployment** transactions, both **governance-adjustable**. |
 | **Standard staking** (replacing PoA) | Permissionless Cosmos staking: **101** max validators, **500,000 RUNE** min self-delegation, **5%** min commission. |
 | **Staking from EVM** | A staking precompile lets EVM accounts delegate / undelegate / query without leaving the EVM toolchain. |
@@ -82,8 +82,8 @@ in [`docs/technologies/`](./docs/technologies/README.md).
 
 | Technology | Description | Doc |
 |---|---|---|
-| **`x/pona`** | Custom module owning the 1B RUNE validator reward pool, the emission schedule and the PoNA activity policy: funds the reserve, computes the block reward, and routes it to the fee pool. | [`pona.md`](./docs/technologies/pona.md) |
-| **PoNA (Proof of Network Activity)** | Activity-scaled reward engine. Captures the block's transaction count in the app's `PreBlock` hook, stores it, and selects the tier's full / low / zero rate in `EndBlock`. Pure and deterministic. | [`pona.md`](./docs/technologies/pona.md) |
+| **`x/pona`** | Custom module owning the 1B RUNE validator reward pool, the emission schedule and the PoNA activity policy: funds the reserve, computes the block reward, and routes it to the fee pool. | [`pona.md`](./docs/technologies/pona/pona.md) |
+| **PoNA (Proof of Network Activity)** | Activity-scaled reward engine. Captures the block's transaction count in the app's `PreBlock` hook, stores it, and selects the tier's full / low / zero rate in `EndBlock`. Pure and deterministic. | [`pona.md`](./docs/technologies/pona/pona.md) |
 | **EVM precompiles** (5 registered) | Native Go precompiles exposed at fixed addresses: **RUNE token** `0x19be...0000`, **HOODI token** `0x19be...0001`, **PriceOracle** `0x19be...0002`, **Staking** `0x19be...0003`, **TestBed** `0x19BE10...0000`. | [`precompile.md`](./docs/precompile.md) |
 | **Two-gas-price model** | `x/feemarket` extension adding `MinRegularGasPrice` / `MinDeploymentGasPrice` on top of the EIP-1559 base fee. | [`tx-fees.md`](./docs/tx-fees.md) |
 | **EVM + fee market** | Full EVM execution (`x/evm`, forked from Cosmos EVM) with a working EIP-1559 fee market (`x/feemarket`). | [`evm-compatibility.md`](./docs/evm/evm-compatibility.md) |

@@ -1,5 +1,12 @@
 # PoNA — Proof of Network Activity (RUNE rewards)
 
+> **⚠️ Superseded design.** This document describes the **five-band** ladder that
+> is currently on chain. A redesign — the **ten-band ladder** plus the **dPona**
+> dynamic difficulty controller — is specified in
+> [`dpona.md`](./dpona.md) and is **designed but not yet implemented**. Where the
+> two disagree, `dpona.md` is the intended future behaviour and this document is
+> what the chain actually does today.
+
 > **Status:** Implemented as **`x/pona`**. This is the authoritative document for
 > both the **mechanism** and the **module**.
 >
@@ -116,6 +123,12 @@ count. The bands form a graded ladder: more activity pays more.
 `txCount` is the number of **regular** transactions in the block being
 finalised — *not* mempool size, *not* a rolling average, and *not* the injected
 vote-extension pseudo-transaction (see [§4.1](#41-which-transactions-are-counted)).
+
+> **Planned change.** The five bands above are replaced by **ten** bands
+> (`max, high, mid, low, quint, quart, trio, duo, single, zero`) in the dPona
+> redesign, which also adds a dynamic difficulty controller that shifts thresholds
+> by ±10 transactions. See [`dpona.md` §1](./dpona.md#1-the-ten-bands) and
+> [§3](./dpona.md#3-dpona--the-difficulty-controller).
 
 > **Every field is required.** Each tier carries all five rates and all three
 > thresholds. `Params.Validate` rejects a tier that omits any of them, so a
@@ -456,7 +469,7 @@ mechanism has a single reference point:
 
 ## 8. Interaction with the fee market
 
-The two-gas-price model ([`../tx-fees.md`](../tx-fees.md)) is
+The two-gas-price model ([`../../tx-fees.md`](../../tx-fees.md)) is
 **independent** of PoNA:
 
 | Flow | Source | Recipient | Shaped by PoNA? |

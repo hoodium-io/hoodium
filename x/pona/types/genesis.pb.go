@@ -30,7 +30,7 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 //
 // Tier also carries the Proof of Network Activity (PoNA) rates for that tier.
 // The reward actually paid for a block depends on how many REGULAR transactions
-// the block contains (see docs/technologies/pona.md):
+// the block contains (see docs/technologies/pona/pona.md):
 //
 //	tx_count >= max_tx_count_threshold                     -> max_activity_reward
 //	mid_tx_count_threshold <= tx_count < max               -> mid_activity_reward

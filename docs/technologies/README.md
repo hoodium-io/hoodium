@@ -13,8 +13,11 @@ Distinction from [`../features/`](../features/README.md):
 
 | Technology | Doc | Status |
 |---|---|---|
-| **PoNA (RUNE rewards) — `x/pona`** | [`pona.md`](./pona.md) | Implemented |
-| RUNE emission schedule (50/25/15) | [`pona.md`](./pona.md#0-the-module-at-a-glance) | Implemented |
+| **PoNA (RUNE rewards) — `x/pona`** | [`pona/`](./pona/README.md) | Implemented (5 bands) |
+| PoNA as shipped today | [`pona/pona.md`](./pona/pona.md) | Implemented |
+| **dPona — ten-band ladder + dynamic difficulty** | [`pona/dpona.md`](./pona/dpona.md) | **Designed, not implemented** |
+| PoNA Enhancement 3 — original design record | [`pona/original-design.md`](./pona/original-design.md) | Historical |
+| Tier 4 fee-funded fallback | [`pona/dpona.md`](./pona/dpona.md#4-tier-4--the-fee-funded-fallback) | **Designed, not implemented** |
 | Two-gas-price model | [`../tx-fees.md`](../tx-fees.md) | Implemented |
 
 > Add a new `<technology>.md` here and link it in the table above when a Hoodium

@@ -9,33 +9,49 @@ option go_package = "github.com/hoodium-io/hoodium/x/pona/types";
 // current block height is in [start_height, end_height). end_height == 0 means
 // the tier is open-ended (the final, effectively-infinite tier).
 //
-// Tier also carries the Proof of Network Activity (PoNA) rates for that tier.
-// The reward actually paid for a block depends on how many REGULAR transactions
-// the block contains (see docs/technologies/pona.md):
+// Tier carries the ten-band Proof of Network Activity (PoNA) ladder for that
+// tier. The reward paid for a block depends on how many REGULAR transactions it
+// contains (see docs/technologies/pona/pona.md):
 //
-//	tx_count >= max_tx_count_threshold                     -> max_activity_reward
-//	mid_tx_count_threshold <= tx_count < max               -> mid_activity_reward
-//	low_tx_count_threshold <= tx_count < mid               -> low_activity_reward
-//	tx_count == 1                                          -> single_activity_reward
-//	tx_count == 0                                          -> zero_activity_reward
+//	tx_count >= max_tx_count_threshold    -> max_activity_reward
+//	high_tx_count_threshold <= tx < max   -> high_activity_reward
+//	mid_tx_count_threshold  <= tx < high  -> mid_activity_reward
+//	low_tx_count_threshold  <= tx < mid   -> low_activity_reward
+//	tx_count == low - 1                   -> quint_activity_reward
+//	tx_count == low - 2                   -> quart_activity_reward
+//	tx_count == low - 3                   -> trio_activity_reward
+//	tx_count == low - 4                   -> duo_activity_reward
+//	tx_count == low - 5 (and below)       -> single_activity_reward
+//	tx_count == 0                         -> zero_activity_reward
+//
+// The five exact-count bands are DERIVED from low_tx_count_threshold rather
+// than stored as their own thresholds, so the ladder cannot develop gaps or
+// overlaps as the dPona difficulty offset shifts it. See Tier.BandForTxCount in
+// x/pona/types/pona.go.
 //
 // zero_activity_reward is also the FLOOR: no block is ever paid less than it.
-// If max_tx_count_threshold is 0, PoNA is disabled for the tier and
-// max_activity_reward is always paid.
 //
-// FIELD ORDER IS DELIBERATE: the fields are numbered and declared in the order
-// the ladder is evaluated, each band's rate immediately followed by its lower
-// bound, descending from max to zero. protoc emits the generated Go struct -- and
-// therefore the JSON written for genesis -- in declaration order, so the genesis
-// file reads as a top-to-bottom ladder:
+// FIELD ORDER IS DELIBERATE: fields are numbered and declared from ZERO upward
+// to max, so the genesis file reads as a ladder bottom-to-top. Each band's rate
+// is immediately followed by its lower bound. protoc emits the generated Go
+// struct in declaration order, so this ordering is what the genesis JSON shows:
 //
-//	max_activity_reward, max_tx_count_threshold,
-//	mid_activity_reward, mid_tx_count_threshold,
-//	low_activity_reward, low_tx_count_threshold,
-//	single_activity_reward, zero_activity_reward
+//	zero_activity_reward,
+//	single_activity_reward,
+//	duo_activity_reward,
+//	trio_activity_reward,
+//	quart_activity_reward,
+//	quint_activity_reward,
+//	low_activity_reward,  low_tx_count_threshold,
+//	mid_activity_reward,  mid_tx_count_threshold,
+//	high_activity_reward, high_tx_count_threshold,
+//	max_activity_reward,  max_tx_count_threshold
 //
-// Keep this order when adding fields; do not renumber once a chain exists.
+// NOTE: this numbering deliberately does NOT preserve wire compatibility with
+// the previous five-band layout. There is no live chain yet (devnet only), so
+// the ladder was renumbered for readability instead of append-only.
 message Tier {
+  // ---- position ---------------------------------------------------------
   // start_height is the first block height (inclusive) at which this tier applies.
   uint64 start_height = 1;
   // end_height is the first block height (exclusive) at which this tier stops
@@ -47,71 +63,145 @@ message Tier {
   // covered, and every subsequent tier starts at the height the previous one
   // stopped at.
   uint64 end_height = 2;
-  // max_activity_reward is the reward for a maximally active block
-  // (tx_count >= max_tx_count_threshold), in arune (1 RUNE = 10^18 arune).
-  string max_activity_reward = 3 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"max_activity_reward\""
-  ];
-  // max_tx_count_threshold is the minimum number of transactions a block must
-  // contain for max_activity_reward to be paid. Zero disables PoNA for the tier.
-  uint64 max_tx_count_threshold = 4;
-  // mid_activity_reward is paid when mid_tx_count_threshold <= tx_count < max, in arune.
-  //
-  // Required: every tier carries the full five-band ladder, and Params validation
-  // rejects a tier that omits any rate.
-  string mid_activity_reward = 5 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"mid_activity_reward\""
-  ];
-  // mid_tx_count_threshold is the minimum number of transactions for the MID
-  // band. Required, and must satisfy low < mid < max.
-  uint64 mid_tx_count_threshold = 6;
-  // low_activity_reward is paid when low_tx_count_threshold <= tx_count < mid, in arune.
-  string low_activity_reward = 7 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"low_activity_reward\""
-  ];
-  // low_tx_count_threshold is the minimum number of transactions for the LOW
-  // band. Required, and must satisfy 2 <= low < mid. The minimum of 2 exists
-  // because tx counts 0 and 1 are the zero and single bands, so a low band
-  // starting at 0 or 1 could never be selected.
-  uint64 low_tx_count_threshold = 8;
-  // single_activity_reward is paid when the block contains exactly ONE
-  // transaction, in arune. It is its own band because a single transaction is
-  // meaningfully more activity than none, but far less than an actively used
-  // chain.
-  //
-  // Required, like every other rate in the ladder.
-  string single_activity_reward = 9 [
-    (gogoproto.customtype) = "cosmossdk.io/math.Int",
-    (gogoproto.nullable) = false,
-    (gogoproto.moretags) = "yaml:\"single_activity_reward\""
-  ];
-  // zero_activity_reward is paid when tx_count == 0, in arune. It is also the
-  // FLOOR of the paid reward: no block is ever worth less than it.
-  string zero_activity_reward = 10 [
+
+  // ---- band: zero (tx_count == 0) ---------------------------------------
+  // Paid when tx_count == 0. Also the FLOOR of the paid reward.
+  string zero_activity_reward = 3 [
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,
     (gogoproto.moretags) = "yaml:\"zero_activity_reward\""
   ];
+
+  // ---- band: single (tx_count == low - 5 and below) ---------------------
+  // Paid for exactly ONE transaction, or -- once the dPona offset is active --
+  // any count below the duo band. Required, like every other rate.
+  string single_activity_reward = 4 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"single_activity_reward\""
+  ];
+
+  // ---- band: duo (tx_count == low - 4) ---------------------------------
+  string duo_activity_reward = 5 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"duo_activity_reward\""
+  ];
+
+  // ---- band: trio (tx_count == low - 3) --------------------------------
+  string trio_activity_reward = 6 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"trio_activity_reward\""
+  ];
+
+  // ---- band: quart (tx_count == low - 2) -------------------------------
+  string quart_activity_reward = 7 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"quart_activity_reward\""
+  ];
+
+  // ---- band: quint (tx_count == low - 1) -------------------------------
+  string quint_activity_reward = 8 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"quint_activity_reward\""
+  ];
+
+  // ---- band: low (low_tx_count_threshold <= tx < mid) ------------------
+  string low_activity_reward = 9 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"low_activity_reward\""
+  ];
+  // low_tx_count_threshold anchors the ladder: the five exact bands
+  // (quint..single) are derived from it as low-1 .. low-5. Must be at least 6,
+  // so every exact band lands on a count >= 1 and never collides with zero.
+  uint64 low_tx_count_threshold = 10;
+
+  // ---- band: mid (mid_tx_count_threshold <= tx < high) ----------------
+  string mid_activity_reward = 11 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"mid_activity_reward\""
+  ];
+  // Minimum count for the MID band. Required to satisfy low < mid < high.
+  uint64 mid_tx_count_threshold = 12;
+
+  // ---- band: high (high_tx_count_threshold <= tx < max) ---------------
+  string high_activity_reward = 13 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"high_activity_reward\""
+  ];
+  // Minimum count for the HIGH band. Required to satisfy mid < high < max.
+  uint64 high_tx_count_threshold = 14;
+
+  // ---- band: max (tx_count >= max_tx_count_threshold) -----------------
+  string max_activity_reward = 15 [
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (gogoproto.moretags) = "yaml:\"max_activity_reward\""
+  ];
+  // Minimum count for the MAX band. Must be greater than high.
+  uint64 max_tx_count_threshold = 16;
 }
 
 // Params holds the runerewards module parameters.
 message Params {
-  // tiers is the ordered emission schedule (contiguous, non-overlapping,
-  // starting at height 0, last tier open-ended). Each tier carries both the
-  // full reward and its PoNA (activity-scaled) rates.
+  // tiers is the ordered RESERVE-FUNDED emission schedule (contiguous,
+  // non-overlapping, starting at height 0, last tier open-ended). Each tier
+  // carries the ten-band PoNA ladder.
   repeated Tier tiers = 1 [(gogoproto.nullable) = false];
   // denom is the reward denomination (arune).
   string denom = 2;
+  // fee_only_tier is the FEE-FUNDED ladder paid once the reserve can no longer
+  // cover the scheduled reward ("Tier 4"). It is not a height tier: it has no
+  // position in `tiers` and no start/end height. Those two fields are unused and
+  // must be zero.
+  //
+  // Its reward is CLAMPED to what the block's fees can actually pay:
+  //
+  //	paid = min(scheduled_reward, fee_skim_percent% * block_fees)
+  //
+  // A block with no transactions has no fees, so fee_only_tier's zero band must
+  // be zero -- that is what makes this ladder self-describing.
+  Tier fee_only_tier = 3 [(gogoproto.nullable) = false];
+  // fee_skim_percent is the percentage (0-100) of the block's collected fees
+  // that the fee-only ladder may pay out. The remainder continues to
+  // x/distribution, which splits it across the active validator set by voting
+  // power. Both paths pay validators; this only decides the split.
+  uint64 fee_skim_percent = 4;
+}
+
+// DPonaState is the persistent state of the dynamic-PoNA difficulty controller.
+//
+// It is global (not per-tier): the controller reacts to chain-wide max-band
+// activity and shifts EVERY band's transaction threshold by
+// `diff * 10` transactions.
+//
+// diff == 0 means dPona is OFF. There is deliberately no separate boolean, so
+// the enabled flag and the offset can never disagree.
+message DPonaState {
+  // consecutive_max is the number of consecutive blocks classified into the max
+  // band, saturating at the increment threshold (5).
+  uint64 consecutive_max = 1;
+  // blocks_since_max is the number of blocks since the last max-band block,
+  // saturating at the decrement threshold (100).
+  uint64 blocks_since_max = 2;
+  // diff is the difficulty in +10-transaction steps. 0 = dPona off.
+  //
+  // Thresholds are shifted by diff*10 in every tier, and the exact-count bands
+  // (quint..single) are re-derived from the shifted low threshold.
+  uint64 diff = 3;
 }
 
 // GenesisState is the runerewards module genesis state.
 message GenesisState {
   // params are the module's initial parameters (includes the emission schedule).
   Params params = 1 [(gogoproto.nullable) = false];
+  // dpona is the initial difficulty-controller state. A zero value is valid and
+  // means "dPona off", which is the intended starting condition.
+  DPonaState dpona = 2 [(gogoproto.nullable) = false];
 }

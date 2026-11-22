@@ -156,6 +156,173 @@ func (k Keeper) BlockTxCount(ctx sdk.Context) uint64 {
 	return sdk.BigEndianToUint64(bz)
 }
 
+// GetDPona returns the persisted dPona difficulty-controller state.
+//
+// A zero value means "dPona off", which is the intended starting condition: on a
+// fresh chain no difficulty offset applies and every band uses its base
+// thresholds.
+func (k Keeper) GetDPona(ctx sdk.Context) types.DPonaState {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(types.KeyDPona)
+	if len(bz) == 0 {
+		return types.DPonaState{}
+	}
+
+	var state types.DPonaState
+	k.cdc.MustUnmarshal(bz, &state)
+	return state
+}
+
+// SetDPona persists the dPona difficulty-controller state.
+func (k Keeper) SetDPona(ctx sdk.Context, state types.DPonaState) {
+	store := ctx.KVStore(k.storeKey)
+	store.Set(types.KeyDPona, k.cdc.MustMarshal(&state))
+}
+
+// UpdateDPona advances the controller by one block and persists the result.
+//
+// inMaxBand reports whether the block just finalised landed in the max band. The
+// returned state is the one now stored, so the caller can log the transition
+// without a second read.
+//
+// This is the ONLY place the difficulty changes. It is called from EndBlock after
+// the block's reward has been computed, so a block is never classified by a
+// difficulty it caused.
+func (k Keeper) UpdateDPona(ctx sdk.Context, inMaxBand bool) types.DPonaState {
+	next := k.GetDPona(ctx).ObserveBlock(inMaxBand)
+	k.SetDPona(ctx, next)
+	return next
+}
+
+// FeeOnlyReward returns the fee-funded ladder's scheduled reward for a block
+// containing `txCount` transactions, CLAMPED to what the block's fees can pay.
+//
+//	feeOnlyReward = min(feeOnlyTier.RewardForTxCount(txCount),
+//	                    feeSkimPercent% * feePool)
+//
+// `feePool` is the block's collected fees in the reward denom, captured BEFORE
+// PoNA credits its own reward into the fee collector (otherwise the skim would
+// pay itself).
+//
+// Returns zero when the ladder schedules nothing (the zero band, by design) or
+// when the clamp reduces it to nothing.
+func (k Keeper) FeeOnlyReward(ctx sdk.Context, txCount uint64, feePool sdkmath.Int) sdkmath.Int {
+	params := k.GetParams(ctx)
+
+	scheduled := params.FeeOnlyTier.RewardForTxCount(txCount)
+	if scheduled.IsZero() || feePool.IsZero() {
+		return sdkmath.ZeroInt()
+	}
+
+	// skim = feePool * percent / 100, in integer math. Multiply before dividing so
+	// small fee pools do not truncate to zero.
+	skim := feePool.MulRaw(int64(params.FeeSkimPercent)).QuoRaw(100)
+	if skim.IsZero() {
+		return sdkmath.ZeroInt()
+	}
+
+	if scheduled.GT(skim) {
+		return skim
+	}
+
+	return scheduled
+}
+
+// blockFeeIncome returns this block's collected fees in `denom`, read from the
+// distribution fee collector.
+//
+// PoNA runs LAST in EndBlock, so at this point the collector holds exactly the
+// fees taken during DeliverTx for this block -- it is swept into x/distribution
+// at the START of the next block. Reading it here is therefore both accurate and
+// safe: no reward has been credited yet, so the fee-only ladder cannot skim its
+// own payout.
+func (k Keeper) blockFeeIncome(ctx sdk.Context, denom string) sdkmath.Int {
+	addr := k.accountKeeper.GetModuleAddress(authtypes.FeeCollectorName)
+	if addr == nil {
+		return sdkmath.ZeroInt()
+	}
+
+	return k.bankKeeper.GetBalance(ctx, addr, denom).Amount
+}
+
+// advanceDPona feeds this block's band into the difficulty controller.
+//
+// Called once per block from DistributeRuneBlockReward, on both the paid and
+// unpaid paths: difficulty tracks activity, not whether a reward was affordable.
+func (k Keeper) advanceDPona(ctx sdk.Context, state types.DPonaState, band types.ActivityBand) {
+	next := k.UpdateDPona(ctx, band == types.BandMax)
+
+	if next.Diff != state.Diff {
+		k.Logger(ctx).Info(
+			"dPona difficulty changed",
+			"height", ctx.BlockHeight(),
+			"band", string(band),
+			"previous_diff", state.Diff,
+			"new_diff", next.Diff,
+			"txs_offset", next.TxCountOffset(),
+			"active", next.IsActive(),
+		)
+	}
+}
+
+// logRewardPaid emits the per-block reward log line.
+//
+// tx_count is the piece operators need: it is the number of REGULAR transactions
+// the block contained (the injected vote-extension pseudo-transaction is
+// excluded), and it is what selected the band. It is deliberately NOT taken from
+// the CometBFT log lines -- those report num_txs/num_txs_res, which count the
+// pseudo-transaction and therefore do not answer "why did this block pay the zero
+// band?".
+//
+// dpona / pona_diff / txs_offset are logged every block so an operator can see
+// the difficulty actually in force without querying the module.
+func (k Keeper) logRewardPaid(
+	ctx sdk.Context,
+	height, txCount uint64,
+	feePool sdkmath.Int,
+	breakdown types.BlockRewardBreakdown,
+	reward sdkmath.Int,
+	state types.DPonaState,
+) {
+	k.Logger(ctx).Info(
+		"block reward paid",
+		"height", height,
+		"tx_count", txCount,
+		"band", string(breakdown.Band),
+		"amount", reward.String(),
+		"reward_rune", types.RuneString(reward),
+		"tier", breakdown.TierIndex,
+		"funding_source", string(breakdown.FundingSource),
+		"dpona", state.IsActive(),
+		"pona_diff", state.Diff,
+		"txs_offset", state.TxCountOffset(),
+		"effective_max_txs", breakdown.Tier.MaxTxCountThreshold,
+	)
+
+	if state.Diff >= types.DPonaWarnDiff {
+		k.Logger(ctx).Warn(
+			"dPona difficulty elevated: chain has been at max activity for a sustained period",
+			"height", height,
+			"pona_diff", state.Diff,
+			"txs_offset", state.TxCountOffset(),
+		)
+	}
+
+	k.Logger(ctx).Debug(
+		"block reward breakdown",
+		"height", height,
+		"tx_count", txCount,
+		"band", string(breakdown.Band),
+		"tier_index", breakdown.TierIndex,
+		"funding_source", string(breakdown.FundingSource),
+		"low_tx_count_threshold", breakdown.Tier.LowTxCountThreshold,
+		"mid_tx_count_threshold", breakdown.Tier.MidTxCountThreshold,
+		"high_tx_count_threshold", breakdown.Tier.HighTxCountThreshold,
+		"max_tx_count_threshold", breakdown.Tier.MaxTxCountThreshold,
+		"fee_pool", feePool.String(),
+	)
+}
+
 // FundRewardPool mints `amount` of the module denom into the validator reward
 // pool. It is intended to be called once from genesis.
 func (k Keeper) FundRewardPool(ctx sdk.Context, amount sdkmath.Int) error {

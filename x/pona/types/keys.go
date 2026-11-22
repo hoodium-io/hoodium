@@ -22,6 +22,10 @@ const (
 	// block currently being finalised is stored (captured in PreBlock, read in
 	// EndBlock by Proof of Network Activity).
 	prefixBlockTxCount
+
+	// prefixDPona is the prefix under which the dPona difficulty-controller
+	// state is stored (consecutive max blocks, blocks since max, difficulty).
+	prefixDPona
 )
 
 // KeyPrefixParams is the KVStore prefix for module parameters.
@@ -31,3 +35,8 @@ var KeyPrefixParams = []byte{prefixParams}
 // current block is stored. It is a single key (not prefixed per height): the
 // value is overwritten at the start of every block and consumed at its end.
 var KeyBlockTxCount = []byte{prefixBlockTxCount}
+
+// KeyDPona is the KVStore key under which the dPona difficulty-controller state
+// is stored. It is global (not per-tier): the controller reacts to chain-wide
+// max-band activity and shifts every tier's bands together.
+var KeyDPona = []byte{prefixDPona}

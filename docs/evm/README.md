@@ -22,4 +22,4 @@ section — see [`evm-tx-mechanism.md` §3](./evm-tx-mechanism.md#3-balance-sett
 
 - [`../precompile.md`](../precompile.md) — the precompile set (RUNE, HOODI, staking, price oracle)
 - [`../tx-fees.md`](../tx-fees.md) — the two-gas-price model
-- [`../technologies/pona.md`](../technologies/pona.md) — block rewards
+- [`../technologies/pona/pona.md`](../technologies/pona/pona.md) — block rewards

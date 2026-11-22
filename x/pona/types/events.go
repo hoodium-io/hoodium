@@ -22,4 +22,14 @@ const (
 	// AttributeKeyTier is the index of the emission-schedule tier that covered
 	// the rewarded height.
 	AttributeKeyTier = "tier"
+	// AttributeKeyFundingSource reports which pot paid the reward: "reserve"
+	// (the pre-funded validator reward pool) or "fees" (re-allocated from the
+	// block's own transaction fees once the reserve is exhausted).
+	AttributeKeyFundingSource = "funding_source"
+	// AttributeKeyDPona reports whether the dynamic-PoNA difficulty controller is
+	// active ("true"/"false"). It is equivalent to diff > 0.
+	AttributeKeyDPona = "dpona"
+	// AttributeKeyDPonaDiff is the dPona difficulty in +10-transaction steps.
+	// 0 means dPona is off, which is also the base ladder.
+	AttributeKeyDPonaDiff = "pona_diff"
 )

@@ -31,102 +31,246 @@ import (
 // request in the application's PreBlock hook (see app.Hoodium.PreBlocker),
 // stored via keeper.SetBlockTxCount, and read back in EndBlock.
 //
-// See docs/technologies/pona.md for the full mechanism and economics.
+// See docs/technologies/pona/pona.md for the full mechanism and economics.
 
-// DefaultTxCountThreshold is the default minimum number of transactions a block
-// must contain for the MAXIMUM (base) reward to be paid under PoNA.
+// DefaultMaxTxCountThreshold is the default minimum number of transactions a
+// block must contain for the MAXIMUM (base) reward to be paid under PoNA.
 //
-// This is the value used by every tier of the default schedule. With the default
-// thresholds (10 / 5 / 2) a block carrying:
+// The four stored thresholds of the shipped base ladder are 6 / 10 / 15 / 20, so
+// with dPona off a block carrying:
 //
-//	tx_count >= 10  -> max    (MaxActivityReward)
-//	5 <= tx < 10    -> mid    (MidActivityReward)
-//	2 <= tx < 5     -> low    (LowActivityReward)
-//	tx_count == 1   -> single (SingleActivityReward)
-//	tx_count == 0   -> zero   (ZeroActivityReward)
+//	tx_count >= 20   -> max    (MaxActivityReward)
+//	15 <= tx <  20   -> high   (HighActivityReward)
+//	10 <= tx <  15   -> mid    (MidActivityReward)
+//	  6 <= tx <  10   -> low    (LowActivityReward)
+//	tx_count == 5    -> quint  (QuintActivityReward)
+//	tx_count == 4    -> quart  (QuartActivityReward)
+//	tx_count == 3    -> trio   (TrioActivityReward)
+//	tx_count == 2    -> duo    (DuoActivityReward)
+//	tx_count == 1    -> single (SingleActivityReward)
+//	tx_count == 0    -> zero   (ZeroActivityReward)
 //
-// The ladder is graded so that a lightly-used chain is paid proportionally less
-// than a busy one, instead of jumping straight from "one transaction" to "full
-// block".
-const DefaultTxCountThreshold = uint64(10)
+// The quint..single bands are derived from the low threshold, so they shift with
+// it when dPona raises the difficulty.
+const DefaultMaxTxCountThreshold = uint64(20)
 
-// DefaultMidTxCountThreshold is the default lower bound of the MID band: a block
-// with at least this many (and fewer than the max threshold) transactions earns
-// MidActivityReward.
-const DefaultMidTxCountThreshold = uint64(5)
+// DefaultHighTxCountThreshold is the default lower bound of the HIGH band.
+const DefaultHighTxCountThreshold = uint64(15)
 
-// DefaultLowTxCountThreshold is the default lower bound of the LOW band: a block
-// with at least this many (and fewer than the mid threshold) transactions earns
-// LowActivityReward.
-const DefaultLowTxCountThreshold = uint64(2)
+// DefaultMidTxCountThreshold is the default lower bound of the MID band.
+const DefaultMidTxCountThreshold = uint64(10)
+
+// DefaultLowTxCountThreshold is the default lower bound of the LOW band, and the
+// anchor the five exact-count bands are derived from (quint = low-1 ... single =
+// low-5). It must stay >= MinLowTxCountThreshold.
+const DefaultLowTxCountThreshold = uint64(6)
 
 // MinLowTxCountThreshold is the smallest allowed low tx-count threshold.
 //
-// It is 2 because tx_count values 0 and 1 already have their own bands (zero and
-// single), so a low band starting at 0 or 1 could never be selected.
-const MinLowTxCountThreshold = uint64(2)
+// It is 6 because the five exact-count bands are derived from it as low-1 .. low-5
+// (quint, quart, trio, duo, single). With low = 6 those land on 5, 4, 3, 2, 1 --
+// all distinct and all above the zero band. A smaller low would push `single`
+// onto 0 and collide with the zero band.
+const MinLowTxCountThreshold = uint64(6)
 
 // ActivityBand identifies which Proof of Network Activity band a block falls
-// into. The band, not the raw transaction count, decides which of the tier's
-// five rates is paid, so the decision lives in exactly one place
-// (Tier.BandForTxCount) and is shared by the payout path, the emitted event and
-// the CLI.
+// into. The band, not the raw transaction count, decides which of the tier's ten
+// rates is paid, so the decision lives in exactly one place
+// (Tier.BandForTxCount) and is shared by the payout path, the emitted event, the
+// CLI and the block explorer.
+//
+// The constants are declared from MAX down to ZERO, mirroring the numeric
+// ordering helpers in Tier.Ladder. Display code that wants bottom-to-top order
+// should use Tier.Ladder(), which returns zero first.
 type ActivityBand string
 
 const (
 	// BandMax is the band of a busy block: txCount >= MaxTxCountThreshold.
 	BandMax ActivityBand = "max"
+	// BandHigh is the band of a very active block:
+	// HighTxCountThreshold <= txCount < MaxTxCountThreshold.
+	BandHigh ActivityBand = "high"
 	// BandMid is the band of a block with substantial activity:
-	// MidTxCountThreshold <= txCount < MaxTxCountThreshold.
+	// MidTxCountThreshold <= txCount < HighTxCountThreshold.
 	BandMid ActivityBand = "mid"
 	// BandLow is the band of a block with moderate activity:
 	// LowTxCountThreshold <= txCount < MidTxCountThreshold.
 	BandLow ActivityBand = "low"
-	// BandSingle is the band of a block carrying exactly ONE transaction, when
-	// the tier configures a single_activity_reward. It sits between the zero and
-	// low bands: one transaction is more activity than none, but a single
-	// transaction on its own is not a used chain.
+	// BandQuint is the band of a block with exactly LowTxCountThreshold-1
+	// transactions (5 by default).
+	BandQuint ActivityBand = "quint"
+	// BandQuart is the band of a block with exactly LowTxCountThreshold-2
+	// transactions (4 by default).
+	BandQuart ActivityBand = "quart"
+	// BandTrio is the band of a block with exactly LowTxCountThreshold-3
+	// transactions (3 by default).
+	BandTrio ActivityBand = "trio"
+	// BandDuo is the band of a block with exactly LowTxCountThreshold-4
+	// transactions (2 by default).
+	BandDuo ActivityBand = "duo"
+	// BandSingle is the clamped-floor band: exactly LowTxCountThreshold-5
+	// transactions (1 by default) and, once the dPona offset is active, every
+	// count below the duo band. It is its own band because one transaction is
+	// more activity than none, but a single transaction on its own is not a used
+	// chain.
 	BandSingle ActivityBand = "single"
 	// BandZero is the band of a block that contains no regular transactions.
-	// It pays the tier's nominal ZeroActivityReward so an idle chain still
-	// pays the proposer something while draining the reserve as slowly as
-	// possible.
+	// It pays the tier's nominal ZeroActivityReward so an idle chain still pays
+	// the proposer something while draining the reserve as slowly as possible.
 	BandZero ActivityBand = "zero"
-	// BandNone means no tier covers the height: emission has ended and no
-	// activity-scaled reward applies.
+	// BandNone means no tier covers the height and the reserve cannot pay: no
+	// activity-scaled reward applies from the emission schedule.
 	BandNone ActivityBand = "none"
 )
 
 // BandForTxCount returns the PoNA band that applies to a block containing
 // txCount regular transactions.
 //
-// The five bands are selected by the tier's three thresholds, which Validate
-// guarantees are ordered 2 <= Low < Mid < Max, so every band is reachable and no
-// clamping or fallback is needed:
+// The ten bands are selected by four stored thresholds (low/mid/high/max); the
+// five exact-count bands (quint..single) are DERIVED from low, so the ladder has
+// no gaps and no overlaps at any difficulty:
 //
-//	txCount == 0             -> Zero
-//	txCount == 1             -> Single
-//	Low  <= txCount < Mid    -> Low
-//	Mid  <= txCount < Max    -> Mid
-//	txCount >= Max           -> Max
+//	txCount == 0                       -> Zero
+//	txCount <  DuoThreshold            -> Single   (clamped floor)
+//	txCount == DuoThreshold            -> Duo
+//	txCount == TrioThreshold           -> Trio
+//	txCount == QuartThreshold          -> Quart
+//	txCount == QuintThreshold          -> Quint
+//	txCount <  MidThreshold            -> Low
+//	txCount <  HighThreshold           -> Mid
+//	txCount <  MaxThreshold            -> High
+//	otherwise                          -> Max
+//
+// # Why the exact bands are derived and not stored
+//
+// Storing five more thresholds would allow an inconsistent ladder (a quint
+// threshold above the quart one, or a hole where a count matches nothing). The
+// naive alternative — `txCount <= quint` for each exact band — is worse: the
+// first `<=` swallows every lower count, making the rest unreachable. Deriving
+// them from a single anchor (low) makes those states unrepresentable.
 func (t Tier) BandForTxCount(txCount uint64) ActivityBand {
+	low := t.LowTxCountThreshold
+
 	switch {
 	case txCount == 0:
 		return BandZero
-	case txCount == 1:
+
+	// The five exact-count bands, descending. `low` is validated to be >= 6, so
+	// quint..duo are all >= 2 and never collide with the zero band.
+	case txCount == low-5 || txCount < low-5:
 		return BandSingle
+	case txCount == low-4:
+		return BandDuo
+	case txCount == low-3:
+		return BandTrio
+	case txCount == low-2:
+		return BandQuart
+	case txCount == low-1:
+		return BandQuint
+
 	case txCount >= t.MaxTxCountThreshold:
 		return BandMax
+	case txCount >= t.HighTxCountThreshold:
+		return BandHigh
 	case txCount >= t.MidTxCountThreshold:
 		return BandMid
 	default:
-		// LowTxCountThreshold is validated to be >= 2, so every count reaching
-		// here (2 .. Mid-1) is in the low band.
+		// MidTxCountThreshold is validated to be > low, so every count reaching
+		// here is in the low band.
 		return BandLow
 	}
 }
 
-// RewardForTxCount returns the reward this tier pays for a block containing
+// QuintTxCount, QuartTxCount, TrioTxCount, DuoThreshold and SingleTxCount return
+// the exact transaction counts of the five derived bands.
+//
+// They are exposed so the CLI, the event and the block explorer can display the
+// real ladder for the current difficulty instead of recomputing low-1 .. low-5
+// themselves (and getting it subtly wrong).
+func (t Tier) QuintTxCount() uint64 { return t.LowTxCountThreshold - 1 }
+func (t Tier) QuartTxCount() uint64 { return t.LowTxCountThreshold - 2 }
+func (t Tier) TrioTxCount() uint64  { return t.LowTxCountThreshold - 3 }
+func (t Tier) DuoTxCount() uint64   { return t.LowTxCountThreshold - 4 }
+
+// SingleTxCount is the highest count that pays the single-band rate. Below it,
+// any count still pays single (the clamped floor), so there is never an unbanded
+// transaction count.
+func (t Tier) SingleTxCount() uint64 { return t.LowTxCountThreshold - 5 }
+
+// BandLadderEntry describes one rung of the rendered ladder. It exists so every
+// consumer (CLI, logs, blockdium) shows the same band/range/rate triple.
+type BandLadderEntry struct {
+	Band ActivityBand
+	// Min and Max are the inclusive transaction-count range for this band.
+	// Max is math.MaxUint64 for the top band.
+	Min, Max uint64
+	Reward   sdkmath.Int
+}
+
+// Ladder returns the tier's ten bands from ZERO to MAX, in that order, with
+// their resolved transaction-count ranges and configured rates.
+//
+// The ranges are derived from the same thresholds BandForTxCount uses, so the
+// rendered ladder cannot disagree with what is actually paid.
+func (t Tier) Ladder() []BandLadderEntry {
+	const top = ^uint64(0)
+	low := t.LowTxCountThreshold
+
+	return []BandLadderEntry{
+		{BandZero, 0, 0, t.ZeroActivityReward},
+		{BandSingle, 1, low - 5, t.SingleActivityReward},
+		{BandDuo, low - 4, low - 4, t.DuoActivityReward},
+		{BandTrio, low - 3, low - 3, t.TrioActivityReward},
+		{BandQuart, low - 2, low - 2, t.QuartActivityReward},
+		{BandQuint, low - 1, low - 1, t.QuintActivityReward},
+		{BandLow, low, t.MidTxCountThreshold - 1, t.LowActivityReward},
+		{BandMid, t.MidTxCountThreshold, t.HighTxCountThreshold - 1, t.MidActivityReward},
+		{BandHigh, t.HighTxCountThreshold, t.MaxTxCountThreshold - 1, t.HighActivityReward},
+		{BandMax, t.MaxTxCountThreshold, top, t.MaxActivityReward},
+	}
+}
+
+// WithDPonaOffset returns a copy of the tier with every stored threshold raised
+// by offset transactions.
+//
+// Only the four stored thresholds move (low / mid / high / max); the five
+// exact-count bands are derived from `low` at classification time, so they follow
+// automatically. That is the point of deriving them: one shift, one consistent
+// ladder.
+//
+// The result is always a valid tier for classification purposes:
+//
+//   - every threshold is raised by the same offset, so ordering is preserved
+//     (low < mid < high < max stays low+off < mid+off < ...);
+//   - `low` stays >= MinLowTxCountThreshold, so the derived bands never collide
+//     with the zero band;
+//   - reward amounts are untouched -- difficulty changes *when* a band is earned,
+//     never *how much* it pays.
+//
+// A zero offset returns the tier unchanged, which is the dPona-off case.
+func (t Tier) WithDPonaOffset(offset uint64) Tier {
+	if offset == 0 {
+		return t
+	}
+
+	t.LowTxCountThreshold += offset
+	t.MidTxCountThreshold += offset
+	t.HighTxCountThreshold += offset
+	t.MaxTxCountThreshold += offset
+
+	return t
+}
+
+// IsReserveTier reports whether the tier is a height-scheduled emission tier.
+//
+// The fee-only ladder (Params.FeeOnlyTier, the "Tier 4" of the design) is not a
+// height tier: it carries no start/end height and is selected by whether the
+// reserve can still pay, not by the block height. It is therefore never part of
+// Params.Tiers and must not be treated as one.
+func (t Tier) IsReserveTier() bool {
+	return t.StartHeight != 0 || t.EndHeight != 0
+}
+
 // `txCount` transactions, applying its PoNA bands.
 //
 // The result is never below the tier's ZeroActivityReward: that value is the
@@ -140,8 +284,8 @@ func (t Tier) RewardForTxCount(txCount uint64) sdkmath.Int {
 // RewardForBand returns the tier's configured rate for a band, before the
 // ZeroActivityReward floor is applied.
 //
-// Every tier carries all five rates, and Params are validated on the way in
-// (see validatePoNA), so each band maps to exactly one field with no fallbacks.
+// Every tier carries all ten rates, and Params are validated on the way in (see
+// validatePoNA), so each band maps to exactly one field with no fallbacks.
 //
 // Callers that display the configured rates (the CLI, the docs) want the raw
 // value; callers that decide what is actually paid must use RewardForTxCount.
@@ -149,10 +293,20 @@ func (t Tier) RewardForBand(band ActivityBand) sdkmath.Int {
 	switch band {
 	case BandMax:
 		return t.MaxActivityReward
+	case BandHigh:
+		return t.HighActivityReward
 	case BandMid:
 		return t.MidActivityReward
 	case BandLow:
 		return t.LowActivityReward
+	case BandQuint:
+		return t.QuintActivityReward
+	case BandQuart:
+		return t.QuartActivityReward
+	case BandTrio:
+		return t.TrioActivityReward
+	case BandDuo:
+		return t.DuoActivityReward
 	case BandSingle:
 		return t.SingleActivityReward
 	case BandZero:
@@ -178,26 +332,45 @@ func (t Tier) ApplyFloor(reward sdkmath.Int) sdkmath.Int {
 
 // RewardForHeightAndTxCount returns the static block reward (in arune) that
 // applies at the given block height for a block containing `txCount`
-// transactions.
+// transactions, at the base (dPona-off) difficulty.
 //
 // This is the Proof of Network Activity (PoNA) reward. The tier covering the
-// height provides three rates, selected by the block's transaction count (see
+// height provides ten rates, selected by the block's transaction count (see
 // RewardForTxCount).
 //
 // It returns zero when no tier covers the height (emission has ended).
 //
 // This function is pure and deterministic: the transaction count is a property
 // of the block, identical on every node, so every node computes the same reward.
+//
+// NOTE: this is the dPona-off view. The consensus path must call
+// RewardForHeightTxCountAndDiff, which applies the stored difficulty offset.
 func (p Params) RewardForHeightAndTxCount(height, txCount uint64) sdkmath.Int {
+	return p.RewardForHeightTxCountAndDiff(height, txCount, 0)
+}
+
+// RewardForHeightTxCountAndDiff returns the static block reward at the given
+// height for a block with `txCount` transactions, with the dPona difficulty
+// applied.
+//
+// `diff` is the controller's difficulty in +DPonaTxCountStep steps (0 = off).
+// The tier's thresholds are shifted before classification, so a busier chain has
+// to be busier still to earn each band. Reward AMOUNTS never change with
+// difficulty -- only the threshold needed to reach them.
+//
+// Returns zero when no tier covers the height (emission has ended).
+func (p Params) RewardForHeightTxCountAndDiff(height, txCount, diff uint64) sdkmath.Int {
 	tier, ok := p.tierForHeight(height)
 	if !ok {
 		return sdkmath.ZeroInt()
 	}
-	return tier.RewardForTxCount(txCount)
+
+	return tier.WithDPonaOffset(diff * DPonaTxCountStep).RewardForTxCount(txCount)
 }
 
 // BandForHeightAndTxCount returns the PoNA band that applies at the given block
-// height for a block containing `txCount` regular transactions.
+// height for a block containing `txCount` regular transactions, at the base
+// (dPona-off) difficulty.
 //
 // It returns BandNone when no tier covers the height, which is the fee-only
 // end state (emission has ended). The transaction count must be the number of
@@ -205,11 +378,32 @@ func (p Params) RewardForHeightAndTxCount(height, txCount uint64) sdkmath.Int {
 // vote extensions put in every block must not be counted, otherwise the zero
 // band is unreachable (see app.Hoodium.PreBlocker).
 func (p Params) BandForHeightAndTxCount(height, txCount uint64) ActivityBand {
+	return p.BandForHeightTxCountAndDiff(height, txCount, 0)
+}
+
+// BandForHeightTxCountAndDiff returns the PoNA band at the given height and
+// transaction count, with the dPona difficulty applied.
+func (p Params) BandForHeightTxCountAndDiff(height, txCount, diff uint64) ActivityBand {
 	tier, ok := p.tierForHeight(height)
 	if !ok {
 		return BandNone
 	}
-	return tier.BandForTxCount(txCount)
+
+	return tier.WithDPonaOffset(diff * DPonaTxCountStep).BandForTxCount(txCount)
+}
+
+// TierForHeightWithDiff returns the tier covering `height` with the dPona offset
+// applied, and whether one was found.
+//
+// Display code (the CLI, the block explorer) should use this so the ladder it
+// renders is the one actually in force at the current difficulty.
+func (p Params) TierForHeightWithDiff(height, diff uint64) (int, Tier, bool) {
+	idx, tier, ok := p.TierForHeight(height)
+	if !ok {
+		return idx, tier, false
+	}
+
+	return idx, tier.WithDPonaOffset(diff * DPonaTxCountStep), true
 }
 
 // validatePoNA checks the activity-scaled fields of a single tier.
@@ -231,16 +425,23 @@ func (p Params) BandForHeightAndTxCount(height, txCount uint64) ActivityBand {
 // could never be selected, because tx_count 0 and 1 are the zero and single
 // bands. Such a tier would be dead configuration.
 func (t Tier) validatePoNA(idx int) error {
-	// Every rate is required and must be non-negative.
+	// Every band's rate is required and must be non-negative. Declared in the
+	// same zero-to-max order as Tier.Ladder, so a validation failure reads in the
+	// order an operator sees on the panel.
 	for _, r := range []struct {
 		name   string
 		amount sdkmath.Int
 	}{
-		{"max activity", t.MaxActivityReward},
-		{"mid activity", t.MidActivityReward},
-		{"low activity", t.LowActivityReward},
-		{"single activity", t.SingleActivityReward},
 		{"zero activity", t.ZeroActivityReward},
+		{"single activity", t.SingleActivityReward},
+		{"duo activity", t.DuoActivityReward},
+		{"trio activity", t.TrioActivityReward},
+		{"quart activity", t.QuartActivityReward},
+		{"quint activity", t.QuintActivityReward},
+		{"low activity", t.LowActivityReward},
+		{"mid activity", t.MidActivityReward},
+		{"high activity", t.HighActivityReward},
+		{"max activity", t.MaxActivityReward},
 	} {
 		if r.amount.IsNil() {
 			return fmt.Errorf("pona: tier %d %s reward must be set", idx, r.name)
@@ -250,15 +451,15 @@ func (t Tier) validatePoNA(idx int) error {
 		}
 	}
 
-	// Every threshold is required, in the order the bands are evaluated:
-	// 2 <= low < mid < max.
+	// Threshold ordering follows the bands, each one gating the next:
+	// MinLow <= low < mid < high < max.
 	//
-	// There is no "PoNA disabled" mode: a chain whose economics depend on
-	// transaction activity must always have a complete ladder, so an incomplete
-	// tier is rejected here instead of silently paying a flat rate.
+	// The lower bound is MinLowTxCountThreshold (6), not 2: the five exact bands
+	// are derived as low-1 .. low-5, so a smaller low would push `single` onto
+	// tx_count 0 and collide with the zero band.
 	if t.LowTxCountThreshold < MinLowTxCountThreshold {
 		return fmt.Errorf(
-			"pona: tier %d low tx count threshold %d must be at least %d (tx counts 0 and 1 are the zero and single bands)",
+			"pona: tier %d low tx count threshold %d must be at least %d (quint..single are derived from it as low-1..low-5)",
 			idx, t.LowTxCountThreshold, MinLowTxCountThreshold,
 		)
 	}
@@ -268,14 +469,21 @@ func (t Tier) validatePoNA(idx int) error {
 			idx, t.MidTxCountThreshold, t.LowTxCountThreshold,
 		)
 	}
-	if t.MaxTxCountThreshold <= t.MidTxCountThreshold {
+	if t.HighTxCountThreshold <= t.MidTxCountThreshold {
 		return fmt.Errorf(
-			"pona: tier %d max tx count threshold %d must be greater than the mid threshold %d",
-			idx, t.MaxTxCountThreshold, t.MidTxCountThreshold,
+			"pona: tier %d high tx count threshold %d must be greater than the mid threshold %d",
+			idx, t.HighTxCountThreshold, t.MidTxCountThreshold,
+		)
+	}
+	if t.MaxTxCountThreshold <= t.HighTxCountThreshold {
+		return fmt.Errorf(
+			"pona: tier %d max tx count threshold %d must be greater than the high threshold %d",
+			idx, t.MaxTxCountThreshold, t.HighTxCountThreshold,
 		)
 	}
 
-	// Rate ordering: zero <= single <= low <= mid <= max.
+	// Rate ordering: zero <= single <= duo <= trio <= quart <= quint <= low <= mid
+	// <= high <= max.
 	for _, pair := range []struct {
 		name     string
 		lower    sdkmath.Int
@@ -283,9 +491,14 @@ func (t Tier) validatePoNA(idx int) error {
 		upper    sdkmath.Int
 	}{
 		{"single activity", t.ZeroActivityReward, "zero activity", t.SingleActivityReward},
-		{"low activity", t.SingleActivityReward, "single activity", t.LowActivityReward},
+		{"duo activity", t.SingleActivityReward, "single activity", t.DuoActivityReward},
+		{"trio activity", t.DuoActivityReward, "duo activity", t.TrioActivityReward},
+		{"quart activity", t.TrioActivityReward, "trio activity", t.QuartActivityReward},
+		{"quint activity", t.QuartActivityReward, "quart activity", t.QuintActivityReward},
+		{"low activity", t.QuintActivityReward, "quint activity", t.LowActivityReward},
 		{"mid activity", t.LowActivityReward, "low activity", t.MidActivityReward},
-		{"max", t.MidActivityReward, "mid activity", t.MaxActivityReward},
+		{"high activity", t.MidActivityReward, "mid activity", t.HighActivityReward},
+		{"max", t.HighActivityReward, "high activity", t.MaxActivityReward},
 	} {
 		if pair.upper.LT(pair.lower) {
 			return fmt.Errorf(

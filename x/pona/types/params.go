@@ -38,7 +38,7 @@ const RuneDecimals = 18
 // ZeroActivityReward is also the FLOOR: no block is ever worth less than it. See
 // Tier.RewardForTxCount.
 //
-// See docs/technologies/pona.md for the full description.
+// See docs/technologies/pona/pona.md for the full description.
 //
 //	Y0-2 (2 years): max 50 | mid 25 | low 15 | single 1 | zero 0.5 RUNE/block
 //	Y2-4 (2 years): max 25 | mid 15 | low 10 | single 1 | zero 0.5 RUNE/block
@@ -58,45 +58,90 @@ func DefaultTiers() []Tier {
 	runeAmount := RuneAmount
 	runeAmountPrec := RuneAmountPrec
 
-	return []Tier{
-		{
-			StartHeight:          0,
-			EndHeight:            BlocksPerTwoYearsAt6s, // 10,519,200
-			MaxActivityReward:    runeAmount(50),
-			MaxTxCountThreshold:  DefaultTxCountThreshold,
-			MidActivityReward:    runeAmount(25),
+	// Every tier carries the same ten-band ladder shape; only the amounts change.
+	// The thresholds are the dPona base (low 6 / mid 10 / high 15 / max 20).
+	ladder := func(max, high, mid, low, quint, quart, trio, duo, single sdkmath.Int) Tier {
+		return Tier{
+			MaxActivityReward:    max,
+			MaxTxCountThreshold:  DefaultMaxTxCountThreshold,
+			HighActivityReward:   high,
+			HighTxCountThreshold: DefaultHighTxCountThreshold,
+			MidActivityReward:    mid,
 			MidTxCountThreshold:  DefaultMidTxCountThreshold,
-			LowActivityReward:    runeAmount(15),
+			LowActivityReward:    low,
 			LowTxCountThreshold:  DefaultLowTxCountThreshold,
-			SingleActivityReward: runeAmount(1),
+			QuintActivityReward:  quint,
+			QuartActivityReward:  quart,
+			TrioActivityReward:   trio,
+			DuoActivityReward:    duo,
+			SingleActivityReward: single,
 			ZeroActivityReward:   runeAmountPrec(5, 1), // 0.5 RUNE, also the floor
-		},
-		{
-			StartHeight:          BlocksPerTwoYearsAt6s,
-			EndHeight:            4 * BlocksPerYearAt6s, // 21,038,400
-			MaxActivityReward:    runeAmount(25),
-			MaxTxCountThreshold:  DefaultTxCountThreshold,
-			MidActivityReward:    runeAmount(15),
-			MidTxCountThreshold:  DefaultMidTxCountThreshold,
-			LowActivityReward:    runeAmount(10),
-			LowTxCountThreshold:  DefaultLowTxCountThreshold,
-			SingleActivityReward: runeAmount(1),
-			ZeroActivityReward:   runeAmountPrec(5, 1),
-		},
-		{
-			StartHeight:          4 * BlocksPerYearAt6s, // 21,038,400
-			EndHeight:            0,                     // open-ended (effectively infinite)
-			MaxActivityReward:    runeAmount(15),
-			MaxTxCountThreshold:  DefaultTxCountThreshold,
-			MidActivityReward:    runeAmount(10),
-			MidTxCountThreshold:  DefaultMidTxCountThreshold,
-			LowActivityReward:    runeAmount(5),
-			LowTxCountThreshold:  DefaultLowTxCountThreshold,
-			SingleActivityReward: runeAmount(1),
-			ZeroActivityReward:   runeAmountPrec(5, 1),
-		},
+		}
+	}
+
+	t1 := ladder(
+		runeAmount(50), runeAmount(40), runeAmount(30), runeAmount(20),
+		runeAmount(5), runeAmount(4), runeAmount(3), runeAmount(2), runeAmount(1),
+	)
+	t1.StartHeight, t1.EndHeight = 0, BlocksPerTwoYearsAt6s
+
+	t2 := ladder(
+		runeAmount(40), runeAmount(30), runeAmount(20), runeAmount(15),
+		runeAmount(5), runeAmount(4), runeAmount(3), runeAmount(2), runeAmount(1),
+	)
+	t2.StartHeight, t2.EndHeight = BlocksPerTwoYearsAt6s, 4*BlocksPerYearAt6s
+
+	t3 := ladder(
+		runeAmount(30), runeAmount(20), runeAmount(15), runeAmount(10),
+		runeAmount(5), runeAmount(4), runeAmount(3), runeAmount(2), runeAmount(1),
+	)
+	t3.StartHeight, t3.EndHeight = 4*BlocksPerYearAt6s, 0 // open-ended
+
+	return []Tier{t1, t2, t3}
+}
+
+// DefaultFeeOnlyTier returns the fee-funded ladder — "Tier 4" of the design.
+//
+// It is NOT a height tier: it has no position in Params.Tiers and no start/end
+// height. It is paid once the validator reward reserve can no longer cover the
+// scheduled reward, and its payout is CLAMPED to the block's actual fee income:
+//
+//	paid = min(scheduled, fee_skim_percent% * block_fees)
+//
+// The amounts are therefore much smaller than the reserve-funded tiers: at light
+// traffic 20 transactions yield ~1.08 RUNE of fees, so a max band of 1.0 RUNE is
+// already 92% of the block's fee income.
+//
+// The zero band is deliberately ZERO, and must stay zero: a block with no
+// transactions has no fees, so there is nothing to pay from. That is what makes
+// this ladder self-describing -- fees only, so no fees means no reward.
+func DefaultFeeOnlyTier() Tier {
+	return Tier{
+		MaxActivityReward:    RuneAmount(1),
+		MaxTxCountThreshold:  DefaultMaxTxCountThreshold,
+		HighActivityReward:   RuneAmountPrec(7, 1), // 0.7
+		HighTxCountThreshold: DefaultHighTxCountThreshold,
+		MidActivityReward:    RuneAmountPrec(5, 1), // 0.5
+		MidTxCountThreshold:  DefaultMidTxCountThreshold,
+		LowActivityReward:    RuneAmountPrec(1, 1), // 0.1
+		LowTxCountThreshold:  DefaultLowTxCountThreshold,
+		QuintActivityReward:  RuneAmountPrec(5, 2), // 0.05
+		QuartActivityReward:  RuneAmountPrec(4, 2), // 0.04
+		TrioActivityReward:   RuneAmountPrec(3, 2), // 0.03
+		DuoActivityReward:    RuneAmountPrec(2, 2), // 0.02
+		SingleActivityReward: RuneAmountPrec(1, 2), // 0.01
+		ZeroActivityReward:   sdkmath.ZeroInt(),    // fees only: no fees, no reward
 	}
 }
+
+// DefaultFeeSkimPercent is the share of a block's collected fees that the
+// fee-only ladder may pay out: 75%.
+//
+// It is a percentage of fees validators would otherwise receive through
+// x/distribution anyway, so both paths pay validators; this only decides the
+// split. At 75%, ordinary light traffic reaches the full scheduled reward for
+// every band except max, which clamps to 0.81 of its 1.0 ceiling.
+const DefaultFeeSkimPercent = uint64(75)
 
 // RuneAmount returns n whole RUNE expressed in arune (the base denom).
 //
@@ -163,8 +208,10 @@ func pow10(n int64) int64 {
 // DefaultParams returns the default pona module parameters.
 func DefaultParams(runeDenom string) Params {
 	return Params{
-		Tiers: DefaultTiers(),
-		Denom: runeDenom,
+		Tiers:          DefaultTiers(),
+		Denom:          runeDenom,
+		FeeOnlyTier:    DefaultFeeOnlyTier(),
+		FeeSkimPercent: DefaultFeeSkimPercent,
 	}
 }
 
@@ -206,6 +253,57 @@ func (p Params) Validate() error {
 	// The last tier must be open-ended so every height maps to a tier.
 	if last := p.Tiers[len(p.Tiers)-1]; last.EndHeight != 0 {
 		return fmt.Errorf("pona: last tier must be open-ended (end height 0)")
+	}
+
+	// The fee-only ladder ("Tier 4") is validated like any other ladder, but it is
+	// NOT a height tier: it must carry no position, and its zero band must be
+	// exactly zero because a block with no transactions has no fees to pay from.
+	if err := p.validateFeeOnlyTier(); err != nil {
+		return err
+	}
+
+	if p.FeeSkimPercent > 100 {
+		return fmt.Errorf("pona: fee skim percent %d must be at most 100", p.FeeSkimPercent)
+	}
+
+	return nil
+}
+
+// validateFeeOnlyTier checks the fee-funded fallback ladder.
+func (p Params) validateFeeOnlyTier() error {
+	t := p.FeeOnlyTier
+
+	// Must be fully specified. An empty ladder (all zero rates) is only reachable
+	// if the field was never set, which would silently pay nothing forever.
+	if t.MaxActivityReward.IsNil() {
+		return fmt.Errorf("pona: fee-only tier max activity reward must be set")
+	}
+
+	if err := t.validatePoNA(-1); err != nil {
+		return fmt.Errorf("fee-only tier: %w", err)
+	}
+
+	// Not a height tier: no start, no end.
+	if t.StartHeight != 0 {
+		return fmt.Errorf(
+			"pona: fee-only tier must not set start_height (got %d); it is selected by reserve exhaustion, not by height",
+			t.StartHeight,
+		)
+	}
+	if t.EndHeight != 0 {
+		return fmt.Errorf(
+			"pona: fee-only tier must not set end_height (got %d); it is selected by reserve exhaustion, not by height",
+			t.EndHeight,
+		)
+	}
+
+	// Fees only: no fees means no reward. A non-zero zero-band would have to be
+	// paid from somewhere that is not the block's fees.
+	if !t.ZeroActivityReward.IsZero() {
+		return fmt.Errorf(
+			"pona: fee-only tier zero activity reward must be 0 (got %s); a block with no transactions collects no fees",
+			t.ZeroActivityReward,
+		)
 	}
 
 	return nil

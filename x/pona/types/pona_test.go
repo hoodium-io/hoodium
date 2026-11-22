@@ -71,7 +71,7 @@ func TestRewardForHeightAndTxCount(t *testing.T) {
 
 	oneYear := types.BlocksPerYearAt6s
 	twoYears := types.BlocksPerTwoYearsAt6s
-	threshold := types.DefaultTxCountThreshold // 10
+	threshold := types.DefaultMaxTxCountThreshold // 20
 
 	// Heights chosen inside each tier.
 	inTier1 := twoYears - 1
@@ -142,28 +142,38 @@ func TestRewardForHeightAndTxCountNoTier(t *testing.T) {
 	require.True(t, params.RewardForHeight(150).IsZero())
 }
 
-// fullTier builds a complete tier. Every rate and threshold is set, because the
-// module requires all of them — a partial Tier has nil math.Int fields and will
-// panic when a band is evaluated. Tests must always use this helper (or set every
-// field) rather than hand-rolling a Tier literal.
-func fullTier(mx, mid, low, single, zero sdkmath.Int) types.Tier {
+// fullTier builds a complete ten-band tier. Every rate and threshold is set,
+// because the module requires all of them — a partial Tier has nil math.Int
+// fields and will panic when a band is evaluated. Tests must always use this
+// helper (or set every field) rather than hand-rolling a Tier literal.
+//
+// The four activity bands (max/high/mid/low) take explicit amounts; the five
+// exact-count bands are given fixed, descending values so a mis-selected band
+// shows up as the wrong number.
+func fullTier(mx, high, mid, low, zero sdkmath.Int) types.Tier {
 	return types.Tier{
 		StartHeight:          0,
 		EndHeight:            0,
 		MaxActivityReward:    mx,
-		MaxTxCountThreshold:  10,
+		MaxTxCountThreshold:  types.DefaultMaxTxCountThreshold,
+		HighActivityReward:   high,
+		HighTxCountThreshold: types.DefaultHighTxCountThreshold,
 		MidActivityReward:    mid,
-		MidTxCountThreshold:  5,
+		MidTxCountThreshold:  types.DefaultMidTxCountThreshold,
 		LowActivityReward:    low,
-		LowTxCountThreshold:  2,
-		SingleActivityReward: single,
+		LowTxCountThreshold:  types.DefaultLowTxCountThreshold,
+		QuintActivityReward:  rune(5),
+		QuartActivityReward:  rune(4),
+		TrioActivityReward:   rune(3),
+		DuoActivityReward:    rune(2),
+		SingleActivityReward: rune(1),
 		ZeroActivityReward:   zero,
 	}
 }
 
-// tier1 mirrors the shipped tier-1 ladder: 50 / 25 / 15 / 1 / 0.5.
+// tier1 mirrors the shipped tier-1 ladder: 50 / 40 / 30 / 20 / … / 0.5.
 func tier1() types.Tier {
-	return fullTier(rune(50), rune(25), rune(15), rune(1), halfRune())
+	return fullTier(rune(50), rune(40), rune(30), rune(20), halfRune())
 }
 
 // TestBandForTxCount exercises the band selection that PoNA uses to decide
@@ -205,7 +215,7 @@ func TestBandForTxCount(t *testing.T) {
 // fee-only end state where no tier covers the height.
 func TestBandForHeightAndTxCount(t *testing.T) {
 	params := types.DefaultParams("arune")
-	threshold := types.DefaultTxCountThreshold
+	threshold := types.DefaultMaxTxCountThreshold
 
 	inTier1 := types.BlocksPerTwoYearsAt6s - 1
 	inTier2 := types.BlocksPerTwoYearsAt6s
@@ -213,8 +223,8 @@ func TestBandForHeightAndTxCount(t *testing.T) {
 
 	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier1, 0))
 	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier1, 1))
-	require.Equal(t, types.BandLow, params.BandForHeightAndTxCount(inTier1, 2))
-	require.Equal(t, types.BandMid, params.BandForHeightAndTxCount(inTier1, 5))
+	require.Equal(t, types.BandDuo, params.BandForHeightAndTxCount(inTier1, 2))
+	require.Equal(t, types.BandQuint, params.BandForHeightAndTxCount(inTier1, 5))
 	require.Equal(t, types.BandMax, params.BandForHeightAndTxCount(inTier1, threshold))
 	require.Equal(t, types.BandZero, params.BandForHeightAndTxCount(inTier2, 0))
 	require.Equal(t, types.BandSingle, params.BandForHeightAndTxCount(inTier2, 1))

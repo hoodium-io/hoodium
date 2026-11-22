@@ -22,6 +22,14 @@ func InitGenesis(ctx sdk.Context, k keeper.Keeper, cdc codec.JSONCodec, data jso
 	if err := k.SetParams(ctx, genState.Params); err != nil {
 		panic(err)
 	}
+
+	// Restore the dPona difficulty-controller state. A zero value means "dPona
+	// off", which is what a fresh chain starts from; exporting and re-importing a
+	// running chain therefore resumes at the same difficulty.
+	if err := genState.DPona.Validate(); err != nil {
+		panic(err)
+	}
+	k.SetDPona(ctx, genState.DPona)
 }
 
 // ExportGenesis returns the pona module's exported genesis state as raw
@@ -29,6 +37,7 @@ func InitGenesis(ctx sdk.Context, k keeper.Keeper, cdc codec.JSONCodec, data jso
 func ExportGenesis(ctx sdk.Context, k keeper.Keeper, cdc codec.JSONCodec) json.RawMessage {
 	genesis := types.GenesisState{
 		Params: k.GetParams(ctx),
+		DPona:  k.GetDPona(ctx),
 	}
 	return cdc.MustMarshalJSON(&genesis)
 }

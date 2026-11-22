@@ -11,8 +11,8 @@ things Hoodium does differently from a stock Cosmos/EVM chain.
 | Guided first-run setup (`runed setup`) | [`../node-setup.md`](../node-setup.md) |
 | EVM wallets (connect & send) | [`../evm/evm-wallets.md`](../evm/evm-wallets.md) |
 | EVM transaction mechanism | [`../evm/evm-tx-mechanism.md`](../evm/evm-tx-mechanism.md) |
-| PoNA (RUNE rewards) | [`../technologies/pona.md`](../technologies/pona.md) |
-| `x/pona` (Proof of Network Activity) | [`../technologies/pona.md`](../technologies/pona.md) |
+| PoNA (RUNE rewards) | [`../technologies/pona/pona.md`](../technologies/pona/pona.md) |
+| `x/pona` (Proof of Network Activity) | [`../technologies/pona/pona.md`](../technologies/pona/pona.md) |
 
 > Add a new `<feature>.md` here and link it in the table above when a Hoodium
 > feature is introduced.

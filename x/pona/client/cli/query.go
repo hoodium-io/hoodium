@@ -650,17 +650,25 @@ func newAmountReport(amount sdkmath.Int) amountReport {
 // tierRates is the PoNA rate set of a single tier, in the order the bands are
 // applied.
 type tierRates struct {
-	// Thresholds, ascending: low < mid < max.
-	LowTxCountThreshold uint64 `json:"low_tx_count_threshold" yaml:"low_tx_count_threshold"`
-	MidTxCountThreshold uint64 `json:"mid_tx_count_threshold" yaml:"mid_tx_count_threshold"`
-	MaxTxCountThreshold uint64 `json:"max_tx_count_threshold" yaml:"max_tx_count_threshold"`
+	// Thresholds, ascending: low < mid < high < max.
+	LowTxCountThreshold  uint64 `json:"low_tx_count_threshold" yaml:"low_tx_count_threshold"`
+	MidTxCountThreshold  uint64 `json:"mid_tx_count_threshold" yaml:"mid_tx_count_threshold"`
+	HighTxCountThreshold uint64 `json:"high_tx_count_threshold" yaml:"high_tx_count_threshold"`
+	MaxTxCountThreshold  uint64 `json:"max_tx_count_threshold" yaml:"max_tx_count_threshold"`
 	// Max is paid when tx_count >= max_tx_count_threshold.
 	Max amountReport `json:"max" yaml:"max"`
-	// Mid is paid when mid <= tx_count < max.
+	// High is paid when high <= tx_count < max.
+	High amountReport `json:"high" yaml:"high"`
+	// Mid is paid when mid <= tx_count < high.
 	Mid amountReport `json:"mid" yaml:"mid"`
 	// Low is paid when low <= tx_count < mid.
 	Low amountReport `json:"low" yaml:"low"`
-	// Single is the rate for a block with exactly one transaction.
+	// Quint..Single are the exact-count bands derived from the low threshold.
+	// The CLI reports them so a reader never has to derive low-1..low-5 by hand.
+	Quint  amountReport `json:"quint" yaml:"quint"`
+	Quart  amountReport `json:"quart" yaml:"quart"`
+	Trio   amountReport `json:"trio" yaml:"trio"`
+	Duo    amountReport `json:"duo" yaml:"duo"`
 	Single amountReport `json:"single" yaml:"single"`
 	// Zero is the configured zero-activity rate. It is also the FLOOR: no block
 	// is ever paid less than this.
@@ -675,10 +683,11 @@ func newTierRates(tier types.Tier) tierRates {
 	// floorApplied is true when some configured rate sits below the floor and is
 	// therefore clamped. Reported so a misconfiguration is visible, not silent.
 	floorApplied := false
-	for _, band := range []types.ActivityBand{
-		types.BandMax, types.BandMid, types.BandLow, types.BandSingle,
-	} {
-		if tier.RewardForBand(band).LT(tier.ZeroActivityReward) {
+	for _, rung := range tier.Ladder() {
+		if rung.Band == types.BandZero {
+			continue // the zero band IS the floor
+		}
+		if rung.Reward.LT(tier.ZeroActivityReward) {
 			floorApplied = true
 
 			break
@@ -686,15 +695,21 @@ func newTierRates(tier types.Tier) tierRates {
 	}
 
 	return tierRates{
-		LowTxCountThreshold: tier.LowTxCountThreshold,
-		MidTxCountThreshold: tier.MidTxCountThreshold,
-		MaxTxCountThreshold: tier.MaxTxCountThreshold,
-		Max:                 newAmountReport(tier.MaxActivityReward),
-		Mid:                 newAmountReport(tier.MidActivityReward),
-		Low:                 newAmountReport(tier.LowActivityReward),
-		Single:              newAmountReport(tier.SingleActivityReward),
-		Zero:                newAmountReport(tier.ZeroActivityReward),
-		FloorApplied:        floorApplied,
+		LowTxCountThreshold:  tier.LowTxCountThreshold,
+		MidTxCountThreshold:  tier.MidTxCountThreshold,
+		HighTxCountThreshold: tier.HighTxCountThreshold,
+		MaxTxCountThreshold:  tier.MaxTxCountThreshold,
+		Max:                  newAmountReport(tier.MaxActivityReward),
+		High:                 newAmountReport(tier.HighActivityReward),
+		Mid:                  newAmountReport(tier.MidActivityReward),
+		Low:                  newAmountReport(tier.LowActivityReward),
+		Quint:                newAmountReport(tier.QuintActivityReward),
+		Quart:                newAmountReport(tier.QuartActivityReward),
+		Trio:                 newAmountReport(tier.TrioActivityReward),
+		Duo:                  newAmountReport(tier.DuoActivityReward),
+		Single:               newAmountReport(tier.SingleActivityReward),
+		Zero:                 newAmountReport(tier.ZeroActivityReward),
+		FloorApplied:         floorApplied,
 	}
 }
 
